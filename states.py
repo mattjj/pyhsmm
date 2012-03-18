@@ -452,7 +452,7 @@ class states(object): # {{{
         else:
             C = self.stateseq_norep[na,:]
 
-        plt.pcolor(X,Y,C)
+        plt.pcolor(X,Y,C) # NOTE: pcolor normalizes C
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])

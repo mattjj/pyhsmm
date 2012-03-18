@@ -16,7 +16,7 @@ obs_dim = 2
 durparams = [10.*(idx+1) for idx in xrange(N)]
 # Set observation hyperparameters (which control the random mean and covariance
 # matrices for each state)
-obs_hypparams = (np.zeros(obs_dim),np.eye(obs_dim),0.25,obs_dim+2)
+obs_hypparams = (np.zeros(obs_dim),np.eye(obs_dim),0.1,obs_dim+2)
 
 # Construct the true observation and duration distributions
 truth_obs_distns = [observations.gaussian(*stats_util.sample_niw(*obs_hypparams)) for state in xrange(N)]
@@ -42,21 +42,10 @@ dur_distns = [durations.poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
-
-# TODO temporary stuff for testing plotting
-plot_every = 1
-for idx in progprint_xrange(3):
-    if idx != 0 and (idx % plot_every) == 0:
+plot_every = 25
+for idx in progprint_xrange(100):
+    if (idx % plot_every) == 0:
         posteriormodel.plot(data)
-        plt.gcf().suptitle('HSMM after %d iterations' % idx)
+        plt.gcf().suptitle('inferred HSMM after %d Gibbs iterations' % idx)
 
     posteriormodel.resample(data)
-
-
-# plot_every = 25
-# for idx in progprint_xrange(100):
-#     if idx != 0 and (idx % plot_every) == 0:
-#         posteriormodel.plot(data)
-#         plt.title('HSMM after %d iterations' % idx)
-
-#     posteriormodel.resample(data)

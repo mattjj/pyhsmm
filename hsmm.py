@@ -64,15 +64,16 @@ class hsmm(object):
         used_states = set(self.states.stateseq_norep)
         num_states = len(used_states)
         for idx,state in enumerate(set(self.states.stateseq)):
-            state_colors[state] = idx/num_states
+            state_colors[state] = idx/(num_states-1)
 
 
         # plot the current observation distributions (and obs, if given)
         plt.subplot(3,1,1)
+        self.obs_distns[0]._plot_setup(self.obs_distns)
         for state,o in enumerate(self.obs_distns):
             if state in used_states:
                 o.plot(color=cmap(state_colors[state]),
-                        data=obs[self.states.stateseq == state] if obs is not None else None) # TODO
+                        data=obs[self.states.stateseq == state] if obs is not None else None)
 
         # plot the state sequence
         plt.subplot(3,1,2)
