@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import newaxis as na
 import operator
 from numpy.random import random
 from stats_util import sample_discrete
@@ -438,6 +439,23 @@ class states(object): # {{{
             distn.resample(self.durations[self.stateseq_norep == state])
         for state, distn in enumerate(self.obs_distns):
             distn.resample(data[self.stateseq == state])
+
+
+    # not this one, though!
+
+    def plot(self,colors_dict=None):
+        from matplotlib import pyplot as plt
+        X,Y = np.meshgrid(np.hstack((0,self.durations.cumsum())),(0,1))
+
+        if colors_dict is not None:
+            C = np.array([[colors_dict[state] for state in self.stateseq_norep]])
+        else:
+            C = self.stateseq_norep[na,:]
+
+        plt.pcolor(X,Y,C)
+        plt.ylim((0,1))
+        plt.xlim((0,self.T))
+
 # }}}
 
 class hmm_states(object): # {{{
@@ -565,228 +583,5 @@ class hmm_states(object): # {{{
         aBl = self.get_aBl(data)
         betal = self.messages_backwards(aBl)
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
-# }}}
-
-class disaggregation_states(states): # {{{
-    def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=None,trunc=None,**kwargs): # other_statesobjs=None,
-        states.__init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=stateseq,trunc=trunc,**kwargs)
-        # self.other_statesobjs = other_statesobjs
-
-    def get_aBl(self,data):
-        assert data.ndim == 2
-        # TODO this is hacky and non-general
-        others = self.other_statesobjs # TODO this is misnamed: it's other hsmms
-        museq = reduce(operator.add, [o.means[o.states.stateseq] for o in others],np.zeros(self.T))
-        varseq = reduce(operator.add, [o.vars[o.states.stateseq] for o in others],np.zeros(self.T))
-        museq.shape = (-1,1)
-        varseq.shape = (-1,1)
-
-        mymus = self.means
-        myvars = self.vars
-
-        sigmasq = myvars + varseq + self.extra_noise
-        aBl = np.zeros((data.shape[0],self.state_dim))
-        aBl = -0.5*(data-museq-mymus)**2/sigmasq - np.log(np.sqrt(2*np.pi*sigmasq))
-        return aBl
-# }}}
-
-class disaggregation_block_states(disaggregation_states): # {{{
-    def __init__(self,blocks,T,*args,**kwargs):
-        # blocks is a list like [[0,5],[5,12]]
-        self.blocks = blocks
-        self.blocklens = np.array([end-start for start,end in blocks])
-        assert self.blocklens.sum() == T
-        disaggregation_states.__init__(self,T,*args,**kwargs)
-
-    def get_aBl(self,data):
-        # actually sets self.aBBl and returns none! ugly organization at the moment
-        aBBl = np.zeros((len(self.blocks),self.state_dim))
-        aBl = disaggregation_states.get_aBl(self,data)
-        for idx, (start, end) in enumerate(self.blocks):
-            aBBl[idx] = aBl[start:end].sum(0)
-        self.aBBl = aBBl
-        #pdb.set_trace()
-        return None
-
-    def messages_backwards(self,Al,aDl,aDsl,trunc):
-        Tblock = len(self.blocks)
-        state_dim = Al.shape[0]
-        betal = np.zeros((Tblock,state_dim),dtype=np.float64)
-        betastarl = np.zeros((Tblock,state_dim),dtype=np.float64)
-        aBBl = self.aBBl
-
-        # TODO insert trunc
-
-        # t is counted over blocks now
-        for t in xrange(Tblock-1,-1,-1):
-            # TODO don't need to compute this every time
-            possible_durations = self.blocklens[t:].cumsum()
-            normalizer = np.logaddexp(np.logaddexp.reduce(aDl[possible_durations-1],axis=0),aDsl[possible_durations[-1]-1])
-            np.logaddexp.reduce(betal[t:] + aBBl[t:].cumsum(0) +
-                    aDl[possible_durations - 1] - normalizer,axis=0,out=betastarl[t])
-            np.logaddexp(betastarl[t],aBBl[t:].sum(0) + aDsl[possible_durations[-1]-1] - normalizer, betastarl[t]) # censoring
-            np.logaddexp.reduce(betastarl[t] + Al, axis=1, out=betal[t-1])
-        betal[-1] = 0.
-
-        assert not np.isnan(betal).any()
-        assert not np.isnan(betastarl).any()
-
-        return betal, betastarl
-
-
-    def sample_forwards(self,betal,betastarl):
-        T = betal.shape[0]
-
-        prev_stateseq = self.stateseq.copy()
-
-        stateseq = self.stateseq = np.zeros(T,dtype=np.int32)
-        durations = []
-        stateseq_norep = []
-
-        blockidx = 0
-        idx = 0
-        A = self.transition_distn.A
-        nextstate_unsmoothed = self.initial_distn.pi_0
-
-        # TODO this doesn't need to be the whole thing
-        apmf = np.zeros((self.state_dim,T))
-        possible_durations = np.arange(1,T+1)
-        for state_idx, dur_distn in enumerate(self.dur_distns):
-            apmf[state_idx] = dur_distn.pmf(possible_durations)
-
-        Tblock = len(self.blocks)
-
-        aBBl = self.aBBl
-        blocklens = self.blocklens
-
-        while blockidx < Tblock:
-            # first, sample the state
-            logdomain = betastarl[blockidx,:] - np.amax(betastarl[blockidx])
-            nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
-            if (nextstate_distr == 0.).all():
-                print 'warning!'
-                nextstate_distr = np.exp(logdomain)
-            state = sample_discrete(nextstate_distr)
-            assert len(stateseq_norep) == 0 or state != stateseq_norep[-1]
-
-            # then sample its duration
-            # durations are counted in block indexing then translated
-            durprob = random()
-            blockdur = 0 # always incremented at least once
-            prob_so_far = 0.0
-
-            # TODO don't need to redo cumsum every time
-            possible_durations = blocklens[blockidx:].cumsum()
-
-            # TODO hacky to need this
-            temp =  np.exp(self.dur_distns[state].log_sf(possible_durations[-1]))
-            if not np.isscalar(temp):
-                temp = temp[0]
-            normalizer = apmf[state,possible_durations-1].sum() + temp
-
-            # TODO may be faster to block do this? or just put it in C++?
-            while durprob > 0:
-                if blockdur > 0:
-                    # maybe should have rejected
-                    #pdb.set_trace()
-                    pass
-                assert blockdur < 2*Tblock # hacky infinite loop check
-                if blockdur >= len(possible_durations):
-                    break
-                p_d_marg = apmf[state,possible_durations[blockdur]-1] / normalizer if blockdur < T else 1.
-                assert not np.isnan(p_d_marg)
-                assert p_d_marg >= 0
-                if p_d_marg == 0:
-                    blockdur += 1
-                    continue
-                if blockidx+blockdur < Tblock:
-                    mess_term = np.exp(aBBl[blockidx:blockidx+blockdur+1,state].sum() + betal[blockidx+blockdur,state] - betastarl[blockidx,state])
-                    p_d = mess_term * p_d_marg
-                    prob_so_far += p_d
-                else:
-                    break # TODO should add in censored sampling here, usually doesn't matter
-                assert not np.isnan(p_d)
-                durprob -= p_d
-                blockdur += 1
-
-            assert blockdur > 0
-
-            # convert into actual duration for the output
-            dur = possible_durations[blockdur-1]
-            # then do the usual stuff
-            stateseq[idx:idx+dur] = state
-            stateseq_norep.append(state)
-            assert len(stateseq_norep) < 2 or stateseq_norep[-1] != stateseq_norep[-2]
-            durations.append(dur)
-
-            nextstate_unsmoothed = A[state,:]
-
-            blockidx += blockdur
-            idx += dur
-
-            if not (prev_stateseq[:idx] == stateseq[:idx]).all():
-                # definitely should have rejected
-                # pdb.set_trace()
-                pass
-
-        self.durations = np.array(durations,dtype=np.int32)
-        self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
-# }}}
-
-class subhmm_states(states): # {{{
-    # note: the hmms aren't instances of hmm.py:hmm but rather instances of states.py:hmm_states
-    def __init__(self,T,hmms,dur_distns,transition_distn,initial_distn,trunc=None,**kwargs):
-        self.T = T
-
-        self.state_dim = len(hmms)
-        self.hmms = hmms
-
-        self.dur_distns = dur_distns
-        self.transition_distn = transition_distn
-        self.initial_distn = initial_distn
-
-        self.trunc = trunc if trunc is not None else T
-
-        self.generate_states()
-
-    def resample(self,data):
-        # get aBl for each hmm (used in this class's likelihood funcs)
-        self.aBls = [hmm.get_aBl(data) for hmm in self.hmms]
-        super(subhmm_states,self).resample(data)
-        del self.aBls
-
-    # TODO check these
-    def cumulative_likelihood_state(self,start,stop,state):
-        return np.logaddexp.reduce(self.hmms[state].messages_forwards(self.aBls[state][start:stop]),axis=1)
-
-    def cumulative_likelihoods(self,start,stop):
-        return np.vstack([self.cumulative_likelihood_state(start,stop,state) for state in xrange(self.state_dim)]).T
-
-    def likelihood_block_state(self,start,stop,state):
-        return np.logaddexp.reduce(self.hmms[state].messages_forwards(self.aBls[state][start:stop])[-1])
-
-    def likelihood_block(self,start,stop):
-        return np.array([self.likelihood_block_state(start,stop,state) for state in xrange(self.state_dim)])
-
-    def get_aBl(self,*args):
-        return None
-
-    def generate_states(self):
-        T = self.T
-        super(subhmm_states,self).generate_states() # sets self.stateseq
-        durations = self.durations
-        # now needs to generate sub-states
-        self.substates = np.zeros(T,dtype=np.uint8)
-        indices = np.concatenate(([0],np.cumsum(durations[:-1])))
-        for idx, dur in zip(indices,durations):
-            self.substates[idx:idx+dur] = self.hmms[self.stateseq[idx]].generate_states(dur)[:len(self.substates[idx:idx+dur])]
-
-    def generate_obs(self):
-        obs = []
-        durations = self.durations
-        indices = np.concatenate(([0],np.cumsum(durations[:-1])))
-        for idx, dur in zip(indices,durations):
-            obs.append(self.hmms[self.stateseq[idx]].generate_obs(self.substates[idx:idx+dur]))
-        return np.vstack(obs).copy()[:self.T]
 # }}}
 
