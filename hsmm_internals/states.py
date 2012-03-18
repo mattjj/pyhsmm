@@ -1,10 +1,10 @@
 import numpy as np
 from numpy import newaxis as na
-import operator
 from numpy.random import random
-from stats_util import sample_discrete
-import util
 import scipy.weave
+
+from util.stats import sample_discrete
+from util import general as util
 
 class states(object): # {{{
     '''

@@ -1,12 +1,8 @@
 from __future__ import division
-import numpy as np
-from numpy import newaxis as na
 from matplotlib import pyplot as plt
 from matplotlib import cm
-import itertools
 
-import states, initial_state, transitions
-import util
+from hsmm_internals import states, initial_state, transitions
 
 class hsmm(object):
     '''

@@ -1,11 +1,10 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
-
 import scipy.stats as stats
-from stats_util import sample_niw, sample_discrete
-
 from matplotlib import pyplot as plt
+
+from util.stats import sample_niw, sample_discrete
 
 class gaussian(object):
     '''
@@ -87,7 +86,7 @@ class gaussian(object):
             o.global_vecs = vecs
 
     def plot(self,data=None,color='b'):
-        from plot_util import project_data, plot_gaussian_projection, pca
+        from util.plot import project_data, plot_gaussian_projection, pca
         
         # if global projection vecs exist, use those
         # otherwise, when dim>2, do a pca on the data

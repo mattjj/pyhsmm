@@ -1,12 +1,11 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
-
 import scipy.stats as stats
 import scipy.special
-from stats_util import sample_discrete
-
 from matplotlib import pyplot as plt
+
+from util.stats import sample_discrete
 
 '''
 Classes representing duration distributions. Each has internal parameter state and includes the following functions:

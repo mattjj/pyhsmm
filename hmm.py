@@ -1,4 +1,4 @@
-import states, initial_state, transitions
+from hmm_internals import states, initial_state, transitions
 
 class hmm(object):
     '''
