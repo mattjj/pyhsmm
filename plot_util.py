@@ -1,6 +1,5 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from stats_util import project_ellipsoid
 
 def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
     '''
@@ -13,8 +12,8 @@ def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
     ellipse = np.dot(np.linalg.cholesky(lmbda),circle)
 
     if centermarker:
-        plt.plot([mu[0]],[mu[1]],color + 'D',markersize=4)
-    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],color+'-')
+        plt.plot([mu[0]],[mu[1]],marker='D',color=color,markersize=4)
+    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',color=color)
 
 
 def plot_gaussian_projection(mu, lmbda, vecs, **kwargs):
@@ -25,3 +24,21 @@ def plot_gaussian_projection(mu, lmbda, vecs, **kwargs):
     plot_gaussian_2D(np.dot(vecs.T,mu),project_ellipsoid(lmbda,vecs),**kwargs)
 
 
+def pca_project_data(data,num_components=2):
+    # convenience combination of the next two functions
+    return project_data(data,pca(data,num_components=num_components))
+
+
+def pca(data,num_components=2):
+    U,s,Vh = np.linalg.svd(data - np.mean(data,axis=0))
+    return Vh.T[:,:num_components]
+
+
+def project_data(data,vecs):
+    return np.dot(data,vecs)
+
+
+def project_ellipsoid(ellipsoid,vecs):
+    # vecs is a matrix whose columns are a subset of an orthonormal basis
+    # ellipsoid is a pos def matrix
+    return np.dot(vecs.T,np.dot(ellipsoid,vecs))
