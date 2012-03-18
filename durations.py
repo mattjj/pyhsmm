@@ -118,10 +118,6 @@ class poisson(object):
     def rvs(self,size=[]):
         return stats.poisson.rvs(self.lmbda,size=size,loc=1)
 
-    def plot(self,*args,**kwargs):
-        # raise NotImplementedError
-        pass
-
     @classmethod
     def test(cls,num_tests=4,k=8.,theta=5.):
         fig = plt.figure()
@@ -156,6 +152,20 @@ class poisson(object):
             plt.title('after resampling')
         
         fig.legend((line1,line2),('before resampling','after resampling'),'lower left')
+
+    # TODO should be implemented in an ABC for all durations
+    def plot(self,data=None,tmax=None,color='b'):
+        if tmax is None:
+            if data is not None:
+                tmax = 1.5*data.max()
+            else:
+                tmax = 2*self.rvs(size=1000).mean()
+        t = np.arange(1,tmax)
+        plt.plot(t,self.pmf(t),color=color)
+        
+        if data is not None:
+            plt.hist(data,bins=t-0.5,color=color,normed=True)
+
 
 class negative_binomial(object):
     '''
@@ -259,10 +269,6 @@ class negative_binomial(object):
 
     def rvs(self,size=[]):
         return np.sum(stats.geom.rvs(self.p,size=np.concatenate(((self.r,),np.array(size,ndmin=1))),loc=-1.),axis=0)+1
-
-    def plot(self,**kwargs):
-        t = np.arange(1,2*int(self.r*(1/self.p-1)))
-        plt.plot(t,self.pmf(t),**kwargs)
 
 class negative_binomial_fixedr(negative_binomial):
     def __init__(self,r,alpha,beta,p=None):

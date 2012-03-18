@@ -106,7 +106,7 @@ class gaussian(object):
             plt.plot(projected_data[:,0],projected_data[:,1],marker='.',linestyle=' ',color=color)
 
         plot_gaussian_projection(self.mu,self.sigma,vecs,color=color)
-        
+
 
 class multinomial(object):
     '''

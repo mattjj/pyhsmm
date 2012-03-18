@@ -42,8 +42,8 @@ dur_distns = [durations.poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
-plot_every = 25
-for idx in progprint_xrange(100):
+plot_every = 50
+for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot(data)
         plt.gcf().suptitle('inferred HSMM after %d Gibbs iterations' % idx)
