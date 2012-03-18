@@ -61,7 +61,8 @@ class hsmm(object):
         plt.figure()
         state_colors = {}
         cmap = cm.get_cmap()
-        num_states = len(set(self.states.stateseq))
+        used_states = set(self.states.stateseq_norep)
+        num_states = len(used_states)
         for idx,state in enumerate(set(self.states.stateseq)):
             state_colors[state] = idx/num_states
 
@@ -69,9 +70,9 @@ class hsmm(object):
         # plot the current observation distributions (and obs, if given)
         plt.subplot(3,1,1)
         for state,o in enumerate(self.obs_distns):
-            o.plot(color=cmap(state_colors[state]),
-                    data=obs[self.states.stateseq == state] 
-                         if obs is not None else None) # TODO implement this
+            if state in used_states:
+                o.plot(color=cmap(state_colors[state]),
+                        data=obs[self.states.stateseq == state] if obs is not None else None) # TODO
 
         # plot the state sequence
         plt.subplot(3,1,2)
@@ -80,6 +81,7 @@ class hsmm(object):
         # plot the current duration distributions
         plt.subplot(3,1,3)
         for state,d in enumerate(self.dur_distns):
-            d.plot(color=cmap(state_colors[state]),
-                    data=self.states.durations[self.states.stateseq_norep == state]) # TODO implement this
+            if state in used_states:
+                d.plot(color=cmap(state_colors[state]),
+                        data=self.states.durations[self.states.stateseq_norep == state]) # TODO
 

@@ -42,10 +42,21 @@ dur_distns = [durations.poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
-plot_every = 25
-for idx in progprint_xrange(100):
+
+# TODO temporary stuff for testing plotting
+plot_every = 1
+for idx in progprint_xrange(3):
     if idx != 0 and (idx % plot_every) == 0:
         posteriormodel.plot(data)
-        plt.title('HSMM after %d iterations' % idx)
+        plt.gcf().suptitle('HSMM after %d iterations' % idx)
 
     posteriormodel.resample(data)
+
+
+# plot_every = 25
+# for idx in progprint_xrange(100):
+#     if idx != 0 and (idx % plot_every) == 0:
+#         posteriormodel.plot(data)
+#         plt.title('HSMM after %d iterations' % idx)
+
+#     posteriormodel.resample(data)

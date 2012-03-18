@@ -70,6 +70,11 @@ class gaussian(object):
         return np.random.multivariate_normal(mean=self.mu,cov=self.sigma,size=size)
 
 
+    def plot(self,*args,**kwargs):
+        # raise NotYetImplementedError
+        pass
+
+
 class multinomial(object):
     '''
     This class represents a multinomial distribution in a label form.

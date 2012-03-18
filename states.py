@@ -455,6 +455,7 @@ class states(object): # {{{
         plt.pcolor(X,Y,C)
         plt.ylim((0,1))
         plt.xlim((0,self.T))
+        plt.yticks([])
 
 # }}}
 

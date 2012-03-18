@@ -118,6 +118,10 @@ class poisson(object):
     def rvs(self,size=[]):
         return stats.poisson.rvs(self.lmbda,size=size,loc=1)
 
+    def plot(self,*args,**kwargs):
+        # raise NotImplementedError
+        pass
+
     @classmethod
     def test(cls,num_tests=4,k=8.,theta=5.):
         fig = plt.figure()
