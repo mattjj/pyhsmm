@@ -54,38 +54,6 @@ class hsmm(object):
     def generate(self):
         return self.states.generate(), self.states.stateseq
 
-    def plot(self):
-        means = np.array([obs_distn.mu for obs_distn in self.obs_distns])
-        meanseq = means[self.states.stateseq]
-        plt.figure()
-        plt.subplot(2,1,1)
-        plt.plot(meanseq,'k.')
-        states, durs = util.rle(self.states.stateseq)
-        X,Y = np.meshgrid(np.hstack((0,durs.cumsum())),[0,meanseq.max()*1.25]); plt.pcolor(X,Y,states[na,:],edgecolors='k',alpha=0.25); plt.ylim((0,meanseq.max()*1.25)); plt.xlim((0,self.T))
-        plt.title('means and stateseq')
-
-        plt.subplot(2,1,2)
-        t = np.arange(1,250)
-        print ''
-        maxstate = states.max()
-        cmap = cm.get_cmap()
-        for state,d in enumerate(self.dur_distns):
-            if np.sum(self.states.stateseq == state) > 1:
-                color_index = (float(state)/maxstate)
-                plt.plot(t,d.pmf(t),label='state %d, %s' % (state,d),color=cmap(color_index))
-                if len(durs[states == state])>1:
-                    plt.hist(durs[states == state],normed=True,color=cmap(color_index))
-                print 'state %d duration distn: %s' % (state,d)
-                print 'state %d observation distn: %s' % (state,self.obs_distns[state])
-                print ''
-        plt.legend()
-
-    def plot_with_data(self,data):
-        assert data.shape == (self.T,1)
-        self.plot()
-        plt.subplot(2,1,1)
-        plt.ylim((0,data.max()))
-        plt.plot(data,'y',linewidth=2)
 
 # TODO this stuff is pretty ugly at the moment
 

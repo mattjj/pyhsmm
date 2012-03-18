@@ -2,6 +2,8 @@
 
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for us
+from matplotlib import pyplot as plt
+
 import hsmm, observations, durations, stats_util
 from text_util import progprint_xrange
 
@@ -40,8 +42,10 @@ dur_distns = [durations.poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
+plot_every = 25
 for idx in progprint_xrange(100):
-    posteriormodel.resample(data)
+    if idx != 0 and (idx % plot_every) == 0:
+        posteriormodel.plot(data)
+        plt.title('HSMM after %d iterations' % idx)
 
-# plot results
-# TODO
+    posteriormodel.resample(data)
