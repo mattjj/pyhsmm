@@ -92,7 +92,7 @@ for idx in progprint_xrange(101):
 ![Sampled model after 50 iterations](posterior_sample_50.png)
 ![Sampled model after 100 iterations](posterior_sample_100.png)
 
-Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized operations), here's how long the iterations took:
+Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized operations), here's how long those iterations took:
 
 ```
 
