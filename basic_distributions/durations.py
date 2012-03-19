@@ -1,10 +1,10 @@
 from __future__ import division
 import numpy as np
-from numpy import newaxis as na
 import scipy.stats as stats
 import scipy.special
 from matplotlib import pyplot as plt
 
+from abstractions import DurationBase
 from util.stats import sample_discrete
 
 '''
@@ -21,7 +21,7 @@ Classes representing duration distributions. Each has internal parameter state a
 Duration distributions are supported on {1,2,...}, so pmf definitions starting at 0 must be shifted accordingly.
 '''
 
-class geometric(object):
+class geometric(DurationBase):
     '''
     Geometric duration distribution class. Supported on {1,2,...}
     Uses a conjugate Beta prior.
@@ -67,7 +67,7 @@ class geometric(object):
         return stats.geom.rvs(self.p,size=size)
 
 
-class poisson(object):
+class poisson(DurationBase):
     '''
     Poisson duration distribution class. Supported on {1,2,...}
     Uses a conjugate Gamma prior.
@@ -166,7 +166,7 @@ class poisson(object):
             plt.hist(data,bins=t-0.5,color=color,normed=True)
 
 
-class negative_binomial(object):
+class negative_binomial(DurationBase):
     '''
     Negative binomial duration distribution class. Supported on {1,2,...}
     Uses a nonconjugate discrete/Beta prior.
@@ -287,7 +287,7 @@ class negative_binomial_fixedr(negative_binomial):
             self.p = stats.beta.rvs(self.alpha + self.r*float(len(data)), self.beta + np.sum(data-1.))
 
 
-class fixed_wait(object):
+class fixed_wait(DurationBase):
     '''
     Meta duration distribution class to offset a duration distribution by a fixed wait.
     Has wait and distn parameters. Minimum wait is zero.
@@ -352,7 +352,7 @@ class learned_wait(fixed_wait):
         return self.distn.pmf(x-(self.wait+self.MIN))
 
 
-class discrete(object):
+class discrete(DurationBase):
     '''
     for simple, short, nonparametric disrete distributions
     (dirichlet/multinomial based)

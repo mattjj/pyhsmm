@@ -13,7 +13,7 @@ def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
 
     if centermarker:
         plt.plot([mu[0]],[mu[1]],marker='D',color=color,markersize=4)
-    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',color=color)
+    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',linewidth=2,color=color)
 
 
 def plot_gaussian_projection(mu, lmbda, vecs, **kwargs):

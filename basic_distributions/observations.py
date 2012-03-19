@@ -1,12 +1,20 @@
 from __future__ import division
 import numpy as np
-from numpy import newaxis as na
 import scipy.stats as stats
 from matplotlib import pyplot as plt
 
+from abstractions import ObservationBase
 from util.stats import sample_niw, sample_discrete
 
-class gaussian(object):
+
+'''
+This module includes general distribution classes that can be used in sampling
+hierarchical Bayesian models. Though module is called 'observations', there
+aren't really any restrictions placed on an observation distribution, so these
+classes can be reused as general distributions.
+'''
+
+class gaussian(ObservationBase):
     '''
     Multivariate Gaussian observation distribution class. NOTE: Only
     works for 2 or more dimensions. For a scalar Gaussian, use one of the scalar
@@ -107,7 +115,7 @@ class gaussian(object):
         plot_gaussian_projection(self.mu,self.sigma,vecs,color=color)
 
 
-class multinomial(object):
+class multinomial(ObservationBase):
     '''
     This class represents a multinomial distribution in a label form.
     For example, if len(alpha_vec) == 3, then five samples of data may look like
@@ -235,7 +243,7 @@ class indicator_multinomial(multinomial):
         # I've tested this by hand
         raise NotImplementedError
 
-class scalar_gaussian_nonconj(object):
+class scalar_gaussian_nonconj(ObservationBase):
     def __init__(self,mu_0,sigmasq_0,alpha,beta,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
         self.sigmasq_0 = sigmasq_0
@@ -285,7 +293,7 @@ class scalar_gaussian_nonconj(object):
     def __repr__(self):
         return 'gaussian_scalar_nonconj(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
 
-class scalar_gaussian_nonconj_gelparams(object):
+class scalar_gaussian_nonconj_gelparams(ObservationBase):
     # uses parameters from Gelman's Bayesian Data Analysis
     def __init__(self,mu_0,tausq_0,sigmasq_0,nu_0,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
