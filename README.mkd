@@ -108,7 +108,7 @@ for idx in progprint_xrange(101):
 To make the problem harder by tweaking the observation distributions, we can
 set `kappa_0` to be smaller (that will put the clusters more on top of each
 other), but it still does pretty well because of the duration statistics. We
-can also set nu_0 to be larger to make the covariance ellipsoids look more
+can also set `nu_0` to be larger to make the covariance ellipsoids look more
 similar (`nu_0` should always be larger than the observation dimension, based on
 the definition of the Normal-Inverse-Wishart distribution).
 
