@@ -17,12 +17,20 @@ states as well as good explanations that use 15 states. The purpose of this
 sampling code is to produce samples of those alternatives.
 -->
 
+<!--
 (At some point in the not-too-distant future, `py-hsmm` may also support
 approximate learning/fitting of HMMs and HSMMs through the Expectation
 Maximization (EM) algorithm.)
+-->
 
 ## Installing ##
+You can clone this library with the usual command:
 
+```
+git clone git@github.com:mattjj/py-hsmm.git
+```
+
+The current version of the code also depends on having the [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) insatlled in the usual location of `/usr/local/include` (its default install location). In the near future, Eigen will be an optional dependency.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
@@ -127,7 +135,10 @@ In [1]: run demo
 ```
 
 ## Extending the Code ##
-`TODO`
+To add your own observation or duration distributions, implement the interfaces defined in `abstractions.py`.
 
 ## References ##
-`TODO`
+* Matthew J. Johnson and Alan S. Willsky, "Bayesian Nonparametric Hidden Semi-Markov Models." arXiv:1203.1365v1
+
+* Matthew J. Johnson and Alan S. Willsky, "The Hierarchical Dirichlet Process Hidden Semi-Markov Model." 26th Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon, California, July 2010.
+
