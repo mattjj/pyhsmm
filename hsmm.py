@@ -48,8 +48,6 @@ class hsmm(object):
     def generate(self):
         return self.states.generate(), self.states.stateseq
 
-<<<<<<< HEAD
-=======
     def plot(self,obs=None):
         assert len(self.obs_distns) != 0
         assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same'
@@ -87,4 +85,3 @@ class hsmm(object):
 
         # TODO add a figure legend
 
->>>>>>> develop
