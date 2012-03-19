@@ -156,7 +156,7 @@ class poisson(DurationBase):
     def plot(self,data=None,tmax=None,color='b'):
         if tmax is None:
             if data is not None:
-                tmax = 1.5*data.max()
+                tmax = 2*data.max()
             else:
                 tmax = 2*self.rvs(size=1000).mean()
         t = np.arange(1,tmax)

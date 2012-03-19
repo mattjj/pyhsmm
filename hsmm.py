@@ -53,7 +53,8 @@ class hsmm(object):
         assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same'
 
         # set up figure and state-color mapping dict
-        plt.figure()
+        fig = plt.figure()
+        fig.set_size_inches((6,6))
         state_colors = {}
         cmap = cm.get_cmap()
         used_states = set(self.states.stateseq_norep)
@@ -81,6 +82,7 @@ class hsmm(object):
             if state in used_states:
                 d.plot(color=cmap(state_colors[state]),
                         data=self.states.durations[self.states.stateseq_norep == state])
+        plt.xlim((0,self.states.durations.max()*1.1))
         plt.title('Durations')
 
         # TODO add a figure legend
