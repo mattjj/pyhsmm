@@ -3,11 +3,15 @@ from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.rcParams['font.size'] = 8
 
 import hsmm
 from basic_distributions.observations import gaussian
 from basic_distributions.durations import poisson
 from util.text import progprint_xrange
+
+save_images = True
 
 #### Data generation
 # Set parameters
@@ -36,6 +40,8 @@ data, labels = truemodel.generate()
 # Plot the truth
 truemodel.plot(data)
 plt.gcf().suptitle('True HSMM')
+if save_images:
+    plt.savefig('demo_images/truth.png')
 
 #### Posterior inference
 # Set the weak limit truncation level. This is essentially the maximum 
@@ -57,7 +63,9 @@ for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot(data)
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+        if save_images:
+            plt.savefig('demo_images/posterior_sample_%d.png' % idx)
 
     posteriormodel.resample(data)
 
-    
+plt.show()
