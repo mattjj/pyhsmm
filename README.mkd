@@ -1,1 +1,102 @@
-still in early stages of github publishing. please come back later.
+## Sampling Inference for Bayesian HSMMs ##
+`py-hsmm` is a nascent Python library for approximate sampling inference in
+Bayesian Hidden Markov Models (HMMs) and expilcit-duration Hidden semi-Markov
+Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
+and HDP-HSMM. 
+
+<!--
+In the Bayesian paradigm, inference refers to both what would in other contexts
+be called "learning" (or "parameter fitting") as well as "inference": all the
+latent variables in the model, including hidden states and transition/emission
+parameters, are included in the posterior distribution. The goal of sampling
+inference is to produce (approximate) samples from the posterior, and each
+sample roughly represents an alternative HMM or HSMM to explain the data. Using
+the Bayesian Nonparametric HDP-HMM and HDP-HSMM, the sampled models that come
+out can be of different complexity: there may be good explanations using only 5
+states as well as good explanations that use 15 states. The purpose of this
+sampling code is to produce samples of those alternatives.
+-->
+
+(At some point in the not-too-distant future, `py-hsmm` may also support
+approximate learning/fitting of HMMs and HSMMs through the Expectation
+Maximization (EM) algorithm.)
+
+## A Simple Demonstration ##
+Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
+observations. (The same process is in `demo.py`.)
+
+First, we'll generate a sequence of observations from a 4-state HSMM with
+Poisson durations and 2D Gaussian emissions. Our observation sequence will be
+500 samples long. The average state durations will be 10, 20, 30, and 40
+samples. The details of the observation hyperparameters aren't important; we're
+just sampling random 2D Gaussian distributions.
+
+```python
+# imports
+import numpy as np
+from matplotlib import pyplot as plt
+import hsmm
+from basic_distributions.observations import gaussian
+from basic_distributions.durations import poisson
+
+# set parameters and hyperparameters
+N = 4; T = 500; obs_dim = 2
+durparams = (10,20,30,40)
+obs_hypparams = {'mu_0':np.zeros(obs_dim),
+                'lmbda_0':np.eye(obs_dim),
+                'kappa_0':0.2,
+                'nu_0':obs_dim+2}
+
+# instantiate the distribution objects
+true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
+true_dur_distns = [poisson(lmbda=param) for param in durparams]
+
+# build the true HSMM
+truemodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
+```
+
+Next, we'll sample some data from the model and plot the model on top of the data
+
+```python
+data, _ = truthmodel.generate()
+truemodel.plot(data)
+plt.gcf().suptitle('True HSMM')
+```
+
+![Randomly-generated model and data](truth.png)
+
+Now that we've generated some data, we can try to infer the model that it came from (not peeking into `truemodel`, of course; that would be cheating!).
+
+First, we create a new HSMM object that doesn't know anything about the original (though we'll give it the the same hyperparameters). We'll ask this model to infer the number of states as well (since an HDP-HSMM is instantiated by default), so we'll give it an `Nmax` parameter instead of telling it `N=4`:
+
+```python
+Nmax = 10
+obs_distns = [gaussian(**obs_hypparams) for state in xrange(Nmax)]
+dur_distns = [poisson() for state in xrange(Nmax)]
+
+posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
+```
+
+Now we run a resampling loop. For each iteration of the loop, all the latent variables of the model will be resampled by Gibbs sampling steps, including the transition matrix, the observation means and covariances, the duration parameters, and the hidden state sequence. We'll plot the samples every several iterations.
+
+```python
+plot_every = 50
+for idx in progprint_xrange(101):
+    if (idx % plot_every) == 0:
+        posteriormodel.plot(data)
+        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+
+    posteriormodel.resample(data)
+```
+
+![Sampled model after 50 iterations](posterior_sample_50.png)
+![Sampled model after 100 iterations](posterior_sample_100.png)
+
+Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized operations), here's how long the iterations took:
+
+```
+
+```
+
+## References ##
+`TODO`

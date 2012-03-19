@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
@@ -19,21 +20,21 @@ durparams = [10.*(idx+1) for idx in xrange(N)]
 # matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'lmbda_0':np.eye(obs_dim),
-                'kappa_0':0.1,
+                'kappa_0':0.2,
                 'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions
-truth_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
-truth_dur_distns = [poisson(lmbda=param) for param in durparams]
+true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
+true_dur_distns = [poisson(lmbda=param) for param in durparams]
 
 # Build the true HSMM model
-truthmodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
+truemodel = hsmm.hsmm(T,true_obs_distns,true_dur_distns)
 
 # Sample data from the true model
-data, labels = truthmodel.generate()
+data, labels = truemodel.generate()
 
 # Plot the truth
-truthmodel.plot(data)
+truemodel.plot(data)
 plt.gcf().suptitle('True HSMM')
 
 #### Posterior inference
@@ -58,3 +59,5 @@ for idx in progprint_xrange(101):
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
 
     posteriormodel.resample(data)
+
+    
