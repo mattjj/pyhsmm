@@ -20,7 +20,7 @@ durparams = [10.*(idx+1) for idx in xrange(N)]
 # matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'lmbda_0':np.eye(obs_dim),
-                'kappa_0':0.2,
+                'kappa_0':0.15,
                 'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions

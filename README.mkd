@@ -21,6 +21,9 @@ sampling code is to produce samples of those alternatives.
 approximate learning/fitting of HMMs and HSMMs through the Expectation
 Maximization (EM) algorithm.)
 
+## Installing ##
+
+
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
 observations. (The same process is in `demo.py`.)
@@ -55,7 +58,8 @@ true_dur_distns = [poisson(lmbda=param) for param in durparams]
 truemodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
 ```
 
-Next, we'll sample some data from the model and plot the model on top of the data
+Next, we'll sample some data from the model and plot the model on top of the
+data
 
 ```python
 data, _ = truthmodel.generate()
@@ -65,9 +69,13 @@ plt.gcf().suptitle('True HSMM')
 
 ![Randomly-generated model and data](truth.png)
 
-Now that we've generated some data, we can try to infer the model that it came from (not peeking into `truemodel`, of course; that would be cheating!).
+Now that we've generated some data, we can try to infer the model that it came
+from (not peeking into `truemodel`, of course; that would be cheating!).
 
-First, we create a new HSMM object that doesn't know anything about the original (though we'll give it the the same hyperparameters). We'll ask this model to infer the number of states as well (since an HDP-HSMM is instantiated by default), so we'll give it an `Nmax` parameter instead of telling it `N=4`:
+First, we create a new HSMM object that doesn't know anything about the
+original (though we'll give it the the same hyperparameters). We'll ask this
+model to infer the number of states as well (since an HDP-HSMM is instantiated
+by default), so we'll give it an `Nmax` parameter instead of telling it `N=4`:
 
 ```python
 Nmax = 10
@@ -77,7 +85,11 @@ dur_distns = [poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 ```
 
-Now we run a resampling loop. For each iteration of the loop, all the latent variables of the model will be resampled by Gibbs sampling steps, including the transition matrix, the observation means and covariances, the duration parameters, and the hidden state sequence. We'll plot the samples every several iterations.
+Now we run a resampling loop. For each iteration of the loop, all the latent
+variables of the model will be resampled by Gibbs sampling steps, including the
+transition matrix, the observation means and covariances, the duration
+parameters, and the hidden state sequence. We'll plot the samples every several
+iterations.
 
 ```python
 plot_every = 50
@@ -89,14 +101,33 @@ for idx in progprint_xrange(101):
     posteriormodel.resample(data)
 ```
 
+![Sampled model after 0 iterations](posterior_sample_0.png)
 ![Sampled model after 50 iterations](posterior_sample_50.png)
 ![Sampled model after 100 iterations](posterior_sample_100.png)
 
-Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized operations), here's how long the iterations took:
+To make the problem harder by tweaking the observation distributions, we can
+set kappa_0 to be smaller (that will put the clusters more on top of each
+other), but it still does pretty well because of the duration statistics. We
+can also set nu_0 to be larger to make the covariance ellipsoids look more
+similar (nu_0 should always be larger than the observation dimension, based on
+the definition of the Normal-Inverse-Wishart distribution).
+
+Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL
+BLAS (which generally outperforms ATLAS for these vectorized operations),
+here's how long the iterations took:
 
 ```
-
+In [1]: run demo
+.........................  [  25/101,    0.13sec avg,    9.63sec ETA ]
+.........................  [  50/101,    0.12sec avg,    5.98sec ETA ]
+.........................  [  75/101,    0.12sec avg,    3.10sec ETA ]
+.........................  [ 100/101,    0.12sec avg,    0.12sec ETA ]
+.
+   0.12sec avg,   12.06sec total
 ```
+
+## Extending the Code ##
+`TODO`
 
 ## References ##
 `TODO`
