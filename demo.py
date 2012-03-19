@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
@@ -31,6 +32,10 @@ truthmodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
 # Sample data from the true model
 data, labels = truthmodel.generate()
 
+# Plot the truth
+truthmodel.plot(data)
+plt.gcf().suptitle('True HSMM')
+
 #### Posterior inference
 # Set the weak limit truncation level. This is essentially the maximum 
 # number of states that can be learned
@@ -45,10 +50,11 @@ dur_distns = [poisson() for state in xrange(Nmax)]
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
+# and plotting every so often
 plot_every = 50
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot(data)
-        plt.gcf().suptitle('inferred HSMM after %d Gibbs iterations' % idx)
+        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
 
     posteriormodel.resample(data)
