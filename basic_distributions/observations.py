@@ -1,13 +1,20 @@
 from __future__ import division
 import numpy as np
-from numpy import newaxis as na
-
 import scipy.stats as stats
-from stats_util import sample_niw, sample_discrete
-
 from matplotlib import pyplot as plt
 
-class gaussian(object):
+from abstractions import ObservationBase
+from util.stats import sample_niw, sample_discrete
+
+
+'''
+This module includes general distribution classes that can be used in sampling
+hierarchical Bayesian models. Though module is called 'observations', there
+aren't really any restrictions placed on an observation distribution, so these
+classes can be reused as general distributions.
+'''
+
+class gaussian(ObservationBase):
     '''
     Multivariate Gaussian observation distribution class. NOTE: Only
     works for 2 or more dimensions. For a scalar Gaussian, use one of the scalar
@@ -69,8 +76,46 @@ class gaussian(object):
     def rvs(self,size=[]):
         return np.random.multivariate_normal(mean=self.mu,cov=self.sigma,size=size)
 
+    @classmethod
+    def _plot_setup(cls,instance_list):
+        # must set cls.vecs to be a reasonable 2D space to project onto
+        # so that the projection is consistent across instances
+        # for now, i'll just make it random if there are more than 2 dimensions
+        assert len(instance_list) > 0
+        assert len(set([len(o.mu) for o in instance_list])) == 1, 'must have consistent dimensions across instances'
+        dim = len(instance_list[0].mu)
+        if dim > 2:
+            vecs = np.random.randn((dim,2))
+            vecs /= np.sqrt((vecs**2).sum())
+        else:
+            vecs = np.eye(2)
 
-class multinomial(object):
+        for o in instance_list:
+            o.global_vecs = vecs
+
+    def plot(self,data=None,color='b'):
+        from util.plot import project_data, plot_gaussian_projection, pca
+        
+        # if global projection vecs exist, use those
+        # otherwise, when dim>2, do a pca on the data
+        try:
+            vecs = self.global_vecs
+        except AttributeError:
+            dim = len(self.mu)
+            if dim == 2:
+                vecs = np.eye(2)
+            else:
+                assert dim > 2
+                vecs = pca(data,num_components=2)
+
+        if data is not None:
+            projected_data = project_data(data,vecs)
+            plt.plot(projected_data[:,0],projected_data[:,1],marker='.',linestyle=' ',color=color)
+
+        plot_gaussian_projection(self.mu,self.sigma,vecs,color=color)
+
+
+class multinomial(ObservationBase):
     '''
     This class represents a multinomial distribution in a label form.
     For example, if len(alpha_vec) == 3, then five samples of data may look like
@@ -198,7 +243,7 @@ class indicator_multinomial(multinomial):
         # I've tested this by hand
         raise NotImplementedError
 
-class scalar_gaussian_nonconj(object):
+class scalar_gaussian_nonconj(ObservationBase):
     def __init__(self,mu_0,sigmasq_0,alpha,beta,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
         self.sigmasq_0 = sigmasq_0
@@ -248,7 +293,7 @@ class scalar_gaussian_nonconj(object):
     def __repr__(self):
         return 'gaussian_scalar_nonconj(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
 
-class scalar_gaussian_nonconj_gelparams(object):
+class scalar_gaussian_nonconj_gelparams(ObservationBase):
     # uses parameters from Gelman's Bayesian Data Analysis
     def __init__(self,mu_0,tausq_0,sigmasq_0,nu_0,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0

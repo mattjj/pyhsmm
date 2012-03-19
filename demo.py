@@ -1,9 +1,13 @@
-# Imports
-
+#!/usr/bin/env python
+from __future__ import division
 import numpy as np
-np.seterr(divide='ignore') # these warnings are usually harmless for us
-import hsmm, observations, durations, stats_util
-from text_util import progprint_xrange
+np.seterr(divide='ignore') # these warnings are usually harmless for this code
+from matplotlib import pyplot as plt
+
+import hsmm
+from basic_distributions.observations import gaussian
+from basic_distributions.durations import poisson
+from util.text import progprint_xrange
 
 #### Data generation
 # Set parameters
@@ -14,17 +18,24 @@ obs_dim = 2
 durparams = [10.*(idx+1) for idx in xrange(N)]
 # Set observation hyperparameters (which control the random mean and covariance
 # matrices for each state)
-obs_hypparams = (np.zeros(obs_dim),np.eye(obs_dim),0.25,obs_dim+2)
+obs_hypparams = {'mu_0':np.zeros(obs_dim),
+                'lmbda_0':np.eye(obs_dim),
+                'kappa_0':0.2,
+                'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions
-truth_obs_distns = [observations.gaussian(*stats_util.sample_niw(*obs_hypparams)) for state in xrange(N)]
-truth_dur_distns = [durations.poisson(lmbda=param) for param in durparams]
+true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
+true_dur_distns = [poisson(lmbda=param) for param in durparams]
 
 # Build the true HSMM model
-truthmodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
+truemodel = hsmm.hsmm(T,true_obs_distns,true_dur_distns)
 
 # Sample data from the true model
-data, labels = truthmodel.generate()
+data, labels = truemodel.generate()
+
+# Plot the truth
+truemodel.plot(data)
+plt.gcf().suptitle('True HSMM')
 
 #### Posterior inference
 # Set the weak limit truncation level. This is essentially the maximum 
@@ -33,15 +44,20 @@ Nmax = 10
 
 # Construct the observation and duration distribution objects, which set
 # priors over parameters and then infer parameter values.
-obs_distns = [observations.gaussian(*stats_util.sample_niw(*obs_hypparams)) for state in xrange(Nmax)]
-dur_distns = [durations.poisson() for state in xrange(Nmax)]
+obs_distns = [gaussian(**obs_hypparams) for state in xrange(Nmax)]
+dur_distns = [poisson() for state in xrange(Nmax)]
 
 # Build the HSMM model that will represent the posterior 
 posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
-for idx in progprint_xrange(100):
+# and plotting every so often
+plot_every = 50
+for idx in progprint_xrange(101):
+    if (idx % plot_every) == 0:
+        posteriormodel.plot(data)
+        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+
     posteriormodel.resample(data)
 
-# plot results
-# TODO
+    

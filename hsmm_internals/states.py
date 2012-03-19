@@ -1,9 +1,10 @@
 import numpy as np
-import operator
+from numpy import newaxis as na
 from numpy.random import random
-from stats_util import sample_discrete
-import util
 import scipy.weave
+
+from util.stats import sample_discrete
+from util import general as util
 
 class states(object): # {{{
     '''
@@ -438,6 +439,24 @@ class states(object): # {{{
             distn.resample(self.durations[self.stateseq_norep == state])
         for state, distn in enumerate(self.obs_distns):
             distn.resample(data[self.stateseq == state])
+
+
+    # not this one, though!
+
+    def plot(self,colors_dict=None):
+        from matplotlib import pyplot as plt
+        X,Y = np.meshgrid(np.hstack((0,self.durations.cumsum())),(0,1))
+
+        if colors_dict is not None:
+            C = np.array([[colors_dict[state] for state in self.stateseq_norep]])
+        else:
+            C = self.stateseq_norep[na,:]
+
+        plt.pcolor(X,Y,C) # NOTE: pcolor normalizes C
+        plt.ylim((0,1))
+        plt.xlim((0,self.T))
+        plt.yticks([])
+
 # }}}
 
 class hmm_states(object): # {{{
