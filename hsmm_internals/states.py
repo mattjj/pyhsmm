@@ -5,12 +5,7 @@ import scipy.weave
 
 from util.stats import sample_discrete
 from util import general as util
-
-def use_eigen():
-    global hsmm_states
-    hsmm_states = hsmm_states_eigen
-
-class hsmm_states(object): 
+class hsmm_states_python(object): 
     '''
     HSMM states distribution class. Connects the whole model.
 
@@ -256,7 +251,7 @@ class hsmm_states(object):
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
 
 
-class hsmm_states_eigen(hsmm_states):
+class hsmm_states_eigen(hsmm_states_python):
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
         self.T = T
         self.state_dim = state_dim
@@ -428,7 +423,7 @@ class hsmm_states_eigen(hsmm_states):
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
 
-    def messages_backwards_eigen(self,Al,aDl,aDsl,trunc):
+    def messages_backwards_NOTUSED(self,Al,aDl,aDsl,trunc):
         # this isn't actually used: it is the same speed or slower than the
         # python/numpy version, since the code is very vectorized
         A = np.exp(Al).T.copy()
@@ -439,17 +434,139 @@ class hsmm_states_eigen(hsmm_states):
         scipy.weave.inline(self.messages_backwards_codestr,['A','mytrunc','betal','betastarl','aDl','aBl','aDsl'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3','-march=native'])
         return betal, betastarl
 
-# TODO make consistent with multiple chains
-class hmm_states(object): 
-    def __init__(self,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,trunc=None,**kwargs):
+    # TODO could also write Eigen version of the generate() methods
+
+
+class hmm_states_python(object): 
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
         self.state_dim = state_dim
         self.obs_distns = obs_distns
         self.transition_distn = transition_distn
         self.initial_distn = initial_distn
-        self.stateseq = stateseq
 
-        if trunc is not None:
-            self.messages_forwards_codestr = \
+        self.T = T
+        self.data = data
+        
+        if stateseq is not None:
+            self.stateseq = stateseq
+        else:
+            self.generate_states()
+
+    def generate_states(self):
+        T = self.T
+        stateseq = np.zeros(T,dtype=np.int32)
+        nextstate_distn = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        for idx in xrange(T):
+            stateseq[idx] = sample_discrete(nextstate_distn)
+            nextstate_distn = A[stateseq[idx]]
+
+        self.stateseq = stateseq
+        return stateseq
+
+    def generate_obs(self):
+        obs = []
+        for state in self.stateseq:
+            obs.append(self.obs_distns[state].rvs(size=1))
+        return np.vstack(obs).copy()
+
+    def generate(self):
+        self.generate_states()
+        return self.generate_obs()
+
+    def messages_forwards(self,aBl):
+        T = aBl.shape[0]
+        alphal = np.zeros((T,self.state_dim))
+        Al = np.log(self.transition_distn.A)
+
+        alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
+
+        for t in xrange(T-1):
+            alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
+
+        return alphal
+
+    def messages_backwards(self,aBl):
+        betal = np.zeros(aBl.shape)
+        Al = np.log(self.transition_distn.A)
+        T = aBl.shape[0]
+
+        for t in xrange(T-2,-1,-1):
+            np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
+
+        return betal
+
+    def sample_forwards(self,aBl,betal):
+        T = aBl.shape[0]
+        stateseq = np.zeros(T,dtype=np.int32)
+        nextstate_unsmoothed = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        for idx in xrange(T):
+            logdomain = betal[idx] + aBl[idx]
+            stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
+            nextstate_unsmoothed = A[stateseq[idx]]
+
+        return stateseq
+
+    def resample(self):
+        if self.data is None:
+            print 'ERROR: can only call resample on %s instances with data' % type(self)
+        else:
+            data = self.data
+
+        aBl = self.get_aBl(data)
+        betal = self.messages_backwards(aBl)
+        self.stateseq = self.sample_forwards(aBl,betal)
+        return self.stateseq
+
+    def get_aBl(self,data):
+        aBl = np.zeros((data.shape[0],self.state_dim))
+        for idx, obs_distn in enumerate(self.obs_distns):
+            aBl[:,idx] = obs_distn.log_likelihood(data)
+        return aBl
+
+    def plot(self,colors_dict=None):
+        from matplotlib import pyplot as plt
+        from util.general import rle
+        states,durations = rle(self.stateseq)
+        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
+
+        if colors_dict is not None:
+            C = np.array([[colors_dict[state] for state in states]])
+        else:
+            C = states
+
+        plt.pcolor(X,Y,C) # NOTE: pcolor normalizes C when called this way
+        plt.ylim((0,1))
+        plt.xlim((0,self.T))
+        plt.yticks([])
+
+    # TODO this method could be moved to hmm.py
+    # or should it be? how is this structured with sub-hmms? worry about that
+    # later...
+    # maybe i should be able to call hmm.loglike without instantiating a states
+    # object... that can be the interface for both of them!
+    def loglike(self,data):
+        aBl = self.get_aBl(data)
+        betal = self.messages_backwards(aBl)
+        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
+
+
+class hmm_states_eigen(hmm_states_python):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
+        self.state_dim = state_dim
+        self.obs_distns = obs_distns
+        self.transition_distn = transition_distn
+        self.initial_distn = initial_distn
+        self.T = T
+        self.data = data
+        if trunc is None:
+            trunc = self.T
+        self.trunc = trunc
+
+        self.messages_forwards_codestr = \
     '''
     using namespace Eigen;
 
@@ -474,32 +591,12 @@ class hmm_states(object):
             }
         } */
     }
-    ''' % {'M':self.state_dim,'T':trunc}
+    ''' % {'M':self.state_dim,'T':self.trunc}
+
+        if stateseq is not None:
+            self.stateseq = stateseq
         else:
-            self.messages_forwards = self.messages_forwards_numpy
-
-
-    def generate_states(self,T):
-        stateseq = np.zeros(T,dtype=np.int32)
-        nextstate_distn = self.initial_distn.pi_0
-        A = self.transition_distn.A
-
-        for idx in xrange(T):
-            stateseq[idx] = sample_discrete(nextstate_distn)
-            nextstate_distn = A[stateseq[idx]]
-
-        self.stateseq = stateseq
-        return stateseq
-
-    def generate_obs(self,stateseq):
-        obs = []
-        for state in stateseq:
-            obs.append(self.obs_distns[state].rvs(size=1))
-        return np.vstack(obs).copy()
-
-    def generate(self,T):
-        stateseq = self.generate_states(T)
-        return stateseq, self.generate_obs(stateseq)
+            self.generate_states()
 
     def messages_forwards(self,aBl):
         T = aBl.shape[0]
@@ -512,57 +609,23 @@ class hmm_states(object):
         assert not np.isnan(alphal).any()
         return alphal
 
-    def messages_forwards_numpy(self,aBl):
-        T = aBl.shape[0]
-        alphal = np.zeros((T,self.state_dim))
-        Al = np.log(self.transition_distn.A)
-
-        alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
-
-        for t in xrange(T-1):
-            alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
-
-        return alphal
-
     def messages_backwards(self,aBl):
-        # TODO write eigen version
-        betal = np.zeros(aBl.shape)
-        Al = np.log(self.transition_distn.A)
-        T = aBl.shape[0]
-
-        for t in xrange(T-2,-1,-1):
-            np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
-
-        return betal
+        # TODO write Eigen version
+        return hmm_states_python.messages_backwards(self,aBl)
 
     def sample_forwards(self,aBl,betal):
         # TODO write eigen version
-        T = aBl.shape[0]
-        stateseq = np.zeros(T,dtype=np.int32)
-        nextstate_unsmoothed = self.initial_distn.pi_0
-        A = self.transition_distn.A
-
-        for idx in xrange(T):
-            logdomain = betal[idx] + aBl[idx]
-            stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
-            nextstate_unsmoothed = A[stateseq[idx]]
-
-        return stateseq
-
-    def resample(self,data):
-        aBl = self.get_aBl(data)
-        betal = self.messages_backwards(aBl)
-        self.stateseq = self.sample_forwards(aBl,betal)
+        self.stateseq = hmm_states_python.sample_forwards(self,aBl,betal)
         return self.stateseq
 
-    def get_aBl(self,data):
-        aBl = np.zeros((data.shape[0],self.state_dim))
-        for idx, obs_distn in enumerate(self.obs_distns):
-            aBl[:,idx] = obs_distn.log_likelihood(data)
-        return aBl
+    # TODO also write eigen versions of generate and generate_obs
 
-    def loglike(self,data):
-        aBl = self.get_aBl(data)
-        betal = self.messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
+
+hsmm_states = hsmm_states_python
+hmm_states = hmm_states_python
+
+def use_eigen():
+    global hsmm_states, hmm_states
+    hsmm_states = hsmm_states_eigen
+    hmm_states = hmm_states_eigen
 
