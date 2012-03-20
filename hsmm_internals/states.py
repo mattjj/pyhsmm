@@ -5,6 +5,9 @@ import scipy.weave
 
 from util.stats import sample_discrete
 from util import general as util
+
+eigen_code_dir = 'hsmm_internals/cpp_eigen_code/'
+
 class hsmm_states_python(object): 
     '''
     HSMM states distribution class. Connects the whole model.
@@ -262,142 +265,11 @@ class hsmm_states_eigen(hsmm_states_python):
         self.trunc = T if trunc is None else trunc
         self.data = data
 
-        #{{{
-        self.sample_forwards_codestr = '''
-    using namespace Eigen;
+        with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
+            self.sample_forwards_codestr = infile.read() % {'M':state_dim,'T':T}
 
-    Map<MatrixXd> ebetal(betal,%(M)d,%(T)d);
-    Map<MatrixXd> ebetastarl(betastarl,%(M)d,%(T)d);
-    Map<MatrixXd> eaBl(aBl,%(M)d,%(T)d);
-    Map<MatrixXd> eA(A,%(M)d,%(M)d);
-    Map<VectorXd> epi0(pi0,%(M)d);
-    Map<MatrixXd> eapmf(apmf,%(T)d,%(M)d);
-
-    //MatrixXd ebetal(%(M)d,%(T)d), ebetastarl(%(M)d,%(T)d), eaBl(%(M)d,%(T)d), eA(%(M)d,%(M)d), eapmf(%(T)d,%(M)d);
-    //VectorXd epi0(%(M)d);
-
-    // outputs
-
-    Map<VectorXi> estateseq(stateseq,%(T)d);
-    //VectorXi estateseq(%(T)d);
-    estateseq.setZero();
-
-    // locals
-    // TODO should be stack variables, not dynamic ones
-    int idx, state, dur;
-    double durprob, p_d_marg, p_d, total;
-    VectorXd nextstate_unsmoothed(%(M)d);
-    VectorXd logdomain(%(M)d);
-    VectorXd nextstate_distr(%(M)d);
-    VectorXd cumsum(%(M)d);
-
-    // code!
-    // don't think i need to seed... should include sys/time.h for this
-    // struct timeval time;
-    // gettimeofday(&time,NULL);
-    // srandom((time.tv_sec * 1000) + (time.tv_usec / 1000));
-
-    idx = 0;
-    nextstate_unsmoothed = epi0;
-
-    while (idx < %(T)d) {
-        logdomain = ebetastarl.col(idx).array() - ebetastarl.col(idx).maxCoeff();
-        nextstate_distr = logdomain.array().exp() * nextstate_unsmoothed.array();
-        if ((nextstate_distr.array() == 0.0).all()) {
-            std::cout << "Warning: this is a cryptic error message" << std::endl;
-            nextstate_distr = logdomain.array().exp();
-        }
-        // sample from nextstate_distr
-        {
-            total = nextstate_distr.sum() * (((double)random())/((double)RAND_MAX));
-            for (state = 0; (total -= nextstate_distr(state)) > 0; state++) ;
-        }
-
-        durprob = ((double)random())/((double)RAND_MAX);
-        dur = 0;
-        while (durprob > 0.0) {
-            if (dur > 2*%(T)d) {
-                std::cout << "FAIL" << std::endl;
-            }
-
-            p_d_marg = (dur < %(T)d) ? eapmf(dur,state) : 1.0;
-            if (0.0 == p_d_marg) {
-                 dur += 1;
-                 continue;
-            }
-            if (idx+dur < %(T)d) {
-                 p_d = p_d_marg * (exp(eaBl.row(state).segment(idx,dur+1).sum() + ebetal(state,idx+dur) - ebetastarl(state,idx)));
-            } else {
-                break; // TODO fix this
-            }
-            durprob -= p_d;
-            dur += 1;
-        }
-
-        estateseq.segment(idx,dur).setConstant(state);
-
-        nextstate_unsmoothed = eA.col(state);
-
-        idx += dur;
-    }
-''' % {'M':state_dim,'T':T}
-
-
-        
-        self.messages_backwards_codestr = '''
-        using namespace Eigen;
-        using namespace std;
-        // inputs
-        int etrunc = mytrunc;
-        Map<MatrixXd> eaBl(aBl,%(M)d,%(T)d);
-        Map<MatrixXd> eA(A,%(M)d,%(M)d);
-        Map<MatrixXd> eaDl(aDl,%(M)d,%(T)d);
-        Map<MatrixXd> eaDsl(aDsl,%(M)d,%(T)d);
-
-        // outputs
-        Map<MatrixXd> ebetal(betal,%(M)d,%(T)d);
-        Map<MatrixXd> ebetastarl(betastarl,%(M)d,%(T)d);
-
-        // locals
-        VectorXd maxes(%(M)d), result(%(M)d), sumsofar(%(M)d);
-        double cmax;
-
-        // computation!
-        for (int t = %(T)d-1; t >= 0; t--) {
-            sumsofar.setZero();
-            ebetastarl.col(t).setConstant(-1.0*numeric_limits<double>::infinity());
-            for (int tau = 0; tau < min(etrunc,%(T)d-t); tau++) {
-                sumsofar += eaBl.col(t+tau);
-                result = ebetal.col(t+tau) + sumsofar + eaDl.col(tau);
-                maxes = ebetastarl.col(t).cwiseMax(result);
-                ebetastarl.col(t) = ((ebetastarl.col(t) - maxes).array().exp() + (result - maxes).array().exp()).log() + maxes.array();
-            }
-            // censoring calc
-            if (%(T)d - t < etrunc) {
-                result = eaBl.block(0,t,%(M)d,%(T)d-t).rowwise().sum() + eaDsl.col(%(T)d-1-t);
-                maxes = ebetastarl.col(t).cwiseMax(result);
-                ebetastarl.col(t) = ((ebetastarl.col(t) - maxes).array().exp() + (result - maxes).array().exp()).log() + maxes.array();
-            }
-            // nan issue
-            for (int i = 0; i < %(M)d; i++) {
-                if (ebetastarl(i,t) != ebetastarl(i,t)) {
-                    ebetastarl(i,t) = -1.0*numeric_limits<double>::infinity();
-                }
-            }
-            // betal calc
-            if (t > 0) {
-                cmax = ebetastarl.col(t).maxCoeff();
-                ebetal.col(t-1) = (eA * (ebetastarl.col(t).array() - cmax).array().exp().matrix()).array().log() + cmax;
-                for (int i = 0; i < %(M)d; i++) {
-                    if (ebetal(i,t-1) != ebetal(i,t-1)) {
-                        ebetal(i,t-1) = -1.0*numeric_limits<double>::infinity();
-                    }
-                }
-            }
-        }
-
-    ''' % {'M':state_dim,'T':T}
-#}}}
+        with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
+            self.messages_backwards_codestr = infile.read() % {'M':state_dim,'T':T}
 
         # this arg is for initialization heuristics which may pre-determine the state sequence
         if stateseq is not None:
@@ -566,32 +438,8 @@ class hmm_states_eigen(hmm_states_python):
             trunc = self.T
         self.trunc = trunc
 
-        self.messages_forwards_codestr = \
-    '''
-    using namespace Eigen;
-
-    // inputs
-    Map<MatrixXd> eAT(A,%(M)d,%(M)d);
-    Map<MatrixXd> eaBl(aBl,%(M)d,%(T)d);
-
-    // outputs
-    Map<MatrixXd> ealphal(alphal,%(M)d,%(T)d);
-
-    // locals
-    double cmax;
-
-    // computation!
-    for (int t=0; t<T-1; t++) {
-        cmax = ealphal.col(t).maxCoeff();
-        ealphal.col(t+1) = (eAT * (ealphal.col(t).array() - cmax).array().exp().matrix()).array().log() + cmax + eaBl.col(t+1).array();
-        /* // nan issue (is there a better way to do this?)
-        for (int i=0; i<%(M)d; i++) {
-            if (ealphal(i,t+1) != ealphal(i,t+1)) {
-                ealphal(i,t+1) = -1.0*numeric_limits<double>::infinity();
-            }
-        } */
-    }
-    ''' % {'M':self.state_dim,'T':self.trunc}
+        with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
+            self.messages_forwards_codestr = infile.read() % {'M':self.state_dim,'T':self.trunc}
 
         if stateseq is not None:
             self.stateseq = stateseq
