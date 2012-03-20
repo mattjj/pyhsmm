@@ -63,15 +63,15 @@ true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
 true_dur_distns = [poisson(lmbda=param) for param in durparams]
 
 # build the true HSMM
-truemodel = hsmm.hsmm(T,truth_obs_distns,truth_dur_distns)
+truemodel = hsmm.hsmm(truth_obs_distns,truth_dur_distns)
 ```
 
 Next, we'll sample some data from the model and plot the model on top of the
 data
 
 ```python
-data, _ = truthmodel.generate()
-truemodel.plot(data)
+data, labels = truthmodel.generate(T)
+truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 ```
 
@@ -90,7 +90,13 @@ Nmax = 10
 obs_distns = [gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [poisson() for state in xrange(Nmax)]
 
-posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
+posteriormodel = hsmm.hsmm(obs_distns,dur_distns)
+```
+
+Then, we add the data we want to condition on:
+
+```python
+posteriormodel.add_data(data)
 ```
 
 Now we run a resampling loop. For each iteration of the loop, all the latent
@@ -103,10 +109,10 @@ iterations.
 plot_every = 50
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
-        posteriormodel.plot(data)
+        posteriormodel.plot()
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
 
-    posteriormodel.resample(data)
+    posteriormodel.resample()
 ```
 
 ![Sampled models](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_animation.gif)
