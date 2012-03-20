@@ -33,13 +33,13 @@ true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
 true_dur_distns = [poisson(lmbda=param) for param in durparams]
 
 # Build the true HSMM model
-truemodel = hsmm.hsmm(T,true_obs_distns,true_dur_distns)
+truemodel = hsmm.hsmm(true_obs_distns,true_dur_distns)
 
 # Sample data from the true model
-data, labels = truemodel.generate()
+data, labels = truemodel.generate(T)
 
 # Plot the truth
-truemodel.plot(data)
+truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 if save_images:
     plt.savefig('truth.png')
@@ -55,18 +55,19 @@ obs_distns = [gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [poisson() for state in xrange(Nmax)]
 
 # Build the HSMM model that will represent the posterior 
-posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
+posteriormodel = hsmm.hsmm(obs_distns,dur_distns)
+posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration
 # and plotting every so often
 plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
-        posteriormodel.plot(data)
+        posteriormodel.plot()
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)
 
-    posteriormodel.resample(data)
+    posteriormodel.resample()
 
 plt.show()
