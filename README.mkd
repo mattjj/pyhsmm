@@ -109,9 +109,7 @@ for idx in progprint_xrange(101):
     posteriormodel.resample(data)
 ```
 
-![Sampled model after 0 iterations](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_sample_0.png)
-![Sampled model after 50 iterations](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_sample_50.png)
-![Sampled model after 100 iterations](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_sample_100.png)
+![Sampled models](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_animation.gif)
 
 To make the problem harder by tweaking the observation distributions, we can
 set `kappa_0` to be smaller (that will put the clusters more on top of each
