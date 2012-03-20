@@ -27,7 +27,7 @@ Maximization (EM) algorithm.)
 You can clone this library with the usual command:
 
 ```
-git clone git://github.com/mattjj/py-diskmemo.git
+git clone git://github.com/mattjj/py-hsmm.git
 ```
 
 The current version of the code also depends on having the [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) insatlled in the usual location of `/usr/local/include` (its default install location). In the near future, Eigen will be an optional dependency.
