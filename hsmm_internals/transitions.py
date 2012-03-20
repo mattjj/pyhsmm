@@ -135,6 +135,7 @@ class hdphmm_transitions(object):
         self.resample_beta(m)
         self.resample_A(data)
 
+
 class sticky_hdphmm_transitions(hdphmm_transitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
@@ -144,7 +145,7 @@ class sticky_hdphmm_transitions(hdphmm_transitions):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
         hdphmm_transitions.resample_A(self,aug_data)
 
-# TODO make hmm_transitions consistent with multiple chains
+
 class hmm_transitions(object):
     def __init__(self,state_dim,gamma=8.,self_trans=0.,A=None,**kwargs):
         self.state_dim = state_dim
