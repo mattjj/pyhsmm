@@ -18,8 +18,10 @@ class initial_state(object):
         else:
             self.state_dim = len(pi_0)
 
-    def resample(self,init_states=np.array([])):
-        init_states = np.array(init_states,ndmin=1)
+    def resample(self,init_states=[]):
+        # TODO these checks can probably be removed
+        assert type(init_states) == type([])
+
         data = np.zeros(self.state_dim)
         for init_state in init_states:
             data[init_state] += 1

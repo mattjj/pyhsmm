@@ -3,9 +3,9 @@ import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
 
-# TODO make resample methods take lists of state sequences
+# TODO maybe these shouldn't have default arguments...
 
-class transitions(object):#{{{
+class hsmm_transitions(object):
     '''
     HSMM transition distribution class.
     Uses a weak-limit HDP prior. Zeroed diagonal to forbid self-transitions.
@@ -19,7 +19,7 @@ class transitions(object):#{{{
     beta, fullA, A
     '''
 
-    def __init__(self,state_dim,alpha=1000.,gamma=8.,beta=None,A=None,fullA=None,**kwargs):
+    def __init__(self,state_dim,alpha=8.,gamma=8.,beta=None,A=None,fullA=None,**kwargs):
         self.alpha = alpha
         self.gamma = gamma
         self.state_dim = state_dim
@@ -31,12 +31,14 @@ class transitions(object):#{{{
             self.fullA = fullA
 
     def resample(self,states_noreps=[]):
+        # TODO these checks are for compatibility with old versions; they can probably be removed
         if type(states_noreps) != type([]):
             states_noreps = [states_noreps]
         for states_norep in states_noreps:
             assert type(states_norep) == type(np.array([]))
+
         if not any(len(states_norep) >= 2 for states_norep in states_noreps):
-            # if there is no data we just sample forward
+            # if there is no data we just sample from the prior
             self.beta = stats.gamma.rvs(self.alpha / self.state_dim, size=self.state_dim)
             self.beta /= np.sum(self.beta)
 
@@ -83,9 +85,9 @@ class transitions(object):#{{{
             self.fullA /= np.sum(self.fullA,axis=1)[:,na]
             self.A = self.fullA * (1.-np.eye(self.state_dim))
             self.A /= np.sum(self.A,axis=1)[:,na]
-            assert not np.isnan(self.A).any()#}}}
+            assert not np.isnan(self.A).any()
 
-class hdphmm_transitions(object):#{{{
+class hdphmm_transitions(object):
     # TODO alpha/gamma remains switched wrt math notation
     def __init__(self,state_dim,alpha=4.,gamma=8.,beta=None,A=None):
         self.state_dim = state_dim
@@ -107,34 +109,43 @@ class hdphmm_transitions(object):#{{{
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
-    def resample(self,states=np.array([])):
-        m = np.zeros((self.state_dim,self.state_dim))
-        data = np.zeros((self.state_dim,self.state_dim))
-        if len(states) >= 2:
-            # count transitions
-            for idx in xrange(len(states)-1):
-                data[states[idx],states[idx+1]] += 1
+    def resample(self,states_list=[]):
+        # TODO these checks can be removed at some point
+        assert type(states_list) == type([])
+        for states_norep in states_list:
+            assert type(states_norep) == type(np.array([]))
 
+        # count all transitions
+        data = np.zeros((self.state_dim,self.state_dim))
+        for states in states_list:
+            if len(states) >= 2:
+                for idx in xrange(len(states)-1):
+                    data[states[idx],states[idx+1]] += 1
+
+        m = np.zeros((self.state_dim,self.state_dim))
+        if not (0 == data).all():
             # sample m's (auxiliary variables which make beta's posterior
             # conjugate and indep. of data)
             for rowidx in xrange(self.state_dim):
                 for colidx in xrange(self.state_dim):
                     for n in xrange(int(data[rowidx,colidx])):
-                        m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] / (n + self.alpha * self.beta[colidx])
+                        m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] /\
+                                                        (n + self.alpha * self.beta[colidx])
 
         self.resample_beta(m)
-        self.resample_A(data)#}}}
+        self.resample_A(data)
 
-class sticky_hdphmm_transitions(hdphmm_transitions):#{{{
+class sticky_hdphmm_transitions(hdphmm_transitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
         hdphmm_transitions.__init__(self,*args,**kwargs)
 
     def resample_A(self,data):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
-        hdphmm_transitions.resample_A(self,aug_data)#}}}
+        hdphmm_transitions.resample_A(self,aug_data)
 
-class hmm_transitions(object): #{{{
+# TODO make hmm_transitions consistent with multiple chains
+class hmm_transitions(object):
     def __init__(self,state_dim,gamma=8.,self_trans=0.,A=None,**kwargs):
         self.state_dim = state_dim
         self.gamma = gamma
@@ -159,5 +170,4 @@ class hmm_transitions(object): #{{{
                         data[states[idx],states[idx+1]] += 1
 
         self.resample_A(data)
-#}}}
 
