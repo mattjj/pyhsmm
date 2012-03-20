@@ -59,7 +59,7 @@ posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
 # and plotting every so often
-plot_every = 10
+plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot(data)
