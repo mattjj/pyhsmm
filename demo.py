@@ -12,7 +12,7 @@ from basic_distributions.durations import poisson
 from util.text import progprint_xrange
 
 save_images = True
-#hsmm.use_eigen()
+# hsmm.use_eigen() # using Eigen will make inference faster
 
 #### Data generation
 # Set parameters
