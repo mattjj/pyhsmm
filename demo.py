@@ -12,6 +12,7 @@ from basic_distributions.durations import poisson
 from util.text import progprint_xrange
 
 save_images = True
+#hsmm.use_eigen()
 
 #### Data generation
 # Set parameters
@@ -41,7 +42,7 @@ data, labels = truemodel.generate()
 truemodel.plot(data)
 plt.gcf().suptitle('True HSMM')
 if save_images:
-    plt.savefig('demo_images/truth.png')
+    plt.savefig('truth.png')
 
 #### Posterior inference
 # Set the weak limit truncation level. This is essentially the maximum 
@@ -58,13 +59,13 @@ posteriormodel = hsmm.hsmm(T,obs_distns,dur_distns)
 
 # Resample the model 100 times, printing a dot at each iteration
 # and plotting every so often
-plot_every = 50
+plot_every = 10
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot(data)
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
         if save_images:
-            plt.savefig('demo_images/posterior_sample_%d.png' % idx)
+            plt.savefig('posterior_sample_%d.png' % idx)
 
     posteriormodel.resample(data)
 

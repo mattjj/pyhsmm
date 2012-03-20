@@ -24,7 +24,7 @@ class hsmm(object):
         self.trans_distn = transitions.transitions(state_dim=state_dim,**kwargs) if 'transitions' not in kwargs else kwargs['transitions']
         self.init_state_distn = initial_state.initial_state(state_dim=state_dim,**kwargs) if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
 
-        self.states = states.states(T,state_dim,obs_distns,dur_distns,self.trans_distn,self.init_state_distn,trunc=trunc,**kwargs)
+        self.states = states.hsmm_states(T,state_dim,obs_distns,dur_distns,self.trans_distn,self.init_state_distn,trunc=trunc,**kwargs)
 
 
     def resample(self,obs):
@@ -87,3 +87,5 @@ class hsmm(object):
 
         # TODO add a figure legend
 
+def use_eigen():
+    states.use_eigen()
