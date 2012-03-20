@@ -30,7 +30,7 @@ You can clone this library with the usual command:
 git clone git://github.com/mattjj/py-hsmm.git
 ```
 
-The current version of the code also depends on having the [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) insatlled in the usual location of `/usr/local/include` (its default install location). In the near future, Eigen will be an optional dependency.
+There is an optional dependency on [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) insatlled in the usual location of `/usr/local/include` (its default install location), which can make the inference run much faster in many cases (and only a bit faster in others). If you install Eigen, you can enable its use by calling `hsmm.use_eigen()` or `hmm.use_eigen()` after importing those modules.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
