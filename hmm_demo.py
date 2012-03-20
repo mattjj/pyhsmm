@@ -12,9 +12,10 @@ from util.text import progprint_xrange
 
 print \
 '''
-This demo shows why HDP-HMMs fail without some kind of a sticky bias:
-without setting the number of states to be the correct number a priori,
-lots of extra states are usually intsantiated.
+This demo shows why HDP-HMMs fail without some kind of temporal regularization
+(in the form of a sticky bias or duration modeling): without setting the number
+of states to be the correct number a priori, lots of extra states are usually
+intsantiated.
 '''
 
 save_images = True
