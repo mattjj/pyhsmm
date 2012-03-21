@@ -116,14 +116,6 @@ for idx in progprint_xrange(101):
 
 ![Sampled models](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_animation.gif)
 
-To make the problem harder by tweaking the observation distributions, we can
-set `kappa_0` to be smaller (that will put the clusters more on top of each
-other), but it still does pretty well because the duration structure in the
-data and the model provide a lot of temporal regularization. We can also set `nu_0`
-to be larger to make the covariance ellipsoids look more similar (`nu_0` should
-always be larger than the observation dimension, based on the definition of the
-Normal-Inverse-Wishart distribution).
-
 ## Speed ##
 
 HSMMs constitute a much more powerful model class than plain-old HMMs, and that
@@ -131,8 +123,8 @@ enhanced power comes with a computational price: each sampling iteration for an
 HSMM is much slower than that of an HMM. But that price is often worthwhile if
 you want to place priors on state durations or have the model learn rich
 duration distributions. In addition, the increased cost of each iteration often
-pays for itself, since HSMM samplers seem to take fewer iterations to converge
-than comparable HMM samplers.
+pays for itself, since HSMM samplers empirically seem to take fewer iterations
+to converge than comparable HMM samplers.
 
 Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
 Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized

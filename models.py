@@ -32,8 +32,10 @@ class hsmm(object):
         self.obs_distns = obs_distns
         self.dur_distns = dur_distns
 
-        self.trans_distn = transitions.hsmm_transitions(state_dim=state_dim,**kwargs) if 'transitions' not in kwargs else kwargs['transitions']
-        self.init_state_distn = initial_state.initial_state(state_dim=state_dim,**kwargs) if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
+        self.trans_distn = transitions.hsmm_transitions(state_dim=state_dim,**kwargs) \
+                if 'transitions' not in kwargs else kwargs['transitions']
+        self.init_state_distn = initial_state.initial_state(state_dim=state_dim,**kwargs) \
+                if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
 
     def add_data(self,data):
         self.states_list.append(states.hsmm_states(len(data),self.state_dim,self.obs_distns,self.dur_distns,
@@ -85,7 +87,8 @@ class hsmm(object):
 
     def plot(self):
         assert len(self.obs_distns) != 0
-        assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same'
+        assert len(set([type(o) for o in self.obs_distns])) == 1, \
+                'plot can only be used when all observation distributions are the same'
 
         fig = plt.figure()
         for subfig_idx,s in enumerate(self.states_list):
@@ -188,7 +191,8 @@ class hmm(object):
                 s.resample()
 
     def generate(self,T,keep=True):
-        tempstates = states.hmm_states(T,self.state_dim,self.obs_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc)
+        tempstates = states.hmm_states(T,self.state_dim,self.obs_distns,self.trans_distn,
+                self.init_state_distn,trunc=self.trunc)
         obs,labels = tempstates.generate(), tempstates.stateseq
 
         if keep:
@@ -200,7 +204,8 @@ class hmm(object):
 
     def plot(self):
         assert len(self.obs_distns) != 0
-        assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same class'
+        assert len(set([type(o) for o in self.obs_distns])) == 1, \
+                'plot can only be used when all observation distributions are the same class'
 
         fig = plt.figure()
         for subfig_idx,s in enumerate(self.states_list):
@@ -234,7 +239,8 @@ class hmm(object):
         else:
             # we have to create a temporary one just for its methods, though the
             # details of the actual state sequence are never used
-            s = states.hmm_states(len(data),self.state_dim,self.obs_distns.self.trans_distn.self.init_state_distn,trunc=self.trunc,stateseq=np.zeros(len(data),dtype=np.uint8))
+            s = states.hmm_states(len(data),self.state_dim,self.obs_distns,self.trans_distn,
+                    self.init_state_distn,trunc=self.trunc,stateseq=np.zeros(len(data),dtype=np.uint8))
 
         aBl = s.get_aBl(data)
         betal = s.messages_backwards(aBl)
@@ -250,6 +256,8 @@ class hmm_sticky(hmm):
     def __init__(self,obs_distns,**kwargs):
         warn('the %s class is completely untested!' % type(self))
         if 'transitions' not in kwargs:
-            hmm.__init__(self,obs_distns,transitions=transitions.sticky_hdphmm_transitions(state_dim=self.state_dim,**kwargs),**kwargs)
+            hmm.__init__(self,obs_distns,
+                    transitions=transitions.sticky_hdphmm_transitions(state_dim=self.state_dim,**kwargs),
+                    **kwargs)
         else:
             hmm.__init__(self,obs_distns,**kwargs)
