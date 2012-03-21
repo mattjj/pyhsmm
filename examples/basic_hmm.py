@@ -11,14 +11,19 @@ from pyhsmm.util.text import progprint_xrange
 # pyhsmm.use_eigen() # using Eigen will usually make inference faster
 save_images = False
 
+print \
+'''
+This demo shows why HDP-HMMs fail without some kind of temporal regularization
+(in the form of a sticky bias or duration modeling): without setting the number
+of states to be the correct number a priori, lots of extra states are usually
+intsantiated.
+'''
+
 #### Data generation
 # Set parameters
 N = 4
 T = 500
 obs_dim = 2
-
-# Set duration parameters to be (10,20,30,40)
-durparams = [10.*(idx+1) for idx in xrange(N)]
 
 # Set observation hyperparameters (which control the randomly-sampled mean and
 # covariance matrices for each state)
@@ -29,17 +34,16 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 
 # Construct the true observation and duration distributions
 true_obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(N)]
-true_dur_distns = [pyhsmm.durations.poisson(lmbda=param) for param in durparams]
 
 # Build the true HSMM model
-truemodel = pyhsmm.hsmm(true_obs_distns,true_dur_distns)
+truemodel = pyhsmm.hmm(true_obs_distns)
 
 # Sample data from the true model
 data, labels = truemodel.generate(T)
 
 # Plot the truth
 truemodel.plot()
-plt.gcf().suptitle('True HSMM')
+plt.gcf().suptitle('True HMM')
 if save_images:
     plt.savefig('truth.png')
 
@@ -51,10 +55,9 @@ Nmax = 10
 # Construct the observation and duration distribution objects, which set priors
 # over parameters and then infer parameter values.
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
-dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
 
-# Build the HSMM model that will represent the posterior 
-posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns)
+# Build the HMM model that will represent the posterior 
+posteriormodel = pyhsmm.hmm(obs_distns)
 posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration and plotting
@@ -63,7 +66,7 @@ plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot()
-        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+        plt.gcf().suptitle('inferred HMM after %d iterations (arbitrary colors)' % idx)
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)
 
