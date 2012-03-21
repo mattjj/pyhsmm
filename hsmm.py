@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm
+from warnings import warn
 
 from hsmm_internals import states, initial_state, transitions
 
@@ -121,6 +122,27 @@ class hsmm(object):
             plt.title('Durations')
 
             # TODO add a figure legend
+
+    def loglike(self,data,trunc=None):
+        warn('untested')
+        T = len(data)
+        if trunc is None:
+            trunc = T
+        # make a temporary states object to make sure no data gets clobbered
+        s = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
+                self.trans_distn,self.init_state_distn,trunc=trunc)
+        s.obs = data
+        possible_durations = np.arange(1,trunc + 1,dtype=np.float64)
+        aDl = np.zeros((T,self.state_dim))
+        aDsl = np.zeros((T,self.state_dim))
+        for idx, dur_distn in enumerate(self.dur_distns):
+            aDl[:,idx] = dur_distn.log_pmf(possible_durations)
+            aDsl[:,idx] = dur_distn.log_sf(possible_durations)
+
+        s.aBl = s.get_aBl(data)
+        betal, betastarl = s.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
+        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
+
 
 def use_eigen():
     states.use_eigen()

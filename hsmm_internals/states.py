@@ -235,24 +235,6 @@ class hsmm_states_python(object):
         plt.xlim((0,self.T))
         plt.yticks([])
 
-    # TODO this method should be moved to hsmm
-    def loglike(self,data,trunc=None):
-        self.obs = data # since functions within messages_backwards look at self.obs
-        T = data.shape[0]
-        if trunc is None:
-            trunc = T
-        possible_durations = np.arange(1,T + 1,dtype=np.float64)
-        aDl = np.zeros((T,self.state_dim))
-        aDsl = np.zeros((T,self.state_dim))
-        for idx, dur_distn in enumerate(self.dur_distns):
-            aDl[:,idx] = dur_distn.log_pmf(possible_durations)
-            aDsl[:,idx] = dur_distn.log_sf(possible_durations)
-
-        self.aBl = self.get_aBl(data)
-        betal, betastarl = self.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
-        self.obs = None
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
-
 
 class hsmm_states_eigen(hsmm_states_python):
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
@@ -348,6 +330,7 @@ class hmm_states_python(object):
         return self.generate_obs()
 
     def messages_forwards(self,aBl):
+        # note: this method never uses self.T
         T = aBl.shape[0]
         alphal = np.zeros((T,self.state_dim))
         Al = np.log(self.transition_distn.A)
@@ -394,6 +377,7 @@ class hmm_states_python(object):
         return self.stateseq
 
     def get_aBl(self,data):
+        # note: this method never uses self.T
         aBl = np.zeros((data.shape[0],self.state_dim))
         for idx, obs_distn in enumerate(self.obs_distns):
             aBl[:,idx] = obs_distn.log_likelihood(data)
@@ -414,16 +398,6 @@ class hmm_states_python(object):
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])
-
-    # TODO this method could be moved to hmm.py
-    # or should it be? how is this structured with sub-hmms? worry about that
-    # later...
-    # maybe i should be able to call hmm.loglike without instantiating a states
-    # object... that can be the interface for both of them!
-    def loglike(self,data):
-        aBl = self.get_aBl(data)
-        betal = self.messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
 
 
 class hmm_states_eigen(hmm_states_python):
@@ -447,6 +421,7 @@ class hmm_states_eigen(hmm_states_python):
             self.generate_states()
 
     def messages_forwards(self,aBl):
+        # note: this method never uses self.T
         T = aBl.shape[0]
         alphal = np.zeros((T,self.state_dim))
         alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]

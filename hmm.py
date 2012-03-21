@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm
+from warnings import warn
 
 from hsmm_internals import states, initial_state, transitions
 
@@ -62,7 +63,7 @@ class hmm(object):
 
     def plot(self):
         assert len(self.obs_distns) != 0
-        assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same'
+        assert len(set([type(o) for o in self.obs_distns])) == 1, 'plot can only be used when all observation distributions are the same class'
 
         fig = plt.figure()
         for subfig_idx,s in enumerate(self.states_list):
@@ -88,6 +89,19 @@ class hmm(object):
             plt.subplot(2,len(self.states_list),1+len(self.states_list)+subfig_idx)
             s.plot(colors_dict=state_colors)
             plt.title('State Sequence')
+
+    def loglike(self,data):
+        warn('untested')
+        if len(self.states_list) > 0:
+            s = self.states_list[0]
+        else:
+            # we have to create a temporary one just for its methods, though the
+            # details of the actual state sequence are never used
+            s = states.hmm_states(len(data),self.state_dim,self.obs_distns.self.trans_distn.self.init_state_distn,trunc=self.trunc,stateseq=np.zeros(len(data),dtype=np.uint8))
+
+        aBl = s.get_aBl(data)
+        betal = s.messages_backwards(aBl)
+        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
 
 def use_eigen():
     states.use_eigen()
