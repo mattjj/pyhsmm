@@ -1,5 +1,5 @@
 ## Sampling Inference for Bayesian HSMMs ##
-`py-hsmm` is a nascent Python library for approximate unsupervised sampling
+`pyhsmm` is a nascent Python library for approximate unsupervised sampling
 inference in Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden
 semi-Markov Models (HSMMs), focusing on the Bayesian Nonparametric extensions,
 the HDP-HMM and HDP-HSMM, via the weak-limit approximation. 
@@ -27,14 +27,14 @@ Maximization (EM) algorithm.)
 You can clone this library with the usual command:
 
 ```
-git clone git://github.com/mattjj/py-hsmm.git
+git clone git://github.com/mattjj/pyhsmm.git
 ```
 
-There is an optional dependency on [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the usual location of `/usr/local/include` (its default install location), which can make the inference run much faster in many cases (and only a bit faster in others). If you install Eigen, you can enable its use by calling `hsmm.use_eigen()` or `hmm.use_eigen()` after importing those modules.
+There is an optional dependency on [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the usual location of `/usr/local/include` (its default install location), which can make the inference run much faster in many cases (and only a bit faster in others). If you install Eigen, you can enable its use by calling `pyhsmm.use_eigen()` after importing `pyhsmm`.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
-observations. (The same process is in `demo.py`.)
+observations. (The same example can be found in `examples/basic.py`.)
 
 First, we'll generate a sequence of observations from a 4-state HSMM with
 Poisson durations and 2D Gaussian emissions. Our observation sequence will be
@@ -46,9 +46,7 @@ just sampling random 2D Gaussian distributions.
 # imports
 import numpy as np
 from matplotlib import pyplot as plt
-import hsmm
-from basic_distributions.observations import gaussian
-from basic_distributions.durations import poisson
+import pyhsmm
 
 # set parameters and hyperparameters
 N = 4; T = 500; obs_dim = 2
@@ -59,11 +57,11 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'nu_0':obs_dim+2}
 
 # instantiate the distribution objects
-true_obs_distns = [gaussian(**obs_hypparams) for state in xrange(N)]
-true_dur_distns = [poisson(lmbda=param) for param in durparams]
+true_obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(N)]
+true_dur_distns = [pyhsmm.durations.poisson(lmbda=param) for param in durparams]
 
 # build the true HSMM
-truemodel = hsmm.hsmm(truth_obs_distns,truth_dur_distns)
+truemodel = pyhsmm.hsmm(truth_obs_distns,truth_dur_distns)
 ```
 
 Next, we'll sample some data from the model and plot the model on top of the
@@ -87,10 +85,10 @@ by default), so we'll give it an `Nmax` parameter instead of telling it `N=4`:
 
 ```python
 Nmax = 10
-obs_distns = [gaussian(**obs_hypparams) for state in xrange(Nmax)]
-dur_distns = [poisson() for state in xrange(Nmax)]
+obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
+dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
 
-posteriormodel = hsmm.hsmm(obs_distns,dur_distns)
+posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns)
 ```
 
 Then, we add the data we want to condition on:
@@ -125,9 +123,20 @@ to be larger to make the covariance ellipsoids look more similar (`nu_0` should
 always be larger than the observation dimension, based on the definition of the
 Normal-Inverse-Wishart distribution).
 
+## Speed ##
+
+HSMMs constitute a much more powerful model class than plain-old HMMs, and that
+enhanced power comes with a computational price: each sampling iteration for an
+HSMM is much slower than that of an HMM. But that price is often worthwhile if
+you want to place priors on state durations or have the model learn rich
+duration distributions. In addition, the increased cost of each iteration often
+pays for itself, since HSMM samplers seem to take fewer iterations to converge
+than comparable HMM samplers.
+
 Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
 Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized
-operations), here's how long the iterations took:
+operations) along with `pyhsmm.use_eigen()`, here's how long the demo
+iterations took:
 
 ```
 In [1]: run demo
