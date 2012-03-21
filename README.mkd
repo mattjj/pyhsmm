@@ -1,6 +1,6 @@
 ## Sampling Inference for Bayesian HSMMs ##
 `py-hsmm` is a nascent Python library for approximate sampling inference in
-Bayesian Hidden Markov Models (HMMs) and expilcit-duration Hidden semi-Markov
+Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
 and HDP-HSMM, via the weak-limit approximation. 
 
@@ -70,7 +70,7 @@ Next, we'll sample some data from the model and plot the model on top of the
 data
 
 ```python
-data, labels = truthmodel.generate(T)
+data, labels = truemodel.generate(T)
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 ```
