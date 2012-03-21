@@ -119,14 +119,15 @@ for idx in progprint_xrange(101):
 
 To make the problem harder by tweaking the observation distributions, we can
 set `kappa_0` to be smaller (that will put the clusters more on top of each
-other), but it still does pretty well because of the duration statistics. We
-can also set `nu_0` to be larger to make the covariance ellipsoids look more
-similar (`nu_0` should always be larger than the observation dimension, based on
-the definition of the Normal-Inverse-Wishart distribution).
+other), but it still does pretty well because the duration structure in the
+data and the model provide a lot of temporal regularization. We can also set `nu_0`
+to be larger to make the covariance ellipsoids look more similar (`nu_0` should
+always be larger than the observation dimension, based on the definition of the
+Normal-Inverse-Wishart distribution).
 
-Using my i7-920 desktop machine and a NumPy/SciPy built against Intel's MKL
-BLAS (which generally outperforms ATLAS for these vectorized operations),
-here's how long the iterations took:
+Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
+Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized
+operations), here's how long the iterations took:
 
 ```
 In [1]: run demo
