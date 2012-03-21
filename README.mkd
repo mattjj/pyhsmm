@@ -46,6 +46,7 @@ just sampling random 2D Gaussian distributions.
 # imports
 import numpy as np
 from matplotlib import pyplot as plt
+
 import pyhsmm
 
 # set parameters and hyperparameters
