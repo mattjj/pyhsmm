@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
 
-from hsmm_internals import states, initial_state, transitions
+from .hsmm_internals import states, initial_state, transitions
 
 class hsmm(object):
     '''

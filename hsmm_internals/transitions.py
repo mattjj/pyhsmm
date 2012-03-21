@@ -172,3 +172,13 @@ class hmm_transitions(object):
 
         self.resample_A(data)
 
+
+# TODO add self-transition bias
+class ltr_hmm_transitions(hmm_transitions):
+    '''upper triangle only'''
+    def resample_A(self,data):
+        self.A = stats.gamma.rvs(self.gamma/self.state_dim + data)
+        self.A = np.triu(self.A)
+        self.A /= np.sum(self.A,axis=1)[:,na]
+        assert not np.isnan(self.A).any()
+

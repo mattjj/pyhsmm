@@ -6,12 +6,12 @@ from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.rcParams['font.size'] = 8
 
-import hsmm
-from basic_distributions.observations import gaussian
-from basic_distributions.durations import poisson
-from util.text import progprint_xrange
+from pyhsmm import hsmm
+from pyhsmm.basic_distributions.observations import gaussian
+from pyhsmm.basic_distributions.durations import poisson
+from pyhsmm.util.text import progprint_xrange
 
-save_images = True
+save_images = False
 # hsmm.use_eigen() # using Eigen will make inference faster
 
 #### Data generation
