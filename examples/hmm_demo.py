@@ -6,9 +6,12 @@ from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.rcParams['font.size'] = 8
 
-from . import hmm
-from .basic_distributions.observations import gaussian
-from .util.text import progprint_xrange
+import pyhsmm
+# pyhsmm.use_eigen()
+
+from pyhsmm.models import hmm
+from pyhsmm.basic_distributions.observations import gaussian
+from pyhsmm.util.text import progprint_xrange
 
 print \
 '''

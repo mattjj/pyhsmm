@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.stats as stats
-from ..util.stats import sample_discrete
+
+from pyhsmm.util.stats import sample_discrete
 
 # TODO this just repeats code from multinomial distribution in observations.py.
 # I should figure out a better way to organize these things.

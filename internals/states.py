@@ -3,8 +3,8 @@ from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
 
-from ..util.stats import sample_discrete
-from ..util import general as util # perhaps a confusing name :P
+from pyhsmm.util.stats import sample_discrete
+from pyhsmm.util import general as util # perhaps a confusing name :P
 
 eigen_code_dir = 'hsmm_internals/cpp_eigen_code/'
 
@@ -386,7 +386,7 @@ class hmm_states_python(object):
 
     def plot(self,colors_dict=None):
         from matplotlib import pyplot as plt
-        from ..util.general import rle
+        from pyhsmm.util.general import rle
         states,durations = rle(self.stateseq)
         X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
 
@@ -448,8 +448,12 @@ class hmm_states_eigen(hmm_states_python):
 hsmm_states = hsmm_states_python
 hmm_states = hmm_states_python
 
-def use_eigen():
+def use_eigen(useit=True):
     global hsmm_states, hmm_states
-    hsmm_states = hsmm_states_eigen
-    hmm_states = hmm_states_eigen
+    if useit:
+        hsmm_states = hsmm_states_eigen
+        hmm_states = hmm_states_eigen
+    else:
+        hsmm_states = hsmm_states_python
+        hmm_states = hmm_states_python
 
