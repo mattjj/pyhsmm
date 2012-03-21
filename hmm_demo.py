@@ -6,9 +6,9 @@ from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.rcParams['font.size'] = 8
 
-import hmm
-from basic_distributions.observations import gaussian
-from util.text import progprint_xrange
+from . import hmm
+from .basic_distributions.observations import gaussian
+from .util.text import progprint_xrange
 
 print \
 '''

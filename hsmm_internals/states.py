@@ -3,8 +3,8 @@ from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
 
-from util.stats import sample_discrete
-from util import general as util
+from ..util.stats import sample_discrete
+from ..util import general as util # perhaps a confusing name :P
 
 eigen_code_dir = 'hsmm_internals/cpp_eigen_code/'
 
@@ -262,8 +262,9 @@ class hsmm_states_eigen(hsmm_states_python):
             self.generate_states()
 
     def sample_forwards(self,betal,betastarl):
+        # TODO this is broken for subhmm_states subclass
         aBl = self.aBl
-        stateseq = np.array(self.stateseq,dtype=np.int32) # TODO this may have to be changed on a per-machine basis
+        stateseq = np.array(self.stateseq,dtype=np.int32)
         A = self.transition_distn.A
         pi0 = self.initial_distn.pi_0
 
@@ -385,7 +386,7 @@ class hmm_states_python(object):
 
     def plot(self,colors_dict=None):
         from matplotlib import pyplot as plt
-        from util.general import rle
+        from ..util.general import rle
         states,durations = rle(self.stateseq)
         X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
 

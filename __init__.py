@@ -1,2 +1,3 @@
-__all__ = ["hsmm","hmm"]
+__all__ = ["hsmm","hmm","examples"]
+from . import hsmm, hmm, examples
 

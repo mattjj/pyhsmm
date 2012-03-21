@@ -3,8 +3,8 @@ import numpy as np
 import scipy.stats as stats
 from matplotlib import pyplot as plt
 
-from abstractions import ObservationBase
-from util.stats import sample_niw, sample_discrete
+from ..abstractions import ObservationBase
+from ..util.stats import sample_niw, sample_discrete
 
 
 '''
@@ -94,7 +94,7 @@ class gaussian(ObservationBase):
             o.global_vecs = vecs
 
     def plot(self,data=None,color='b'):
-        from util.plot import project_data, plot_gaussian_projection, pca
+        from ..util.plot import project_data, plot_gaussian_projection, pca
         
         # if global projection vecs exist, use those
         # otherwise, when dim>2, do a pca on the data

@@ -1,8 +1,8 @@
 from __future__ import division
 from warnings import warn
 
-from hmm import hmm
-from hsmm_internals import states, transitions
+from .hmm import hmm
+from .hsmm_internals import states, transitions
 
 # TODO this is UNTESTED
 
