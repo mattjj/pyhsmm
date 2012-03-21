@@ -145,7 +145,7 @@ In [1]: run demo
 To add your own observation or duration distributions, implement the interfaces defined in `abstractions.py`.
 
 ## References ##
-* Matthew J. Johnson and Alan S. Willsky, "Bayesian Nonparametric Hidden Semi-Markov Models." arXiv:1203.1365v1
+* Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v1
 
-* Matthew J. Johnson and Alan S. Willsky, "The Hierarchical Dirichlet Process Hidden Semi-Markov Model." 26th Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon, California, July 2010.
+* Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon, California, July 2010.
 
