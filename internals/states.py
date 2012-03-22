@@ -6,7 +6,8 @@ import scipy.weave
 from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util import general as util # perhaps a confusing name :P
 
-eigen_code_dir = 'hsmm_internals/cpp_eigen_code/'
+import os
+eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 
 class hsmm_states_python(object): 
     '''

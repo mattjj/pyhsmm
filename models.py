@@ -90,7 +90,7 @@ class hsmm(object):
         assert len(set([type(o) for o in self.obs_distns])) == 1, \
                 'plot can only be used when all observation distributions are the same'
 
-        fig = plt.figure()
+        fig = plt.gcf()
         for subfig_idx,s in enumerate(self.states_list):
             # set up figure and state-color mapping dict
             fig.set_size_inches((6,6))
@@ -207,7 +207,7 @@ class hmm(object):
         assert len(set([type(o) for o in self.obs_distns])) == 1, \
                 'plot can only be used when all observation distributions are the same class'
 
-        fig = plt.figure()
+        fig = plt.gcf()
         for subfig_idx,s in enumerate(self.states_list):
             # set up figure and state-color mapping dict
             fig.set_size_inches((6,6))
