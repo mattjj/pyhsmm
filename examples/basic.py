@@ -8,8 +8,11 @@ matplotlib.rcParams['font.size'] = 8
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-# pyhsmm.use_eigen() # using Eigen will usually make inference faster
+pyhsmm.use_eigen() # using Eigen will usually make inference faster
 save_images = False
+
+# plt.figure().suptitle('close this thing')
+# plt.show()
 
 #### Data generation
 # Set parameters
@@ -38,6 +41,7 @@ truemodel = pyhsmm.hsmm(true_obs_distns,true_dur_distns)
 data, labels = truemodel.generate(T)
 
 # Plot the truth
+plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 if save_images:
@@ -54,16 +58,19 @@ obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(
 dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
 
 # Build the HSMM model that will represent the posterior 
-posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns)
+posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=70)
 posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration and plotting
 # every so often
-plot_every = 25
+plot_every = 10
+fig = plt.figure()
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
+        plt.gcf().clf()
         posteriormodel.plot()
         plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+        plt.draw()
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)
 
