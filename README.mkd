@@ -89,8 +89,15 @@ Nmax = 10
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns)
+posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=75)
 ```
+
+The `trunc` parameter is an optional argument that can speed up inference: it
+sets a truncation limit on the maximum duration for any state, and so if the
+duration distributions are pretty much zero past a certain point, setting
+`trunc` can be a big performance gain without any loss in accuracy. If you
+don't pass in the `trunc` argument, no truncation is used and all possible
+state duration lengths are considered.
 
 Then, we add the data we want to condition on:
 
@@ -132,13 +139,13 @@ operations) along with `pyhsmm.use_eigen()`, here's how long the demo
 iterations took:
 
 ```
-In [1]: run demo
-.........................  [  25/101,    0.13sec avg,    9.63sec ETA ]
-.........................  [  50/101,    0.12sec avg,    5.98sec ETA ]
-.........................  [  75/101,    0.12sec avg,    3.10sec ETA ]
-.........................  [ 100/101,    0.12sec avg,    0.12sec ETA ]
+$ python -m pyhsmm.examples.basic
+.........................  [  25/101,    0.05sec avg,    3.95sec ETA ]
+.........................  [  50/101,    0.05sec avg,    2.64sec ETA ]
+.........................  [  75/101,    0.05sec avg,    1.34sec ETA ]
+.........................  [ 100/101,    0.05sec avg,    0.05sec ETA ]
 .
-   0.12sec avg,   12.06sec total
+   0.05sec avg,    5.21sec total
 ```
 
 ## Extending the Code ##
