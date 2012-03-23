@@ -93,11 +93,9 @@ posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=75)
 ```
 
 The `trunc` parameter is an optional argument that can speed up inference: it
-sets a truncation limit on the maximum duration for any state, and so if the
-duration distributions are pretty much zero past a certain point, setting
-`trunc` can be a big performance gain without any loss in accuracy. If you
-don't pass in the `trunc` argument, no truncation is used and all possible
-state duration lengths are considered.
+sets a truncation limit on the maximum duration for any state. If you don't
+pass in the `trunc` argument, no truncation is used and all possible state
+duration lengths are considered.
 
 Then, we add the data we want to condition on:
 
