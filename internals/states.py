@@ -50,7 +50,10 @@ class hsmm_states_python(object):
             # gather durations and stateseq_norep
             self.stateseq_norep, self.durations = util.rle(stateseq)
         else:
-            self.generate_states()
+            if data is not None:
+                self.resample()
+            else:
+                self.generate_states()
 
     def generate(self):
         self.generate_states()
@@ -260,10 +263,12 @@ class hsmm_states_eigen(hsmm_states_python):
             # gather durations and stateseq_norep
             self.stateseq_norep, self.durations = util.rle(stateseq)
         else:
-            self.generate_states()
+            if data is not None:
+                self.resample()
+            else:
+                self.generate_states()
 
     def sample_forwards(self,betal,betastarl):
-        # TODO this is broken for subhmm_states subclass
         aBl = self.aBl
         stateseq = np.array(self.stateseq,dtype=np.int32)
         A = self.transition_distn.A
@@ -306,7 +311,10 @@ class hmm_states_python(object):
         if stateseq is not None:
             self.stateseq = stateseq
         else:
-            self.generate_states()
+            if data is not None:
+                self.resample()
+            else:
+                self.generate_states()
 
     def generate_states(self):
         T = self.T
@@ -325,7 +333,7 @@ class hmm_states_python(object):
         obs = []
         for state in self.stateseq:
             obs.append(self.obs_distns[state].rvs(size=1))
-        return np.vstack(obs).copy()
+        return np.vstack(obs)
 
     def generate(self):
         self.generate_states()
@@ -333,6 +341,7 @@ class hmm_states_python(object):
 
     def messages_forwards(self,aBl):
         # note: this method never uses self.T
+        # or self.data
         T = aBl.shape[0]
         alphal = np.zeros((T,self.state_dim))
         Al = np.log(self.transition_distn.A)
@@ -403,24 +412,24 @@ class hmm_states_python(object):
 
 
 class hmm_states_eigen(hmm_states_python):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
         self.state_dim = state_dim
         self.obs_distns = obs_distns
         self.transition_distn = transition_distn
         self.initial_distn = initial_distn
         self.T = T
         self.data = data
-        if trunc is None:
-            trunc = self.T
-        self.trunc = trunc
 
         with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
-            self.messages_forwards_codestr = infile.read() % {'M':self.state_dim,'T':self.trunc}
+            self.messages_forwards_codestr = infile.read()
 
         if stateseq is not None:
             self.stateseq = stateseq
         else:
-            self.generate_states()
+            if data is not None:
+                self.resample()
+            else:
+                self.generate_states()
 
     def messages_forwards(self,aBl):
         # note: this method never uses self.T
@@ -429,7 +438,14 @@ class hmm_states_eigen(hmm_states_python):
         alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
         A = self.transition_distn.A # eigen sees this transposed
 
-        scipy.weave.inline(self.messages_forwards_codestr,['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        # TODO TODO change the eigen code to pass in T
+        # current version compiles a different version for every value of T if T
+        # is usually trunc, that's okay but if we call this method a lot with
+        # different T's, it could be annoying to have all the different compiled
+        # versions floating around in scipy.weave's memory (and disk) caches,
+        # and so the eigen code should be changed to use a runtime constant
+        # plus, paying a string interpolation cost every time is kind of silly
+        scipy.weave.inline(self.messages_forwards_codestr % {'M':self.state_dim,'T':T},['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         assert not np.isnan(alphal).any()
         return alphal
@@ -439,7 +455,7 @@ class hmm_states_eigen(hmm_states_python):
         return hmm_states_python.messages_backwards(self,aBl)
 
     def sample_forwards(self,aBl,betal):
-        # TODO write eigen version
+        # TODO TODO write eigen version
         self.stateseq = hmm_states_python.sample_forwards(self,aBl,betal)
         return self.stateseq
 
