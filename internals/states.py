@@ -9,6 +9,9 @@ from pyhsmm.util import general as util # perhaps a confusing name :P
 import os
 eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 
+# TODO move eigen code loading into global code, string interpolation can still
+# be local
+
 class hsmm_states_python(object): 
     '''
     HSMM states distribution class. Connects the whole model.
