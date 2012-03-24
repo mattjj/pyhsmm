@@ -166,19 +166,6 @@ class hsmm(hmm):
         super(hsmm,self).resample()
 
     def generate(self,T,keep=True):
-        '''
-        Generates a forward sample using the current values of all parameters.
-        Returns an observation sequence and a state sequence of length T.
-
-        If keep is True, the states object created is appended to the
-        states_list. This is mostly useful for generating synthetic data and
-        keeping it around in an HSMM object as the latent truth.
-
-        To construct a posterior sample, one must call both the add_data and
-        resample methods first. Then, calling generate() will produce a sample
-        from the posterior (as long as the Gibbs sampling has converged). In
-        these cases, the keep argument should be False.
-        '''
         tempstates = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
         return self._generate(tempstates,keep)
