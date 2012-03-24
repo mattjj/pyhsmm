@@ -273,7 +273,8 @@ class hsmm_states_eigen(hsmm_states_python):
 
     def sample_forwards(self,betal,betastarl):
         aBl = self.aBl
-        stateseq = np.array(self.stateseq,dtype=np.int32)
+        # stateseq = np.array(self.stateseq,dtype=np.int32)
+        stateseq = np.zeros(betal.shape[0],dtype=np.int32)
         A = self.transition_distn.A
         pi0 = self.initial_distn.pi_0
 

@@ -12,7 +12,7 @@ class hmm(object):
     packages all the components.
     '''
 
-    def __init__(self,obs_distns,**kwargs):
+    def __init__(self,obs_distns,trunc=None,**kwargs):
         self.state_dim = len(obs_distns)
 
         self.obs_distns = obs_distns
@@ -24,7 +24,8 @@ class hmm(object):
                 if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
 
         # TODO should hmms really have a trunc parameter?
-        self.trunc = None if 'trunc' not in kwargs else kwargs['trunc']
+        # i should ack for all refs. for subhmm class it may make sense.
+        self.trunc = trunc
 
         self.states_list = []
 
@@ -33,15 +34,12 @@ class hmm(object):
                 self.init_state_distn,data=data,trunc=self.trunc))
 
     def resample(self):
-        # resample states
-        for s in self.states_list:
-            s.resample()
-
         # resample obsparams
         for state, distn in enumerate(self.obs_distns):
-            all_durations = [s.data[s.stateseq == state] for s in self.states_list]
-            if len(all_durations) > 0:
-                distn.resample(np.concatenate(all_durations))
+            # TODO make obs distns take lols
+            all_obs = [s.data[s.stateseq == state] for s in self.states_list]
+            if len(all_obs) > 0:
+                distn.resample(np.concatenate(all_obs))
             else:
                 distn.resample()
 
@@ -51,13 +49,34 @@ class hmm(object):
         # resample pi_0
         self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
 
+        # resample states
+        for s in self.states_list:
+            s.resample()
+
     def generate(self,T,keep=True):
+        '''
+        Generates a forward sample using the current values of all parameters.
+        Returns an observation sequence and a state sequence of length T.
+
+        If keep is True, the states object created is appended to the
+        states_list. This is mostly useful for generating synthetic data and
+        keeping it around in an HSMM object as the latent truth.
+
+        To construct a posterior sample, one must call both the add_data and
+        resample methods first. Then, calling generate() will produce a sample
+        from the posterior (as long as the Gibbs sampling has converged). In
+        these cases, the keep argument should be False.
+        '''
         tempstates = states.hmm_states(T,self.state_dim,self.obs_distns,self.trans_distn,
                 self.init_state_distn,trunc=self.trunc)
+
+        return self._generate(tempstates,keep)
+
+    def _generate(self,tempstates,keep):
         obs,labels = tempstates.generate(), tempstates.stateseq
 
         if keep:
-            tempstates.added_with_generate = True
+            tempstates.added_with_generate = True # I love Python
             tempstates.data = obs
             self.states_list.append(tempstates)
 
@@ -96,7 +115,7 @@ class hmm(object):
     def loglike(self,data):
         warn('untested')
         if len(self.states_list) > 0:
-            s = self.states_list[0]
+            s = self.states_list[0] # any state sequence object will work
         else:
             # we have to create a temporary one just for its methods, though the
             # details of the actual state sequence are never used
@@ -108,7 +127,7 @@ class hmm(object):
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
 
 
-class hsmm(object):
+class hsmm(hmm):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
         * HSMM internals, including distribution objects for
@@ -126,45 +145,25 @@ class hsmm(object):
     '''
 
     def __init__(self,obs_distns,dur_distns,trunc=None,**kwargs):
-        state_dim = len(obs_distns)
-        self.state_dim = state_dim
         self.trunc = trunc
-        self.states_list = []
-
-        self.obs_distns = obs_distns
         self.dur_distns = dur_distns
-
-        self.trans_distn = transitions.hsmm_transitions(state_dim=state_dim,**kwargs) \
-                if 'transitions' not in kwargs else kwargs['transitions']
-        self.init_state_distn = initial_state.initial_state(state_dim=state_dim,**kwargs) \
-                if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
+        super(hsmm,self).__init__(obs_distns,trunc=trunc,**kwargs) # TODO remove trunc
 
     def add_data(self,data):
         self.states_list.append(states.hsmm_states(len(data),self.state_dim,self.obs_distns,self.dur_distns,
             self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
 
     def resample(self):
-        # resample obsparams
-        for state, distn in enumerate(self.obs_distns):
-            all_durations = [s.data[s.stateseq == state] for s in self.states_list]
-            if len(all_durations) > 0:
-                distn.resample(np.concatenate(all_durations))
+        # resample durparams
+        for state, distn in enumerate(self.dur_distns):
+            all_durs = [s.durations[s.stateseq_norep == state] for s in self.states_list]
+            if len(all_durs) > 0:
+                distn.resample(np.concatenate(all_durs))
             else:
                 distn.resample()
 
-        # resample durparams
-        for state, distn in enumerate(self.dur_distns):
-            distn.resample(np.concatenate([s.durations[s.stateseq_norep == state] for s in self.states_list]))
-
-        # resample transitions
-        self.trans_distn.resample([s.stateseq_norep for s in self.states_list])
-
-        # resample pi_0
-        self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
-
-        # resample states
-        for s in self.states_list:
-            s.resample()
+        # resample everything else an hmm does
+        super(hsmm,self).resample()
 
     def generate(self,T,keep=True):
         '''
@@ -182,14 +181,7 @@ class hsmm(object):
         '''
         tempstates = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
-        obs, labels = tempstates.generate(), tempstates.stateseq
-
-        if keep:
-            tempstates.added_with_generate = True # I love Python
-            tempstates.data = obs
-            self.states_list.append(tempstates)
-
-        return obs, labels
+        return self._generate(tempstates,keep)
 
     def plot(self):
         assert len(self.obs_distns) != 0
