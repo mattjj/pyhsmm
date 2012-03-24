@@ -3,7 +3,7 @@ import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
 
-# TODO maybe these shouldn't have default arguments...
+# TODO maybe these shouldn't have default arguments... clean that up
 
 class hsmm_transitions(object):
     '''
@@ -139,12 +139,14 @@ class hdphmm_transitions(object):
 class sticky_hdphmm_transitions(hdphmm_transitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
-        hdphmm_transitions.__init__(self,*args,**kwargs)
+        super(sticky_hdphmm_transitions,self).__init__(*args,**kwargs)
 
     def resample_A(self,data):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
-        hdphmm_transitions.resample_A(self,aug_data)
+        super(sticky_hdphmm_transitions,self).resample_A(aug_data)
 
+
+# TODO a sticky ltr hdp-hmm? does that make sense?
 
 class hmm_transitions(object):
     def __init__(self,state_dim,gamma=8.,self_trans=0.,A=None,**kwargs):
@@ -182,3 +184,11 @@ class ltr_hmm_transitions(hmm_transitions):
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
+class sticky_ltr_hmm_transitions(ltr_hmm_transitions):
+    def __init__(self,kappa,*args,**kwargs):
+        self.kappa = kappa
+        super(sticky_ltr_hmm_transitions,self).__init__(*args,**kwargs)
+
+    def resample_A(self,data):
+        aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
+        super(sticky_ltr_hmm_transitions,self).resample_A(aug_data)
