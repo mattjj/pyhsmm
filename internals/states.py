@@ -237,7 +237,7 @@ class hsmm_states_python(object):
         else:
             C = self.stateseq_norep[na,:]
 
-        plt.pcolor(X,Y,C) # NOTE: pcolor normalizes C when called this way
+        plt.pcolor(X,Y,C,vmin=0,vmax=1)
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])
@@ -409,7 +409,7 @@ class hmm_states_python(object):
         else:
             C = states
 
-        plt.pcolor(X,Y,C) # NOTE: pcolor normalizes C when called this way
+        plt.pcolor(X,Y,C,vmin=0,vmax=1)
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])

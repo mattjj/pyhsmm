@@ -3,6 +3,8 @@ import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
 
+from pyhsmm.util.general import rle
+
 # TODO maybe these shouldn't have default arguments... clean that up
 
 class hsmm_transitions(object):
@@ -30,12 +32,11 @@ class hsmm_transitions(object):
             self.beta = beta
             self.fullA = fullA
 
-    def resample(self,states_noreps=[]):
-        # TODO these checks are for compatibility with old versions; they can probably be removed
-        if type(states_noreps) != type([]):
-            states_noreps = [states_noreps]
-        for states_norep in states_noreps:
-            assert type(states_norep) == type(np.array([]))
+    def resample(self,stateseqs=[]):
+        if type(stateseqs) != type([]):
+            stateseqs = [stateseqs]
+
+        states_noreps = map(lambda x: rle(x)[0], stateseqs)
 
         if not any(len(states_norep) >= 2 for states_norep in states_noreps):
             # if there is no data we just sample from the prior

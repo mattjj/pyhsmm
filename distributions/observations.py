@@ -89,7 +89,6 @@ class gaussian(ObservationBase):
 
     def plot(self,data=None,color='b'):
         from pyhsmm.util.plot import project_data, plot_gaussian_projection, pca
-        
         # if global projection vecs exist, use those
         # otherwise, when dim>2, do a pca on the data
         try:
