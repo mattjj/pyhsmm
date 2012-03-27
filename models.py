@@ -3,7 +3,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
-import operator
 
 from pyhsmm.internals import states, initial_state, transitions
 
@@ -79,7 +78,7 @@ class hmm(object):
 
         return obs, labels
 
-    def plot(self,separate_sequence_subplots=True,color=None):
+    def plot(self,color=None):
         assert len(self.obs_distns) != 0
         assert len(set([type(o) for o in self.obs_distns])) == 1, \
                 'plot can only be used when all observation distributions are the same class'
@@ -89,23 +88,19 @@ class hmm(object):
         fig.set_size_inches((6,6))
         state_colors = {}
         cmap = cm.get_cmap()
-        used_states = reduce(operator.add,[set(s.stateseq_norep) for s in self.states_list])
+        used_states = reduce(set.union,[set(s.stateseq) for s in self.states_list])
         num_states = len(used_states)
+        num_subfig_cols = len(self.states_list)
         for idx,state in enumerate(used_states):
             state_colors[state] = idx/(num_states-1) if color is None else color
 
         for subfig_idx,s in enumerate(self.states_list):
-            if not separate_sequence_subplots:
-                subfig_idx = 0
-                num_subfig_cols = 1
-            else:
-                num_subfig_cols = len(self.states_list)
 
             # plot the current observation distributions (and obs, if given)
             plt.subplot(2,num_subfig_cols,1+subfig_idx)
             self.obs_distns[0]._plot_setup(self.obs_distns)
             for state,o in enumerate(self.obs_distns):
-                if state in s.stateseq_norep:
+                if state in s.stateseq:
                     o.plot(color=cmap(state_colors[state]),
                             data=s.data[s.stateseq == state] if s.data is not None else None)
             plt.title('Observation Distributions')
@@ -171,38 +166,15 @@ class hsmm(hmm):
             else:
                 distn.resample()
 
-        # TODO the easy super call doesn't work because hsmms resample using
-        # s.stateseq_norep instead of s.stateseq. if i fix that naming
-        # convention, the below code can be reused from hmm superclass
-        # resample everything else an hmm does. OR i could have hsmm transitions
-        # take stateseq instead of stateseq_norep...
-        # super(hsmm,self).resample()
-
-        # resample obsparams
-        for state, distn in enumerate(self.obs_distns):
-            # TODO make obs distns take lols
-            all_obs = [s.data[s.stateseq == state] for s in self.states_list]
-            if len(all_obs) > 0:
-                distn.resample(np.concatenate(all_obs))
-            else:
-                distn.resample()
-
-        # resample transitions
-        self.trans_distn.resample([s.stateseq_norep for s in self.states_list])
-
-        # resample pi_0
-        self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
-
-        # resample states
-        for s in self.states_list:
-            s.resample()
+        # resample everything else an hmm does
+        super(hsmm,self).resample()
 
     def generate(self,T,keep=True):
         tempstates = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
         return self._generate(tempstates,keep)
 
-    def plot(self,separate_sequence_subplots=True,color=None):
+    def plot(self,color=None):
         assert len(self.obs_distns) != 0
         assert len(set([type(o) for o in self.obs_distns])) == 1, \
                 'plot can only be used when all observation distributions are the same'
@@ -212,26 +184,13 @@ class hsmm(hmm):
         fig.set_size_inches((6,6))
         state_colors = {}
         cmap = cm.get_cmap()
-        used_states = reduce(operator.add,[set(s.stateseq_norep) for s in self.states_list])
+        used_states = reduce(set.union,[set(s.stateseq_norep) for s in self.states_list])
         num_states = len(used_states)
         for idx,state in enumerate(used_states):
             state_colors[state] = idx/(num_states-1) if color is None else color
 
         for subfig_idx,s in enumerate(self.states_list):
-            if not separate_sequence_subplots:
-                subfig_idx = 0
-                num_subfig_cols = 1
-            else:
-                num_subfig_cols = len(self.states_list)
-
-            # set up figure and state-color mapping dict
-            fig.set_size_inches((6,6))
-            state_colors = {}
-            cmap = cm.get_cmap()
-            used_states = set(s.stateseq_norep)
-            num_states = len(used_states)
-            for idx,state in enumerate(set(s.stateseq)):
-                state_colors[state] = idx/(num_states-1)
+            num_subfig_cols = len(self.states_list)
 
             # plot the current observation distributions (and obs, if given)
             plt.subplot(3,num_subfig_cols,1+subfig_idx)
@@ -285,7 +244,6 @@ class hmm_sticky(hmm):
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
     '''
-
     def __init__(self,obs_distns,**kwargs):
         warn('the %s class is completely untested!' % type(self))
         if 'transitions' not in kwargs:
