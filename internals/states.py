@@ -183,7 +183,7 @@ class hsmm_states_python(object):
             apmf[state_idx] = dur_distn.pmf(arg)
 
         while idx < self.T:
-            logdomain = betastarl[idx,:] - np.amax(betastarl[idx])
+            logdomain = betastarl[idx] - np.amax(betastarl[idx])
             nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
             if (nextstate_distr == 0.).all():
                 # this is a numerical issue; no good answer, so we'll just follow the messages.
@@ -204,7 +204,7 @@ class hsmm_states_python(object):
                     dur += 1
                     continue
                 if idx+dur < self.T:
-                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state])
+                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state]) # TODO slow for subhmms
                     p_d = mess_term * p_d_marg
                     #print 'dur: %d, durprob: %f, p_d_marg: %f, p_d: %f' % (dur+1,durprob,p_d_marg,p_d)
                     prob_so_far += p_d
@@ -311,7 +311,7 @@ class hmm_states_python(object):
 
         self.T = T
         self.data = data
-        
+
         if stateseq is not None:
             self.stateseq = stateseq
         else:
@@ -442,13 +442,6 @@ class hmm_states_eigen(hmm_states_python):
         alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
         A = self.transition_distn.A # eigen sees this transposed
 
-        # TODO TODO change the eigen code to pass in T
-        # current version compiles a different version for every value of T if T
-        # is usually trunc, that's okay but if we call this method a lot with
-        # different T's, it could be annoying to have all the different compiled
-        # versions floating around in scipy.weave's memory (and disk) caches,
-        # and so the eigen code should be changed to use a runtime constant
-        # plus, paying a string interpolation cost every time is kind of silly
         scipy.weave.inline(self.messages_forwards_codestr % {'M':self.state_dim,'T':T},['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         assert not np.isnan(alphal).any()
