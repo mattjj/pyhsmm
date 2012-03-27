@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import scipy.stats as stats
 from matplotlib import pyplot as plt
+from warnings import warn
 
 from pyhsmm.abstractions import ObservationBase
 from pyhsmm.util.stats import sample_niw, sample_discrete
@@ -30,10 +31,7 @@ class gaussian(ObservationBase):
     mu, sigma
     '''
 
-    def __repr__(self):
-        return 'gaussian(mu=%s,sigma=%s,nu_0=%s,lmbda_0=%s,mu_0=%s,kappa_0=%s)' % (self.mu,self.sigma,self.nu_0,self.lmbda_0,self.mu_0,self.kappa_0)
-
-    def __init__(self,mu=None, sigma=None, nu_0=10, kappa_0=0.05, mu_0=np.zeros(10), lmbda_0=np.eye(10)):
+    def __init__(self,mu_0,lmbda_0,kappa_0,nu_0,mu=None,sigma=None):
         self.nu_0 = nu_0
         self.kappa_0 = kappa_0
         self.mu_0 = mu_0
@@ -44,10 +42,6 @@ class gaussian(ObservationBase):
         else:
             self.mu = mu
             self.sigma = sigma
-            # center at given inputs
-            self.mu_0 = mu
-            self.lmbda_0 = sigma
-            self.nu_0 = sigma.shape[0]
 
     def resample(self,data=np.array([]),**kwargs):
         n = float(len(data))
@@ -113,6 +107,114 @@ class gaussian(ObservationBase):
             plt.plot(projected_data[:,0],projected_data[:,1],marker='.',linestyle=' ',color=color)
 
         plot_gaussian_projection(self.mu,self.sigma,vecs,color=color)
+
+
+# TODO can I make nonconjugate versions of next two classes by setting nu
+# parameter to zero?
+
+class diagonal_gaussian(gaussian):
+    '''
+    product of normal-inverse-gamma priors over mu (mean vector) and sigmas
+    (vector of scalar variances).
+
+    the prior follows
+        sigmas     ~ InvGamma(alpha_0,beta_0) iid
+        mu | sigma ~ N(mu_0,1/nu_0 * diag(sigmas))
+    '''
+    def __init__(self,mu_0,nus_0,alphas_0,betas_0,mu=None,sigmas=None):
+        self.mu_0 = mu_0
+        # all the s's refer to the fact that these are vectors of length
+        # len(mu_0)
+        self.nus_0 = nus_0
+        self.alphas_0 = alphas_0
+        self.betas_0 = betas_0
+
+        if mu is None or sigmas is None:
+            self.resample()
+        else:
+            self.mu = mu
+            self.sigmas = sigmas
+
+    def resample(self,data=np.array([]),**kwargs):
+        n = float(len(data))
+        k = len(self.mu_0)
+        if n == 0:
+            self.sigmas = stats.invgamma.rvs(self.alphas_0,scale=self.betas_0)
+            self.mu = np.sqrt(self.sigmas/self.nus_0)*np.random.randn(k)+self.mu_0
+        else:
+            xbar = data.mean(0)
+            nus_n = n + self.nus_0
+            alphas_n = self.alphas_0 + n/2
+            betas_n = self.betas_0 + 1./2 * ((data-xbar)**2).sum(0) + n*self.nus_0/(n+self.nus_0)\
+                    * 1./2 * (data.mean(0) - self.mu_0)**2
+            mu_n = (n*data.mean(0) + self.nus_0*self.mu_0) / (n + self.nus_0)
+
+            self.sigmas = stats.invgamma.rvs(alphas_n,scale=betas_n)
+            self.mu = np.sqrt(self.sigmas / nus_n) * np.random.randn(k)+mu_n
+
+    def rvs(self,size=[]):
+        size = np.array(size,ndmin=1)
+        return np.sqrt(self.sigmas)*np.random.normal(size=np.concatenate((size,self.mu.shape))) + self.mu
+
+    def log_likelihood(self,x,mu=None,sigmas=None):
+        if sigmas is None:
+            sigmas = self.sigmas
+        if mu is None:
+            mu = self.mu
+        return (-0.5*((x-self.mu)**2/self.sigmas) - np.log(np.sqrt(2*np.pi*self.sigmas))).sum(1)
+
+
+class isotropic_gaussian(gaussian):
+    '''
+    normal-inverse-gamma prior over mu (mean vector) and sigma (scalar
+    variance). essentially, all coordinates of all observations inform the
+    variance.
+
+    the prior follows
+        sigma      ~ InvGamma(alpha_0,beta_0)
+        mu | sigma ~ N(mu_0,sigma/nu_0 * I)
+    '''
+    def __init__(self,mu_0,nu_0,alpha_0,beta_0,mu=None,sigma=None):
+        self.mu_0 = mu_0
+        self.nu_0 = nu_0
+        self.alpha_0 = alpha_0
+        self.beta_0 = beta_0
+
+        if mu is None or sigma is None:
+            self.resample()
+        else:
+            self.mu = mu
+            self.sigma = sigma
+
+    def resample(self,data=np.array([]),**kwargs):
+        n = float(len(data))
+        k = len(self.mu_0)
+        if n == 0:
+            self.sigma = stats.invgamma.rvs(self.alpha_0,scale=self.beta_0)
+            self.mu = np.sqrt(self.sigma/self.nu_0)*np.random.randn(k)+self.mu_0
+        else:
+            xbar = data.mean(0)
+            nu_n = k*n + self.nu_0
+            alpha_n = self.alpha_0 + k*n/2
+            beta_n = self.beta_0 + 1./2 * np.linalg.norm(data - xbar,'fro')**2 + \
+                    (n*k*self.nu_0)/(n*k+self.nu_0) * \
+                    1./2 * ((xbar - self.mu_0)**2).sum() # derive by factoring in each column at a time
+            mu_n = (n*xbar + self.nu_0*self.mu_0) / (n + self.nu_0)
+
+            self.sigma = stats.invgamma.rvs(alpha_n,scale=beta_n)
+            self.mu = np.sqrt(self.sigma/nu_n)*np.random.randn(k)+mu_n
+
+    def rvs(self,size=[]):
+        size = np.array(size,ndmin=1)
+        return np.sqrt(self.sigma)*np.random.normal(size=np.concatenate((size,self.mu.shape))) + self.mu
+
+    def log_likelihood(self,x,mu=None,sigma=None):
+        if sigma is None:
+            sigma = self.sigma
+        if mu is None:
+            mu = self.mu
+        k = len(mu)
+        return (-0.5*((x-self.mu)**2).sum(1)/self.sigma - k*np.log(np.sqrt(2*np.pi*self.sigma)))
 
 
 class multinomial(ObservationBase):

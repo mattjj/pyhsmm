@@ -15,7 +15,7 @@ def sample_discrete(foo,size=[]):
     cumvals = np.cumsum(foo)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1)
 
-def sample_niw(mu_0,lmbda_0,kappa_0,nu_0):
+def sample_niw(mu,lmbda,kappa,nu):
     '''
     Returns a sample from the normal/inverse-wishart distribution, conjugate
     prior for (simultaneously) unknown mean and unknown covariance in a
@@ -24,10 +24,10 @@ def sample_niw(mu_0,lmbda_0,kappa_0,nu_0):
     # code is based on Matlab's method
     # reference: p. 87 in Gelman's Bayesian Data Analysis
 
-    # first sample Sigma ~ IW(lmbda_0^-1,nu_0)
-    lmbda = sample_invwishart(lmbda_0,nu_0) # lmbda = np.linalg.inv(sample_wishart(np.linalg.inv(lmbda_0),nu_0))
-    # then sample mu | Lambda ~ N(mu_0, Lambda/kappa_0)
-    mu = np.random.multivariate_normal(mu_0,lmbda / kappa_0)
+    # first sample Sigma ~ IW(lmbda^-1,nu)
+    lmbda = sample_invwishart(lmbda,nu) # lmbda = np.linalg.inv(sample_wishart(np.linalg.inv(lmbda),nu))
+    # then sample mu | Lambda ~ N(mu, Lambda/kappa)
+    mu = np.random.multivariate_normal(mu,lmbda / kappa)
 
     return mu, lmbda
 
