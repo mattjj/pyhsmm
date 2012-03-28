@@ -148,9 +148,9 @@ class hsmm(hmm):
         if 'transitions' in kwargs:
             trans = kwargs['transitions']
             del kwargs['transitions']
-            assert type(transitions) == transitions.hsmm_transitions
+            assert type(trans) == transitions.hsmm_transitions
         else:
-            trans= transitions.hsmm_transitions(state_dim=len(obs_distns))
+            trans = transitions.hsmm_transitions(state_dim=len(obs_distns))
         super(hsmm,self).__init__(obs_distns,transitions=trans,**kwargs)
 
     def add_data(self,data):

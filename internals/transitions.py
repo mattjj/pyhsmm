@@ -147,9 +147,12 @@ class sticky_hdphmm_transitions(hdphmm_transitions):
         super(sticky_hdphmm_transitions,self).resample_A(aug_data)
 
 
-# TODO a sticky ltr hdp-hmm? does that make sense?
+# NOTE none of the below should be able to learn the number of states very well,
+# since they don't have the hierarchical construction to regularize the total
+# number of states
 
 class hmm_transitions(object):
+    # self_trans is like a simple sticky bias
     def __init__(self,state_dim,gamma=8.,self_trans=0.,A=None,**kwargs):
         self.state_dim = state_dim
         self.gamma = gamma
@@ -185,6 +188,7 @@ class ltr_hmm_transitions(hmm_transitions):
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
+# TODO a sticky ltr hdp-hmm? does that make sense?
 class sticky_ltr_hmm_transitions(ltr_hmm_transitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
