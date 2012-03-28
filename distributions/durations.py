@@ -137,7 +137,7 @@ class poisson(DurationBase):
         for idx in range(num_tests):
             fig.suptitle('posterior sampling correctness')
             ogen = cls(k=k,theta=theta)
-            data = ogen.rvs(1000)
+            data = ogen.rvs(50)
             t = np.arange(0,data.max())
             oinfer = cls(k=k,theta=theta)
             plt.subplot(num_tests,2,2*idx+1)
