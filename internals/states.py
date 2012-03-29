@@ -11,12 +11,20 @@ eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 
 # TODO move eigen code loading into global code, string interpolation can still
 # be local
+with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
+    hsmm_sample_forwards_codestr = infile.read()
 
-class hsmm_states_python(object): 
+with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
+    hsmm_messages_backwards_codestr = infile.read()
+
+with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
+    hmm_messages_forwards_codestr = infile.read()
+
+class hsmm_states_python(object):
     '''
     HSMM states distribution class. Connects the whole model.
 
-    Parameters  include:
+    Parameters include:
 
     T
     state_dim
@@ -37,6 +45,8 @@ class hsmm_states_python(object):
 
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             stateseq=None,trunc=None,data=None,**kwargs):
+        # TODO T parameter only makes sense with censoring. it should be
+        # removed.
         self.T = T
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -64,20 +74,16 @@ class hsmm_states_python(object):
 
     def generate_obs(self):
         obs = []
-        for state in self.stateseq:
-            obs.append(self.obs_distns[state].rvs(size=1))
-        return np.vstack(obs)
+        for state,dur in zip(self.stateseq_norep,self.durations):
+            obs.append(self.obs_distns[state].rvs(size=int(dur)))
+        return np.concatenate(obs)[:self.T] # censoring
 
-    def generate_states(self,censoring=True):
-        assert censoring # TODO make non-censoring work
-        # with censoring, uses self.T
-        # without censoring, overwrites self.T with any extra duration from the last state
-        # returns data, sets internal stateseq as truth
+    def generate_states(self):
         idx = 0
         nextstate_distr = self.initial_distn.pi_0
         A = self.transition_distn.A
 
-        stateseq = -1*np.ones(self.T,dtype=np.int32) # TODO if no censoring, this must change
+        stateseq = -1*np.ones(self.T,dtype=np.int32)
         stateseq_norep = []
         durations = []
 
@@ -97,14 +103,10 @@ class hsmm_states_python(object):
 
         self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
         self.durations = np.array(durations,dtype=np.int32)
-        self.stateseq = stateseq # TODO if no censoring, this must change
+        self.stateseq = stateseq
 
-        if censoring:
-            len_diff = self.durations.sum() - self.T
-            self.stateseq = stateseq[:self.T]
-            self.durations[-1] -= len_diff
-            assert self.durations[-1] > 0
-            assert self.durations.sum() == self.T
+        # NOTE self.durations.sum() >= self.T since self.T is the censored
+        # length
 
         assert len(self.stateseq_norep) == len(self.durations)
         assert (self.stateseq >= 0).all()
@@ -267,11 +269,9 @@ class hsmm_states_eigen(hsmm_states_python):
         self.trunc = T if trunc is None else trunc
         self.data = data
 
-        with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
-            self.sample_forwards_codestr = infile.read() % {'M':state_dim,'T':T}
+        self.sample_forwards_codestr = hsmm_sample_forwards_codestr % {'M':state_dim,'T':T}
 
-        with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
-            self.messages_backwards_codestr = infile.read() % {'M':state_dim,'T':T}
+        self.messages_backwards_codestr = hsmm_messages_backwards_codestr % {'M':state_dim,'T':T}
 
         # this arg is for initialization heuristics which may pre-determine the state sequence
         if stateseq is not None:
@@ -350,7 +350,7 @@ class hmm_states_python(object):
         obs = []
         for state in self.stateseq:
             obs.append(self.obs_distns[state].rvs(size=1))
-        return np.vstack(obs)
+        return np.concatenate(obs)
 
     def generate(self):
         self.generate_states()
@@ -437,9 +437,6 @@ class hmm_states_eigen(hmm_states_python):
         self.T = T
         self.data = data
 
-        with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
-            self.messages_forwards_codestr = infile.read()
-
         if stateseq is not None:
             self.stateseq = stateseq
         else:
@@ -455,7 +452,7 @@ class hmm_states_eigen(hmm_states_python):
         alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
         A = self.transition_distn.A # eigen sees this transposed
 
-        scipy.weave.inline(self.messages_forwards_codestr % {'M':self.state_dim,'T':T},['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        scipy.weave.inline(hmm_messages_forwards_codestr % {'M':self.state_dim,'T':T},['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         assert not np.isnan(alphal).any()
         return alphal
