@@ -57,7 +57,7 @@ Nmax = 10
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
 
-# Build the HSMM model that will represent the posterior 
+# Build the HSMM model that will represent the posterior
 posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=70)
 posteriormodel.add_data(data)
 
