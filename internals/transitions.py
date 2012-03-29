@@ -59,7 +59,7 @@ class hsmm_transitions(object):
                     data[states_norep[idx],states_norep[idx+1]] += 1
             # we resample the children (A) then the mother (beta)
             # first, we complete the data using the current parameters
-            # every time we transferred from a state, we had geometrically many 
+            # every time we transferred from a state, we had geometrically many
             # self-transitions thrown away that we want to sample
             assert (data.diagonal() == 0).all()
             froms = np.sum(data,axis=1)

@@ -56,7 +56,7 @@ Nmax = 10
 # over parameters and then infer parameter values.
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 
-# Build the HMM model that will represent the posterior 
+# Build the HMM model that will represent the posterior
 posteriormodel = pyhsmm.hmm(obs_distns)
 posteriormodel.add_data(data)
 

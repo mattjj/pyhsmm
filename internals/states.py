@@ -315,7 +315,7 @@ class hsmm_states_eigen(hsmm_states_python):
     # TODO could also write Eigen version of the generate() methods
 
 
-class hmm_states_python(object): 
+class hmm_states_python(object):
     def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
         self.state_dim = state_dim
         self.obs_distns = obs_distns

@@ -18,7 +18,7 @@ def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
 
 def plot_gaussian_projection(mu, lmbda, vecs, **kwargs):
     '''
-    Plots a ndim gaussian projected onto 2D vecs, where vecs is a matrix whose two columns 
+    Plots a ndim gaussian projected onto 2D vecs, where vecs is a matrix whose two columns
     are the subset of some orthonomral basis (e.g. from PCA on samples).
     '''
     plot_gaussian_2D(np.dot(vecs.T,mu),project_ellipsoid(lmbda,vecs),**kwargs)

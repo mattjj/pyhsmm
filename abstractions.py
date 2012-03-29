@@ -40,12 +40,12 @@ class DurationBase(object):
 
     def pmf(self,x):
         warn('Using generic implementation of %s.pmf().' % type(self))
-        return np.exp(self.log_pmf(x))    
+        return np.exp(self.log_pmf(x))
 
     @abc.abstractmethod
     def log_sf(self,x):
         '''
-        log survival function, defined by log_sf(x) = log(1-cdf(x)) where 
+        log survival function, defined by log_sf(x) = log(1-cdf(x)) where
         cdf(x) = P[X \leq x]
 
         in principle, an inefficient generic implementation could be based on

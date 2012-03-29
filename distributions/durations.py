@@ -149,7 +149,7 @@ class poisson(DurationBase):
             plt.hist(data,np.arange(-0.5,data.max()+0.5,1),normed=True)
             line2 = plt.plot(t,oinfer.pmf(t),'g-',marker='.')
             plt.title('after resampling')
-        
+
         fig.legend((line1,line2),('before resampling','after resampling'),'lower left')
 
     # TODO should be implemented in an ABC for all durations
@@ -161,7 +161,7 @@ class poisson(DurationBase):
                 tmax = 2*self.rvs(size=1000).mean()
         t = np.arange(1,tmax)
         plt.plot(t,self.pmf(t),color=color)
-        
+
         if data is not None:
             plt.hist(data,bins=t-0.5,color=color,normed=True)
 
@@ -317,7 +317,7 @@ class fixed_wait(DurationBase):
 
 class learned_wait(fixed_wait):
     '''
-    Meta duration distribution class to learn a wait. 
+    Meta duration distribution class to learn a wait.
     The prior over waits has two components:
     MIN is a nonnegative integer that sets the minimum wait
     discrete is a vector of probabilities to represent a pmf over possible waits, offset by MIN

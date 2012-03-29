@@ -244,7 +244,7 @@ class multinomial(ObservationBase):
             # too bad bincount won't accept length-zero arrays!
             counts = np.bincount(data,minlength=len(self.alpha_vec))
         self._resample_given_counts(counts)
-        
+
     def _resample_given_counts(self,counts):
         self.discrete = stats.gamma.rvs(self.alpha_vec + counts)
         self.discrete /= self.discrete.sum()
@@ -269,7 +269,7 @@ class multinomial(ObservationBase):
             data = o.rvs(100)
             plt.hist(data,np.arange(-0.5,0.5+len(alpha_vec),1),normed=True)
             plt.plot(t,np.exp(o.log_likelihood(t)),'-',marker='.')
-        
+
         fig = plt.figure()
         fig.suptitle('posterior sampling correctness')
         for idx in range(num_tests):
