@@ -69,7 +69,7 @@ class hsmm_states_python(object):
         return np.vstack(obs)
 
     def generate_states(self,censoring=True):
-        assert censoring # TODO can remove assertion
+        assert censoring # TODO make non-censoring work
         # with censoring, uses self.T
         # without censoring, overwrites self.T with any extra duration from the last state
         # returns data, sets internal stateseq as truth
@@ -77,7 +77,7 @@ class hsmm_states_python(object):
         nextstate_distr = self.initial_distn.pi_0
         A = self.transition_distn.A
 
-        stateseq = -1*np.ones(self.T,dtype=np.int32)
+        stateseq = -1*np.ones(self.T,dtype=np.int32) # TODO if no censoring, this must change
         stateseq_norep = []
         durations = []
 
@@ -96,12 +96,15 @@ class hsmm_states_python(object):
             idx += duration
 
         self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
-        self.durations = np.array(durations,dtype=np.int32) # note sum(durations) can exceed len(stateseq) if censoring
+        self.durations = np.array(durations,dtype=np.int32)
+        self.stateseq = stateseq # TODO if no censoring, this must change
 
         if censoring:
+            len_diff = self.durations.sum() - self.T
             self.stateseq = stateseq[:self.T]
-        else:
-            self.stateseq = stateseq
+            self.durations[-1] -= len_diff
+            assert self.durations[-1] > 0
+            assert self.durations.sum() == self.T
 
         assert len(self.stateseq_norep) == len(self.durations)
         assert (self.stateseq >= 0).all()
@@ -204,12 +207,22 @@ class hsmm_states_python(object):
                     dur += 1
                     continue
                 if idx+dur < self.T:
-                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state]) # TODO slow for subhmms
+                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state]) # TODO unnecessarily slow for subhmms
                     p_d = mess_term * p_d_marg
                     #print 'dur: %d, durprob: %f, p_d_marg: %f, p_d: %f' % (dur+1,durprob,p_d_marg,p_d)
                     prob_so_far += p_d
                 else:
-                    break # TODO should add in censored sampling here
+                    # we're out of data, so we need to sample a duration
+                    # conditioned on having lasted at least this long. the
+                    # likelihood contributes the same to all possibilities, so
+                    # we can just sample from the prior (conditioned on it being
+                    # at least this long).
+                    arg = np.arange(dur+1,2*self.T) # 2*T is just a guessed upper bound, +1 because 'dur' is one less than the duration we're actually considering
+                    remaining = dur_distn.pmf(arg)
+                    therest = sample_discrete(remaining)
+                    dur = dur + therest
+                    durprob = -1 # just to get us out of loop
+
                 assert not np.isnan(p_d)
                 durprob -= p_d
                 dur += 1
