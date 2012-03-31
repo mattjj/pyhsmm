@@ -135,6 +135,8 @@ class hsmm_states_python(object):
         self.aDl = aDl
         self.aDsl = aDsl
 
+        return self
+
     def messages_backwards(self,Al,aDl,aDsl,trunc):
         T = aDl.shape[0]
         state_dim = Al.shape[0]
@@ -402,7 +404,8 @@ class hmm_states_python(object):
         aBl = self.get_aBl(data)
         betal = self.messages_backwards(aBl)
         self.stateseq = self.sample_forwards(aBl,betal)
-        return self.stateseq
+
+        return self
 
     def get_aBl(self,data):
         # note: this method never uses self.T
