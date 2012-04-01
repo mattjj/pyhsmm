@@ -47,7 +47,7 @@ $ head -n 5 data.txt
 1.434245756651063797e+00 -3.241457044646912422e+00
 ```
 
-In Pyhton, we can plot the data in a 2D plot, collapsing out the time dimension:
+In Python, we can plot the data in a 2D plot, collapsing out the time dimension:
 
 ```python
 import numpy as np
