@@ -9,8 +9,6 @@ from pyhsmm.util import general as util # perhaps a confusing name :P
 import os
 eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 
-# TODO move eigen code loading into global code, string interpolation can still
-# be local
 with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
     hsmm_sample_forwards_codestr = infile.read()
 
