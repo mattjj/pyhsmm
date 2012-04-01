@@ -20,7 +20,7 @@ sampling code is to produce samples of those alternatives.
 ## Installing ##
 You can clone this library with the usual command:
 
-```bash
+```
 git clone git://github.com/mattjj/pyhsmm.git
 ```
 
