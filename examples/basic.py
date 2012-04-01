@@ -11,9 +11,6 @@ from pyhsmm.util.text import progprint_xrange
 pyhsmm.use_eigen() # using Eigen will usually make inference faster
 save_images = False
 
-# plt.figure().suptitle('close this thing')
-# plt.show()
-
 #### Data generation
 # Set parameters
 N = 4
@@ -52,10 +49,13 @@ if save_images:
 # states that can be learned
 Nmax = 10
 
+dur_hypparams = {'k':8,
+                'theta':5}
+
 # Construct the observation and duration distribution objects, which set priors
 # over parameters and then infer parameter values.
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
-dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
+dur_distns = [pyhsmm.durations.poisson(**dur_hypparams) for state in xrange(Nmax)]
 
 # Build the HSMM model that will represent the posterior
 posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=70)

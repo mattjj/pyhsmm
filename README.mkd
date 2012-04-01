@@ -1,8 +1,8 @@
 ## Sampling Inference for Bayesian HSMMs ##
-`pyhsmm` is a nascent Python library for approximate unsupervised sampling
-inference in Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden
-semi-Markov Models (HSMMs), focusing on the Bayesian Nonparametric extensions,
-the HDP-HMM and HDP-HSMM, via the weak-limit approximation. 
+`pyhsmm` is a Python library for approximate unsupervised sampling inference in
+Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
+Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
+and HDP-HSMM, via the weak-limit approximation. 
 
 <!--
 In the Bayesian paradigm, inference refers to both what would in other contexts
@@ -17,77 +17,77 @@ states as well as good explanations that use 15 states. The purpose of this
 sampling code is to produce samples of those alternatives.
 -->
 
-<!--
-(At some point in the not-too-distant future, `py-hsmm` may also support
-approximate learning/fitting of HMMs and HSMMs through the Expectation
-Maximization (EM) algorithm.)
--->
-
 ## Installing ##
 You can clone this library with the usual command:
 
-```
+```bash
 git clone git://github.com/mattjj/pyhsmm.git
 ```
 
-There is an optional dependency on [Eigen C++ Template Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the usual location of `/usr/local/include` (its default install location), which can make the inference run much faster in many cases (and only a bit faster in others). If you install Eigen, you can enable its use by calling `pyhsmm.use_eigen()` after importing `pyhsmm`.
+There is an optional dependency on [Eigen C++ Template
+Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the
+usual location of `/usr/local/include` (its default install location), which
+can make the inference run much faster in many cases (and only a bit faster in
+others). If you install Eigen, you can enable its use by calling
+`pyhsmm.use_eigen()` after importing `pyhsmm`.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
-observations. (The same example can be found in `examples/basic.py`.)
+observations. (The same example, along with the code to generate the synthetic
+data loaded in this example, can be found in `examples/basic.py`.)
 
-First, we'll generate a sequence of observations from a 4-state HSMM with
-Poisson durations and 2D Gaussian emissions. Our observation sequence will be
-500 samples long. The average state durations will be 10, 20, 30, and 40
-samples. The details of the observation hyperparameters aren't important; we're
-just sampling random 2D Gaussian distributions.
+Let's say we have some 2D data in a data.txt file:
+
+```bash
+$ head -n 5 data.txt
+1.954325679401778038e+00 -2.556951835061773703e+00
+5.112035450336103182e+00 -1.140375513299447086e+01
+3.746172989570439871e-01 1.437014805219438696e+00
+2.665840201248884433e+00 -6.032284411998907636e+00
+1.434245756651063797e+00 -3.241457044646912422e+00
+```
+
+In Pyhton, we can plot the data in a 2D plot, collapsing out the time dimension:
 
 ```python
-# imports
 import numpy as np
 from matplotlib import pyplot as plt
 
+data = np.loadtxt('data.txt')
+plt.plot(data[:,0],data[:,1],'kx')
+```
+
+![2D data](http://www.mit.edu/~mattjj/github/pyhsmm2/data.png)
+
+We can also make a plot of time versus the first principal component:
+
+```python
+from pyhsmm.util.plot import pca_project_data
+plt.plot(pca_project_data(data,1)
+```
+
+![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm2/data_vs_time.png)
+
+To learn an HSMM, we'll use `pyhsmm` to create an hsmm object using some
+reasonable hyperparameters. We'll ask this model to infer the number of states
+as well (since an HDP-HSMM is instantiated by default), so we'll give it an
+`Nmax` parameter:
+
+```python
 import pyhsmm
 
-# set parameters and hyperparameters
-N = 4; T = 500; obs_dim = 2
-durparams = (10,20,30,40)
+obs_dim = 2
+Nmax = 10
+
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'lmbda_0':np.eye(obs_dim),
                 'kappa_0':0.2,
                 'nu_0':obs_dim+2}
+dur_hypparams = {'k':8,
+                'theta':5}
 
-# instantiate the distribution objects
-true_obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(N)]
-true_dur_distns = [pyhsmm.durations.poisson(lmbda=param) for param in durparams]
-
-# build the true HSMM
-truemodel = pyhsmm.hsmm(truth_obs_distns,truth_dur_distns)
-```
-
-Next, we'll sample some data from the model and plot the model on top of the
-data
-
-```python
-data, labels = truemodel.generate(T)
-truemodel.plot()
-plt.gcf().suptitle('True HSMM')
-```
-
-![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/py-hsmm/truth.png)
-
-Now that we've generated some data, we can try to infer the model that it came
-from (not peeking into `truemodel`, of course; that would be cheating!).
-
-First, we create a new HSMM object that doesn't know anything about the
-original (though we'll give it the the same hyperparameters). We'll ask this
-model to infer the number of states as well (since an HDP-HSMM is instantiated
-by default), so we'll give it an `Nmax` parameter instead of telling it `N=4`:
-
-```python
-Nmax = 10
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
-dur_distns = [pyhsmm.durations.poisson() for state in xrange(Nmax)]
+dur_distns = [pyhsmm.durations.poisson(**dur_hypparams) for state in xrange(Nmax)]
 
 posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=75)
 ```
@@ -103,14 +103,17 @@ Then, we add the data we want to condition on:
 posteriormodel.add_data(data)
 ```
 
+(If we had multiple observation sequences to learn from, we could add them to the
+model just by calling `add_data()` for each observation sequence.)
+
 Now we run a resampling loop. For each iteration of the loop, all the latent
 variables of the model will be resampled by Gibbs sampling steps, including the
 transition matrix, the observation means and covariances, the duration
-parameters, and the hidden state sequence. We'll plot the samples every several
+parameters, and the hidden state sequence. We'll plot the samples every few
 iterations.
 
 ```python
-plot_every = 50
+plot_every = 10
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         posteriormodel.plot()
@@ -119,22 +122,40 @@ for idx in progprint_xrange(101):
     posteriormodel.resample()
 ```
 
-![Sampled models](http://www.mit.edu/~mattjj/github/py-hsmm/posterior_animation.gif)
+![Sampled models](http://www.mit.edu/~mattjj/github/pyhsmm2/posterior_animation.gif)
+
+I generated these data from an HSMM that looked like this:
+
+![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/pyhsmm2/truth.png)
+
+So the posterior samples look pretty good!
+
+In fact, if you'd like to visualize why this example data isn't so tough for an HSMM to
+decode, you can explore the 3D plot and see the strong time regularity with
+
+```python
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
+ax.scatter(np.arange(len(data)),data[:,0],data[:,1])
+plt.show()
+```
 
 ## Speed ##
 
 HSMMs constitute a much more powerful model class than plain-old HMMs, and that
 enhanced power comes with a computational price: each sampling iteration for an
 HSMM is much slower than that of an HMM. But that price is often worthwhile if
-you want to place priors on state durations or have the model learn rich
-duration distributions. In addition, the increased cost of each iteration often
-pays for itself, since HSMM samplers empirically seem to take fewer iterations
-to converge than comparable HMM samplers.
+you want to place priors on state durations or have the model learn duration
+structure present in the data. (In the example, strong duration structure is
+what made the inference algorithm latch onto the correct explanation so
+easily.) In addition, the increased cost of each iteration often pays for
+itself, since HSMM samplers empirically seem to take fewer iterations to
+converge than comparable HMM samplers.
 
 Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
-Intel's MKL BLAS (which generally outperforms ATLAS for these vectorized
-operations) along with `pyhsmm.use_eigen()`, here's how long the demo
-iterations took:
+Intel's MKL BLAS (which generally outperforms ATLAS for vectorized operations)
+along with `pyhsmm.use_eigen()`, here's how long the demo iterations took:
 
 ```
 $ python -m pyhsmm.examples.basic
@@ -147,10 +168,15 @@ $ python -m pyhsmm.examples.basic
 ```
 
 ## Extending the Code ##
-To add your own observation or duration distributions, implement the interfaces defined in `abstractions.py`.
+To add your own observation or duration distributions, implement the interfaces
+defined in `abstractions.py`.
 
 ## References ##
-* Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v1
+* Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden
+Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v1
 
-* Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon, California, July 2010.
+* Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process
+Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th
+Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon,
+California, July 2010.
 
