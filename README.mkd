@@ -1,4 +1,4 @@
-## Sampling Inference for Bayesian HSMMs ##
+# Sampling Inference for Bayesian HSMMs and HMMs #
 `pyhsmm` is a Python library for approximate unsupervised sampling inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
