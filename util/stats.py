@@ -10,6 +10,19 @@ import scipy.linalg
 
 ### Sampling functions
 
+def sample_discrete_from_log(p_log, size):
+    '''
+    Goal: sample from a multinomial distribution (sample_discrete)
+    The input probability is in log.
+    To avoid numerical issues by doing exp() directly on these log probabilities,
+    find the maximum value first, and then subtract this maximum value
+    from the probability array before doing exp()
+    '''
+    max = np.max(p_log)
+    p_log = p_log - max
+    p = np.exp(p_log) / np.sum(np.exp(p_log))
+    return sample_discrete(p, 1) 
+
 def sample_discrete(foo,size=[]):
     assert (foo >=0).all()
     cumvals = np.cumsum(foo)
