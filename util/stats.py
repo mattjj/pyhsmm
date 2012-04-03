@@ -18,10 +18,8 @@ def sample_discrete_from_log(p_log, size):
     find the maximum value first, and then subtract this maximum value
     from the probability array before doing exp()
     '''
-    max = np.max(p_log)
-    p_log = p_log - max
-    p = np.exp(p_log) / np.sum(np.exp(p_log))
-    return sample_discrete(p, 1) 
+    p = np.exp(p_log - p_log.max()) / np.sum(np.exp(p_log))
+    return sample_discrete(p)
 
 def sample_discrete(foo,size=[]):
     assert (foo >=0).all()
