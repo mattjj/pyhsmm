@@ -93,7 +93,7 @@ class hsmm_states_python(object):
             # save everything
             stateseq_norep.append(state)
             durations.append(duration)
-            stateseq[idx:idx+duration] = state
+            stateseq[idx:idx+duration] = state # this can run off the end, that's okay
             # set up next state distribution
             nextstate_distr = A[state,]
             # update index
