@@ -129,9 +129,6 @@ class hsmm_states_python(object):
         betal, betastarl = self.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
         # sample forwards
         self.sample_forwards(betal,betastarl)
-        # save these for testing convenience
-        self.aDl = aDl
-        self.aDsl = aDsl
 
         return self
 
