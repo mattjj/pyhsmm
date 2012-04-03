@@ -10,21 +10,29 @@ import scipy.linalg
 
 ### Sampling functions
 
-def sample_discrete_from_log(p_log, size):
-    '''
-    Goal: sample from a multinomial distribution (sample_discrete)
-    The input probability is in log.
-    To avoid numerical issues by doing exp() directly on these log probabilities,
-    find the maximum value first, and then subtract this maximum value
-    from the probability array before doing exp()
-    '''
-    p = np.exp(p_log - p_log.max()) / np.sum(np.exp(p_log))
-    return sample_discrete(p)
-
 def sample_discrete(foo,size=[]):
     assert (foo >=0).all()
     cumvals = np.cumsum(foo)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1)
+
+def sample_discrete_from_log(p_log):
+    '''
+    Goal: sample from a multinomial distribution (like sample_discrete)
+    The input probability is in log.
+    To avoid numerical issues by doing exp() directly on these log probabilities,
+    find the maximum value first, and then subtract this maximum value
+    from the probability array before doing exp()
+
+    If p_log is two-dimensional, samples from normalized columns.
+    '''
+    # TODO can this be given a general axis argument in a clean way?
+    if p_log.ndim == 1:
+        return sample_discrete(np.exp(p_log - p_log.max()))
+    elif p_log.ndim == 2:
+        cumvals = np.exp(p_log - p_log.max(0)).cumsum(0)
+        return np.sum(random(p_log.shape[1]) * cumvals[-1] > cumvals,axis=0)
+    else:
+        assert False
 
 def sample_niw(mu,lmbda,kappa,nu):
     '''

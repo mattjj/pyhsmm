@@ -1,11 +1,12 @@
 from __future__ import division
 import numpy as np
+from numpy import newaxis as na
 import scipy.stats as stats
 from matplotlib import pyplot as plt
 from warnings import warn
 
 from pyhsmm.abstractions import ObservationBase
-from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log 
+from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log
 
 
 '''
@@ -14,6 +15,80 @@ hierarchical Bayesian models. Though module is called 'observations', there
 aren't really any restrictions placed on an observation distribution, so these
 classes can be reused as general distributions.
 '''
+
+class mixture(ObservationBase):
+    '''
+    This class is for mixtures of other observation distributions,
+    reusing the multinomial class.
+    member data are:
+        1. alpha: prior parameters for w. if it is a number, equivalent to
+           passing alpha*np.ones(num_components)
+        2. components: a list of distribution objects representing the mixture
+        3. weights: a vector specifying the weight of each mixture component
+    '''
+    def __repr__(self):
+        n_mix = self.n_mix
+        display = 'number of mixture: %s\n' % n_mix
+        display += 'log weight and parameters for mixture k:\n'
+        for k in range(n_mix):
+           display += 'log weight: %s ' % self.weights.log_likelihood(k)
+           display += self.components[k].__repr__() + '\n'
+        return display
+
+    def __init__(self,alpha,components,weights=None):
+        self.n_mix = n_mix = len(components)
+
+        alpha = np.array(alpha)
+        assert alpha.ndim == 0 or alpha.ndim == 1
+        if alpha.ndim == 0:
+            alpha = alpha * np.ones(n_mix)
+        else:
+            assert len(alpha) == n_mix
+
+        self.alpha = alpha
+        self.components = components
+
+        if weights is None:
+            self.resample()
+
+    def _log_scores(self,x):
+        return self.weights.log_likelihood(np.arange(self.n_mix))[:,na] + \
+                np.vstack([c.log_likelihood(x) for c in self.components])
+
+    def resample(self,data=np.array([]),niter=1,**kwargs):
+        n = float(len(data))
+        if n == 0:
+            self.weights.resample()
+            for c in self.components:
+                c.resample()
+        else:
+            for itr in range(niter):
+                # sample labels
+                log_scores = self._log_scores(data)
+                labels = sample_discrete_from_log(log_scores) # samples from distns in columns
+
+                # resample weights
+                self.weights.resample(labels)
+
+                # resample component parameters
+                for idx, c in enumerate(self.components):
+                    c.resample(data[labels == idx])
+
+    def log_likelihood(self,x):
+        return np.logaddexp.reduce(self._log_scores(x),axis=0)
+
+    def rvs(self,size=[]):
+        labels = self.weights.rvs(size=int(np.prod(size)))
+        counts = np.bincount(labels)
+        out = np.concatenate([c.rvs(size=count)[na,...] \
+                for count,c in zip(counts,self.components)],axis=0)
+        out = out[np.random.permutation(len(out))] # maybe this shuffle isn't formally necessary
+        return np.reshape(out,np.concatenate((size,(-1,))))
+
+# convenience method, TODO move elsewhere
+def gaussian_mixture(alpha_vec=np.array([3, 3]),
+        mu_0=np.zeros(39),lmbda_0=np.eye(39),kappa_0=5.,nu_0=49.):
+    return mixture(alpha=alpha_vec,components=[gaussian(mu_0,lmbda_0,kappa_0,nu_0)])
 
 class gaussian_mixture(object):
     '''
@@ -26,6 +101,7 @@ class gaussian_mixture(object):
     4. alpha_vec: prior for w
     n_mix and alpha_vec are required for initialization 
     '''
+    # TODO this can be made more general
     def __repr__(self):
         display = 'number of mixture: %s\n' %(self.n_mix)
         display += 'log weight and gaussian parameters for mixture k:\n'
@@ -33,30 +109,31 @@ class gaussian_mixture(object):
            display += 'log weight: %s ' % self.w.log_likelihood(k)
            display += self.m[k].__repr__() + '\n'
         return display
-      
-    def __init__(self, n_mix=2, alpha_vec=np.array([3, 3]), w=None, m=None): 
+
+    def __init__(self, n_mix=2, alpha_vec=np.array([3, 3]), w=None, m=None):
         self.n_mix = n_mix
         self.alpha_vec = alpha_vec
         if m is None or w is None:
             self.resample()
         else:
             self.w = w
-            self.m = m 
+            self.m = m
 
     def resample(self,data=np.array([]),**kwargs):
         n = float(len(data))
         if n == 0:
             obs_dim = 39
-            self.w = multinomial(self.alpha_vec) 
+            self.w = multinomial(self.alpha_vec)
             self.m = [gaussian(np.zeros(obs_dim), np.eye(obs_dim), 5., 49) for x in range(self.n_mix)]
         else:
             # calculate sufficient statistics
             datas = [[] for i in range(self.n_mix)]
             counts = np.zeros(self.n_mix)
+            # TODO rewrite the datas stuff to be vectorized
             for x in data:
                p_log = np.array([self.w.log_likelihood(k) + self.m[k].log_likelihood(x) \
                      for k in range(self.n_mix)])
-               id = sample_discrete_from_log(p_log, 1)
+               id = sample_discrete_from_log(p_log)
                datas[id].append(x)
                counts[id] += 1
             self.w._resample_given_counts(counts)
@@ -295,7 +372,7 @@ class multinomial(ObservationBase):
     This class represents a multinomial distribution in a label form.
     For example, if len(alpha_vec) == 3, then five samples of data may look like
     [0,1,0,2,1]
-    Each entry is the label of a sample, like the outcome of dice rolls.
+    Each entry is the label of a sample, like the outcome of die rolls.
 
     Hyperparameters: alpha_vec
     Parameters: discrete, which is a vector encoding of a discrete
@@ -325,7 +402,6 @@ class multinomial(ObservationBase):
         assert not np.isnan(self.discrete).any()
 
     def log_likelihood(self,x):
-        #assert x.ndim == 1
         return np.log(self.discrete)[x]
 
     def rvs(self,size=[]):

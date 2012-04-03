@@ -425,15 +425,6 @@ class hmm_states_python(object):
         plt.xlim((0,self.T))
         plt.yticks([])
 
-    def __getstate__(self):
-        snapshot = dict()
-        snapshot['stateseq']  =  self.__dict__['stateseq']
-        return snapshot
-    
-    def __setstate__(self, snapshot):
-       # self.__dict__.update(snapshot)
-       pass
-
 class hmm_states_eigen(hmm_states_python):
     def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
         self.state_dim = state_dim
