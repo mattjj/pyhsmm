@@ -25,9 +25,9 @@ class hmm(object):
 
         self.states_list = []
 
-    def add_data(self,data):
+    def add_data(self,data,stateseq=None):
         self.states_list.append(states.hmm_states(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn,data=data))
+                self.init_state_distn,data=data,stateseq=stateseq))
 
     def resample(self):
         # resample obsparams
@@ -69,6 +69,8 @@ class hmm(object):
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
+        # TODO probably already generated when tempstates was added, so this
+        # call to generate only needs to be a call to generate_obs
         obs,labels = tempstates.generate(), tempstates.stateseq
 
         if keep:
