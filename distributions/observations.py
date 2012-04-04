@@ -45,11 +45,11 @@ class mixture(ObservationBase):
         else:
             assert len(alpha) == n_mix
 
-        self.alpha = alpha
         self.components = components
+        self.weights = multinomial(alpha)
 
-        if weights is None:
-            self.resample()
+        if weights is not None:
+            self.weights.discrete = weights
 
     def _log_scores(self,x):
         '''score for component i on data j is in retval[i,j]'''
@@ -79,12 +79,29 @@ class mixture(ObservationBase):
         return np.logaddexp.reduce(self._log_scores(x),axis=0)
 
     def rvs(self,size=[]):
+        size = np.array(size,ndmin=1)
         labels = self.weights.rvs(size=int(np.prod(size)))
         counts = np.bincount(labels)
-        out = np.concatenate([c.rvs(size=count)[na,...] \
-                for count,c in zip(counts,self.components)],axis=0)
+        out = np.concatenate([c.rvs(size=(count,)) for count,c in zip(counts,self.components)],axis=0)
         out = out[np.random.permutation(len(out))] # maybe this shuffle isn't formally necessary
         return np.reshape(out,np.concatenate((size,(-1,))))
+
+    @classmethod
+    def test(cls):
+        foo = cls(alpha=3.,components=[gaussian(np.zeros(2),np.eye(2),0.02,4) for idx in range(4)])
+        data = foo.rvs(200)
+
+        bar = cls(alpha=2./8,components=[gaussian(np.zeros(2),np.eye(2),0.02,4) for idx in range(8)])
+        bar.resample(data,niter=50)
+
+        plt.plot(data[:,0],data[:,1],'kx')
+        for c,weight in zip(bar.components,bar.weights.discrete):
+            if weight > 0.1:
+                plt.plot(c.mu[0],c.mu[1],'bo',markersize=10)
+        plt.show()
+
+    def plot(self):
+        raise NotImplementedError
 
 # convenience method, TODO move elsewhere
 def gaussian_mixture(alpha_vec=np.array([3, 3]),
