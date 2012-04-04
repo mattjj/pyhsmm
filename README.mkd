@@ -24,6 +24,8 @@ You can clone this library with the usual command:
 git clone git://github.com/mattjj/pyhsmm.git
 ```
 
+The library depends on `numpy`, `scipy`, and, for visualization, `matplotlib`.
+
 There is an optional dependency on [Eigen C++ Template
 Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the
 usual location of `/usr/local/include` (its default install location), which
@@ -170,6 +172,9 @@ $ python -m pyhsmm.examples.basic
 ## Extending the Code ##
 To add your own observation or duration distributions, implement the interfaces
 defined in `abstractions.py`.
+
+## Contributors ##
+Contributions by Chia-ying Lee.
 
 ## References ##
 * Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden
