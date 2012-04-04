@@ -52,6 +52,7 @@ class mixture(ObservationBase):
             self.resample()
 
     def _log_scores(self,x):
+        '''score for component i on data j is in retval[i,j]'''
         return self.weights.log_likelihood(np.arange(self.n_mix))[:,na] + \
                 np.vstack([c.log_likelihood(x) for c in self.components])
 
@@ -65,7 +66,7 @@ class mixture(ObservationBase):
             for itr in range(niter):
                 # sample labels
                 log_scores = self._log_scores(data)
-                labels = sample_discrete_from_log(log_scores) # samples from distns in columns
+                labels = sample_discrete_from_log(log_scores,axis=0)
 
                 # resample weights
                 self.weights.resample(labels)
