@@ -26,7 +26,7 @@ git clone git://github.com/mattjj/pyhsmm.git
 
 The library depends on `numpy`, `scipy`, and, for visualization, `matplotlib`.
 
-There is an optional dependency on [Eigen C++ Template
+There is an optional dependency on the [Eigen C++ Template
 Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the
 usual location of `/usr/local/include` (its default install location), which
 can make the inference run much faster in many cases (and only a bit faster in
