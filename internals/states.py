@@ -2,6 +2,7 @@ import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
+from warnings import warn
 
 from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util import general as util # perhaps a confusing name :P
@@ -388,7 +389,7 @@ class hmm_states_python(object):
             stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
             nextstate_unsmoothed = A[stateseq[idx]]
 
-        return stateseq
+        self.stateseq = stateseq
 
     def resample(self):
         if self.data is None:
@@ -398,7 +399,7 @@ class hmm_states_python(object):
 
         aBl = self.get_aBl(data)
         betal = self.messages_backwards(aBl)
-        self.stateseq = self.sample_forwards(aBl,betal)
+        self.sample_forwards(aBl,betal)
 
         return self
 
@@ -460,8 +461,8 @@ class hmm_states_eigen(hmm_states_python):
 
     def sample_forwards(self,aBl,betal):
         # TODO TODO write eigen version
+        warn('not an eigen version')
         self.stateseq = hmm_states_python.sample_forwards(self,aBl,betal)
-        return self.stateseq
 
     # TODO also write eigen versions of generate and generate_obs
 
