@@ -13,8 +13,8 @@ eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
     hsmm_sample_forwards_codestr = infile.read()
 
-with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
-    hsmm_messages_backwards_codestr = infile.read()
+# with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
+#     hsmm_messages_backwards_codestr = infile.read()
 
 with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
     hmm_messages_forwards_codestr = infile.read()
@@ -269,7 +269,7 @@ class hsmm_states_eigen(hsmm_states_python):
 
         self.sample_forwards_codestr = hsmm_sample_forwards_codestr % {'M':state_dim,'T':T}
 
-        self.messages_backwards_codestr = hsmm_messages_backwards_codestr % {'M':state_dim,'T':T}
+        # self.messages_backwards_codestr = hsmm_messages_backwards_codestr % {'M':state_dim,'T':T}
 
         # this arg is for initialization heuristics which may pre-determine the state sequence
         if stateseq is not None:
@@ -461,8 +461,7 @@ class hmm_states_eigen(hmm_states_python):
 
     def sample_forwards(self,aBl,betal):
         # TODO TODO write eigen version
-        warn('not an eigen version')
-        self.stateseq = hmm_states_python.sample_forwards(self,aBl,betal)
+        hmm_states_python.sample_forwards(self,aBl,betal)
 
     # TODO also write eigen versions of generate and generate_obs
 
