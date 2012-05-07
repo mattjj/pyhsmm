@@ -22,7 +22,6 @@ double durprob, p_d_marg, p_d, total;
 VectorXd nextstate_unsmoothed(%(M)d);
 VectorXd logdomain(%(M)d);
 VectorXd nextstate_distr(%(M)d);
-VectorXd cumsum(%(M)d);
 
 // code!
 // don't think i need to seed... should include sys/time.h for this

@@ -8,16 +8,6 @@ from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util import general as util # perhaps a confusing name :P
 
 import os
-eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
-
-with open(eigen_code_dir + 'hsmm_sample_forwards.cpp') as infile:
-    hsmm_sample_forwards_codestr = infile.read()
-
-# with open(eigen_code_dir + 'hsmm_messages_backwards.cpp') as infile:
-#     hsmm_messages_backwards_codestr = infile.read()
-
-with open(eigen_code_dir + 'hmm_messages_forwards.cpp') as infile:
-    hmm_messages_forwards_codestr = infile.read()
 
 class hsmm_states_python(object):
     '''
@@ -435,6 +425,9 @@ class hmm_states_eigen(hmm_states_python):
         self.T = T
         self.data = data
 
+        self.messages_backwards_codestr = hmm_messages_backwards_codestr % {'M':state_dim}
+        self.sample_forwards_codestr = hmm_sample_forwards_codestr % {'M':state_dim}
+
         if stateseq is not None:
             self.stateseq = stateseq
         else:
@@ -443,31 +436,36 @@ class hmm_states_eigen(hmm_states_python):
             else:
                 self.generate_states()
 
-    def messages_forwards(self,aBl):
-        # note: this method never uses self.T
-        T = aBl.shape[0]
-        alphal = np.zeros((T,self.state_dim))
-        alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
-        A = self.transition_distn.A # eigen sees this transposed
-
-        scipy.weave.inline(hmm_messages_forwards_codestr % {'M':self.state_dim,'T':T},['A','alphal','aBl','T'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
-
-        assert not np.isnan(alphal).any()
-        return alphal
-
     def messages_backwards(self,aBl):
-        # TODO write Eigen version
-        return hmm_states_python.messages_backwards(self,aBl)
+        T = self.T
+        AT = self.transition_distn.A.T.copy()
+        betal = np.zeros((self.T,self.state_dim))
+
+        scipy.weave.inline(self.messages_backwards_codestr,['AT','betal','aBl','T'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+
+        return betal
 
     def sample_forwards(self,aBl,betal):
-        # TODO TODO write eigen version
-        hmm_states_python.sample_forwards(self,aBl,betal)
+        T = self.T
+        A = self.transition_distn.A
+        pi0 = self.initial_distn.pi_0
 
-    # TODO also write eigen versions of generate and generate_obs
+        stateseq = np.zeros(T,dtype=np.int32)
 
+        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+
+        self.stateseq = stateseq
 
 hsmm_states = hsmm_states_python
 hmm_states = hmm_states_python
+
+eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
+with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
+    hsmm_sample_forwards_codestr = infile.read()
+with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
+    hmm_messages_backwards_codestr = infile.read()
+with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
+    hmm_sample_forwards_codestr = infile.read()
 
 def use_eigen(useit=True):
     global hsmm_states, hmm_states
