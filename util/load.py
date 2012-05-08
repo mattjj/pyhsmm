@@ -43,7 +43,7 @@ class load(object):
          segs = list()
          while line:
             tokens = line.strip().split()
-            segs.append([int(tokens[0]), int(tokens[1]))
+            segs.append([int(tokens[0]), int(tokens[1]) + 1])
             line = fseg.readline()
          fseg.close()
          self.segs.append(segs)
