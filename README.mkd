@@ -91,8 +91,14 @@ dur_hypparams = {'k':8,
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.durations.poisson(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.hsmm(obs_distns,dur_distns,trunc=75)
+posteriormodel = pyhsmm.hsmm(6.,6.,obs_distns,dur_distns,trunc=75)
 ```
+
+(The first two arguments set the "new-table" proportionality constant for the
+meta-Chinese Restaurant Process and the other CRPs, respectively, in the HDP
+prior on transition matrices. For this example, they really don't matter at
+all: pretty much any values will work; those parameters only matter in
+very-low-evidence settings.)
 
 The `trunc` parameter is an optional argument that can speed up inference: it
 sets a truncation limit on the maximum duration for any state. If you don't
