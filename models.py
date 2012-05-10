@@ -12,12 +12,12 @@ class hmm(object):
     packages all the components.
     '''
 
-    def __init__(self,obs_distns,**kwargs):
+    def __init__(self,alpha,gamma,obs_distns,**kwargs):
         self.state_dim = len(obs_distns)
 
         self.obs_distns = obs_distns
 
-        self.trans_distn = transitions.hmm_transitions(state_dim=self.state_dim,**kwargs)\
+        self.trans_distn = transitions.hdphmm_transitions(state_dim=self.state_dim,alpha=alpha,gamma=gamma,**kwargs)\
                 if 'transitions' not in kwargs else kwargs['transitions']
 
         self.init_state_distn = initial_state.initial_state(state_dim=self.state_dim,**kwargs)\
@@ -144,7 +144,7 @@ class hsmm(hmm):
     method.
     '''
 
-    def __init__(self,obs_distns,dur_distns,trunc=None,**kwargs):
+    def __init__(self,alpha,gamma,obs_distns,dur_distns,trunc=None,**kwargs):
         self.trunc = trunc # duplicated with hmm behavior at the moment
         self.dur_distns = dur_distns
         if 'transitions' in kwargs:
@@ -152,8 +152,8 @@ class hsmm(hmm):
             del kwargs['transitions']
             assert type(trans) == transitions.hsmm_transitions
         else:
-            trans = transitions.hsmm_transitions(state_dim=len(obs_distns))
-        super(hsmm,self).__init__(obs_distns,transitions=trans,**kwargs)
+            trans = transitions.hsmm_transitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
+        super(hsmm,self).__init__(alpha,gamma,obs_distns,transitions=trans,**kwargs)
 
     def add_data(self,data):
         self.states_list.append(states.hsmm_states(len(data),self.state_dim,self.obs_distns,self.dur_distns,

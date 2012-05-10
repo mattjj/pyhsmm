@@ -21,7 +21,7 @@ class hsmm_transitions(object):
     beta, fullA, A
     '''
 
-    def __init__(self,state_dim,alpha=8.,gamma=8.,beta=None,A=None,fullA=None,**kwargs):
+    def __init__(self,state_dim,alpha,gamma,beta=None,A=None,fullA=None,**kwargs):
         self.alpha = alpha
         self.gamma = gamma
         self.state_dim = state_dim
@@ -90,7 +90,7 @@ class hsmm_transitions(object):
 
 class hdphmm_transitions(object):
     # TODO alpha/gamma remains switched wrt math notation
-    def __init__(self,state_dim,alpha=4.,gamma=8.,beta=None,A=None):
+    def __init__(self,state_dim,alpha,gamma,beta=None,A=None):
         self.state_dim = state_dim
         self.alpha = alpha
         self.gamma = gamma
@@ -153,7 +153,7 @@ class sticky_hdphmm_transitions(hdphmm_transitions):
 
 class hmm_transitions(object):
     # self_trans is like a simple sticky bias
-    def __init__(self,state_dim,gamma=8.,self_trans=0.,A=None,**kwargs):
+    def __init__(self,state_dim,gamma,self_trans=0.,A=None,**kwargs):
         self.state_dim = state_dim
         self.gamma = gamma
         self.self_trans = self_trans

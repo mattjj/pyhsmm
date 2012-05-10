@@ -376,6 +376,7 @@ class hmm_states_python(object):
 
         for idx in xrange(T):
             logdomain = betal[idx] + aBl[idx]
+            logdomain[nextstate_unsmoothed == 0] = -np.inf # to enforce constraints in the trans matrix
             stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
             nextstate_unsmoothed = A[stateseq[idx]]
 
@@ -452,7 +453,7 @@ class hmm_states_eigen(hmm_states_python):
 
         stateseq = np.zeros(T,dtype=np.int32)
 
-        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         self.stateseq = stateseq
 

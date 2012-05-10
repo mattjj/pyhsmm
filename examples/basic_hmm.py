@@ -36,7 +36,8 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 true_obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.hmm(true_obs_distns)
+truemodel = pyhsmm.hmm(alpha=4.,gamma=4.,
+                       obs_distns=true_obs_distns)
 
 # Sample data from the true model
 data, labels = truemodel.generate(T)
@@ -57,7 +58,8 @@ Nmax = 10
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 
 # Build the HMM model that will represent the posterior
-posteriormodel = pyhsmm.hmm(obs_distns)
+posteriormodel = pyhsmm.hmm(alpha=6.,gamma=6.,
+                            obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration and plotting
