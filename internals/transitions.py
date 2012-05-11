@@ -153,10 +153,9 @@ class sticky_hdphmm_transitions(hdphmm_transitions):
 
 class hmm_transitions(object):
     # self_trans is like a simple sticky bias
-    def __init__(self,state_dim,gamma,self_trans=0.,A=None,**kwargs):
+    def __init__(self,state_dim,gamma,A=None,**kwargs):
         self.state_dim = state_dim
         self.gamma = gamma
-        self.self_trans = self_trans
         if A is None:
             self.resample()
         else:
@@ -169,7 +168,7 @@ class hmm_transitions(object):
 
     def resample(self,statess=[]):
         data = np.zeros((self.state_dim,self.state_dim))
-        data += self.self_trans * np.eye(len(data))
+        # data += self.self_trans * np.eye(len(data))
         if len(statess) > 0:
             for states in statess:
                 if len(states) >= 2:
@@ -178,8 +177,6 @@ class hmm_transitions(object):
 
         self.resample_A(data)
 
-
-# TODO add self-transition bias
 class ltr_hmm_transitions(hmm_transitions):
     '''upper triangle only'''
     def resample_A(self,data):
@@ -188,7 +185,7 @@ class ltr_hmm_transitions(hmm_transitions):
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
-# TODO a sticky ltr hdp-hmm? does that make sense?
+# TODO make this work as an hdp-hmm
 class sticky_ltr_hmm_transitions(ltr_hmm_transitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
