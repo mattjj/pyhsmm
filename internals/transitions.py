@@ -6,8 +6,6 @@ from numpy import newaxis as na
 
 from pyhsmm.util.general import rle
 
-# TODO maybe these shouldn't have default arguments... clean that up
-
 class hsmm_transitions(object):
     '''
     HSMM transition distribution class.
