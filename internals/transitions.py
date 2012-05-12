@@ -1,11 +1,17 @@
+from __future__ import division
 import numpy as np
 import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
 
 from pyhsmm.util.general import rle
+from util.stats import sample_discrete
 
 class concentration_parameter(object):
+    '''
+    implements Gamma(a,b) prior over symmetric Dirichlet / DP concentration
+    parameter given multinomial data (integrating out the weights)
+    '''
     def __init__(self,a,b,concentration=None):
         self.a = a
         self.b = b
@@ -15,15 +21,33 @@ class concentration_parameter(object):
         else:
             self.resample()
 
-    def resample(self,m=np.array([]),n=np.array([]),niter=5):
-        for itr in range(niter):
-            pass
-            # instantiates w's
-            # TODO
-            # instantiate s's
-            # TODO
-            # resample concentration
-            # TODO
+    def resample(self,sample_numbers=None,total_num_distinct=None,niter=20):
+        # num_samples can be a vector, one element for each multinomial
+        # observation, and each element is the number of draws in that
+        # multinomial
+        # see appendix A of http://www.cs.berkeley.edu/~jordan/papers/hdp.pdf
+        # and appendix C of Emily Fox's PhD thesis
+        # the notation of w's and s's follows from the HDP paper
+        a,b = self.a, self.b
+        if sample_numbers is None or total_num_distinct is None:
+            self.concentration = stats.gamma.rvs(a,b)
+        else:
+            sample_numbers += 1e-10 # convenient in case any element is zero
+            for itr in range(niter):
+                wvec = stats.beta.rvs(self.concentration+1,sample_numbers)
+                svec = stats.bernoulli.rvs(sample_numbers/(sample_numbers+self.concentration))
+                self.concentration = stats.gamma.rvs(a+total_num_distinct-svec.sum(),b-np.log(wvec).sum())
+
+    @clasmethod
+    def test(cls):
+        truth = cls(1.,1.)
+
+        alldata = []
+        for itr in range(5):
+            weights = stats.gamma.rvs(truth.concentration,size=3)
+            weights /= weights.sum()
+            alldata.append(sample_discrete(weights,size=10))
+
 
 
 class hsmm_transitions(object):
@@ -157,6 +181,9 @@ class hdphmm_transitions(object):
 
 
 class sticky_hdphmm_transitions(hdphmm_transitions):
+    '''
+    doesn't resample kappa! should add that like ebfox's version...
+    '''
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
         super(sticky_hdphmm_transitions,self).__init__(*args,**kwargs)
