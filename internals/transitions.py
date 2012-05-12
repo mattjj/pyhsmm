@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import scipy.stats as stats
 from numpy.random import random
