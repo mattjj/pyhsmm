@@ -410,11 +410,11 @@ class hmm_states_python(object):
         if colors_dict is not None:
             C = np.array([[colors_dict[state] for state in states]])
         else:
-            C = states
+            C = states[na,:]
 
         plt.pcolor(X,Y,C,vmin=0,vmax=1)
         plt.ylim((0,1))
-        plt.xlim((0,self.T))
+        plt.xlim((0,durations.sum()))
         plt.yticks([])
 
 class hmm_states_eigen(hmm_states_python):
