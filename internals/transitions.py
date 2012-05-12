@@ -5,7 +5,26 @@ from numpy import newaxis as na
 
 from pyhsmm.util.general import rle
 
-# TODO maybe these shouldn't have default arguments... clean that up
+class concentration_parameter(object):
+    def __init__(self,a,b,concentration=None):
+        self.a = a
+        self.b = b
+
+        if concentration is not None:
+            self.concentration = concentration
+        else:
+            self.resample()
+
+    def resample(self,m=np.array([]),n=np.array([]),niter=5):
+        for itr in range(niter):
+            pass
+            # instantiates w's
+            # TODO
+            # instantiate s's
+            # TODO
+            # resample concentration
+            # TODO
+
 
 class hsmm_transitions(object):
     '''
