@@ -15,6 +15,8 @@ class concentration_parameter(object):
     implements Gamma(a,b) prior over symmetric Dirichlet / DP concentration
     parameter given multinomial data (integrating out the weights)
     '''
+    # TODO does this only work for the DP? i.e. if the number of sides on the
+    # die is really large? there should be a way to do Dir as well...
     def __init__(self,a,b,concentration=None):
         self.a = a
         self.b = b
@@ -24,7 +26,7 @@ class concentration_parameter(object):
         else:
             self.resample()
 
-    def resample(self,sample_numbers=None,total_num_distinct=None,niter=20):
+    def resample(self,sample_numbers=None,total_num_distinct=None,niter=30):
         # num_samples can be a vector, one element for each multinomial
         # observation set from a different pi sample, and each element is
         # the number of draws in that multinomial set
@@ -47,24 +49,25 @@ class concentration_parameter(object):
 
     @classmethod
     def test(cls):
+        from matplotlib import pyplot as plt
         truth = cls(1.,1.)
 
-        alldata = []
-        sizes = [1000]
-        for size in sizes:
-            weights = stats.gamma.rvs(truth.concentration/400.,size=400)
-            weights /= weights.sum()
-            alldata.append(sample_discrete(weights,size=size))
 
         infer = cls(1.,1.)
         print truth.concentration
-        print ''
         blah = []
-        for itr in range(500):
+        for itr in range(200):
+            alldata = []
+            sizes = [20]
+            for size in sizes:
+                weights = stats.gamma.rvs(truth.concentration/20,size=20)
+                weights /= weights.sum()
+                alldata.append(sample_discrete(weights,size=size))
             infer.resample(sample_numbers=np.array(sizes),total_num_distinct=len(set(np.concatenate(alldata))))
             blah.append(infer.concentration)
 
-        print np.mean(blah)
+        print np.median(blah)
+        plt.hist(blah)
 
 class hsmm_transitions(object):
     '''
