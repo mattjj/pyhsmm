@@ -7,6 +7,9 @@ from numpy import newaxis as na
 from pyhsmm.util.general import rle
 from util.stats import sample_discrete
 
+# TODO add concentration parameter resampling to the classes
+# TODO add kappa resampling for sticky hdphmms
+
 class concentration_parameter(object):
     '''
     implements Gamma(a,b) prior over symmetric Dirichlet / DP concentration
@@ -23,32 +26,45 @@ class concentration_parameter(object):
 
     def resample(self,sample_numbers=None,total_num_distinct=None,niter=20):
         # num_samples can be a vector, one element for each multinomial
-        # observation, and each element is the number of draws in that
-        # multinomial
+        # observation set from a different pi sample, and each element is
+        # the number of draws in that multinomial set
         # see appendix A of http://www.cs.berkeley.edu/~jordan/papers/hdp.pdf
         # and appendix C of Emily Fox's PhD thesis
         # the notation of w's and s's follows from the HDP paper
+        sample_numbers = np.array(sample_numbers)
         a,b = self.a, self.b
         if sample_numbers is None or total_num_distinct is None:
-            self.concentration = stats.gamma.rvs(a,b)
+            self.concentration = stats.gamma.rvs(a,scale=1./b)
         else:
-            sample_numbers += 1e-10 # convenient in case any element is zero
+            # sample_numbers += 1e-10 # convenient in case any element is zero
             for itr in range(niter):
                 wvec = stats.beta.rvs(self.concentration+1,sample_numbers)
-                svec = stats.bernoulli.rvs(sample_numbers/(sample_numbers+self.concentration))
-                self.concentration = stats.gamma.rvs(a+total_num_distinct-svec.sum(),b-np.log(wvec).sum())
+                svec = np.array(stats.bernoulli.rvs(sample_numbers/(sample_numbers+self.concentration)))
+                self.concentration = stats.gamma.rvs(a+total_num_distinct-svec.sum(),scale=1./(b-np.log(wvec).sum()))
+                # note scipy.stats.gamma uses a scale parameter that is the
+                # inverse of the scale parameter used in the reference papers.
+                # that gets me EVERY TIME
 
-    @clasmethod
+    @classmethod
     def test(cls):
         truth = cls(1.,1.)
 
         alldata = []
-        for itr in range(5):
-            weights = stats.gamma.rvs(truth.concentration,size=3)
+        sizes = [1000]
+        for size in sizes:
+            weights = stats.gamma.rvs(truth.concentration/400.,size=400)
             weights /= weights.sum()
-            alldata.append(sample_discrete(weights,size=10))
+            alldata.append(sample_discrete(weights,size=size))
 
+        infer = cls(1.,1.)
+        print truth.concentration
+        print ''
+        blah = []
+        for itr in range(500):
+            infer.resample(sample_numbers=np.array(sizes),total_num_distinct=len(set(np.concatenate(alldata))))
+            blah.append(infer.concentration)
 
+        print np.mean(blah)
 
 class hsmm_transitions(object):
     '''
