@@ -191,8 +191,8 @@ class hsmm(hmm):
         for idx,state in enumerate(used_states):
             state_colors[state] = idx/(num_states-1) if color is None else color
 
+        num_subfig_cols = len(self.states_list)
         for subfig_idx,s in enumerate(self.states_list):
-            num_subfig_cols = len(self.states_list)
 
             # plot the current observation distributions (and obs, if given)
             plt.subplot(3,num_subfig_cols,1+subfig_idx)
