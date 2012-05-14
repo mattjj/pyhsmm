@@ -3,6 +3,7 @@ import numpy as np
 import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
+import abc
 
 from pyhsmm.util.general import rle
 from util.stats import sample_discrete
@@ -11,12 +12,9 @@ from util.stats import sample_discrete
 # TODO add kappa resampling for sticky hdphmms
 
 class concentration_parameter(object):
-    '''
-    implements Gamma(a,b) prior over symmetric Dirichlet / DP concentration
-    parameter given multinomial data (integrating out the weights)
-    '''
-    # TODO does this only work for the DP? i.e. if the number of sides on the
-    # die is really large? there should be a way to do Dir as well...
+    # TODO maybe this class should include an rvs method
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self,a,b,concentration=None):
         self.a = a
         self.b = b
@@ -26,6 +24,63 @@ class concentration_parameter(object):
         else:
             self.resample()
 
+    @abc.abstractmethod
+    def resample(self,*args,**kwargs):
+        pass
+
+class dir_concentration_parameter(concentration_parameter):
+    '''
+    implements Gamma(a,b) prior over symmetric finite Dirichlet concentration
+    parameter given weights
+    I haven't seen a procedure like this one written up anywhere but it's a
+    direct consequence of the relationship between the Dirichlet and Gamma
+    distributions
+    '''
+    def resample(self,weights=np.array([]),niter=30):
+        '''
+        weights = np.array([pi_1, pi_2, ...])
+        where pi_i ~ Dirichlet(concentration) iid
+        '''
+        weights = np.array(weights,ndmin=2)
+        if weights.size == 0:
+            self.concentration = stats.gamma.rvs(self.a,scale=1./self.b)
+        else:
+            Nobs = weights.shape[0]
+            Nsides = len(weights[0]) # should be same for every elt of weights
+            for itr in range(niter):
+                # sample total weights for each
+                totweights = stats.gamma.rvs(Nsides*self.concentration,1.,size=Nobs)
+                # rescale out to gammas
+                scaledweights = weights * totweights[:,na]
+                # do Gamma-Gamma conjugate sampling (with known rate beta=1.)
+                # TODO
+                pass
+
+    @classmethod
+    def test(cls):
+        from matplotlib import pyplot as plt
+        truth = cls(1.,1.)
+        pis = stats.gamma.rvs(truth.concentration,1.,size=(6,10)) # 6 10-sided die
+        print truth.concentration
+
+        infer = cls(1.,1.)
+        blah = []
+        for itr in range(100):
+            infer.resample(weights=pis)
+            blah.append(infer.concentration)
+        plt.hist(blah)
+
+
+class dp_concentration_parameter(concentration_parameter):
+    '''
+    Implements Gamma(a,b) prior over DP/CRP concentration parameter given
+    CRP data (integrating out the weights)
+    Can also be used in the weak limit case if the truncation parameter is large
+    compared to the number of different states observed. (Formally, one can
+    define a projection from DP draws to Dir draws given a partition of the
+    measure space, and this sampling is exact if there are no collisions in that
+    projection, i.e. if there is only one atom per fiber.)
+    '''
     def resample(self,sample_numbers=None,total_num_distinct=None,niter=30):
         # num_samples can be a vector, one element for each multinomial
         # observation set from a different pi sample, and each element is
@@ -45,7 +100,7 @@ class concentration_parameter(object):
                 self.concentration = stats.gamma.rvs(a+total_num_distinct-svec.sum(),scale=1./(b-np.log(wvec).sum()))
                 # note scipy.stats.gamma uses a scale parameter that is the
                 # inverse of the scale parameter used in the reference papers.
-                # that gets me EVERY TIME
+                # that gets me every time
 
     @classmethod
     def test(cls):
@@ -60,7 +115,7 @@ class concentration_parameter(object):
             alldata = []
             sizes = [20]
             for size in sizes:
-                weights = stats.gamma.rvs(truth.concentration/20,size=20)
+                weights = stats.gamma.rvs(truth.concentration/50,size=50) # 50 \approx inf when #draws=20
                 weights /= weights.sum()
                 alldata.append(sample_discrete(weights,size=size))
             infer.resample(sample_numbers=np.array(sizes),total_num_distinct=len(set(np.concatenate(alldata))))
