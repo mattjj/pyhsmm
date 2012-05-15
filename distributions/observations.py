@@ -8,6 +8,8 @@ from warnings import warn
 from pyhsmm.abstractions import ObservationBase
 from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log
 
+# TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
+
 
 '''
 This module includes general distribution classes that can be used in sampling
