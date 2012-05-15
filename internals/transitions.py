@@ -86,7 +86,7 @@ class dir_concentration_parameter(dp_concentration_parameter):
             super(dir_concentration_parameter,self).resample()
         else:
             if reweights is None:
-                reweights = np.ones(rolldata.shape[1])
+                reweights = np.ones(rolldata.shape[1])/rolldata.shape[1]
             for itr in range(niter):
                 # same m sampling code as below, should be reused
                 # this splits atoms into tables
@@ -94,7 +94,7 @@ class dir_concentration_parameter(dp_concentration_parameter):
                 for (rowidx,colidx), val in np.ndenumerate(rolldata):
                     n = 0.
                     for i in range(val):
-                        m[rowidx,colidx] += random() < self.concentration / rolldata.shape[1] * reweights[colidx] / (n + self.concentration / rolldata.shape[1] * reweights[colidx])
+                        m[rowidx,colidx] += random() < self.concentration * reweights[colidx] / (n + self.concentration * reweights[colidx])
                         n += 1.
 
                 super(dir_concentration_parameter,self).resample(sample_numbers=rolldata.sum(1),total_num_distinct=m.sum(),niter=20)
