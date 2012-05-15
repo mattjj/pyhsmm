@@ -141,7 +141,7 @@ class hsmm_transitions(object):
     beta, fullA, A
     '''
 
-    def __init__(self,state_dim,alpha,gamma,beta=None,A=None,fullA=None,**kwargs):
+    def __init__(self,state_dim,alpha,gamma,beta=None,A=None,fullA=None):
         self.alpha = alpha
         self.gamma = gamma
         self.state_dim = state_dim
