@@ -11,7 +11,7 @@ import scipy.linalg
 ### Sampling functions
 
 def sample_discrete(foo,size=[]):
-    assert (foo >=0).all()
+    assert (foo >=0).all() and foo.ndim == 1
     cumvals = np.cumsum(foo)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1)
 
