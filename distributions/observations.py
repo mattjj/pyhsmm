@@ -10,6 +10,8 @@ from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_
 
 # TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
 
+# TODO perhaps a few too many gaussian classes... should reduce repetition, esp.
+# between diagonal and scalar classes
 
 '''
 This module includes general distribution classes that can be used in sampling
@@ -238,17 +240,17 @@ class diagonal_gaussian(gaussian):
         n = float(len(data))
         k = len(self.mu_0)
         if n == 0:
-            self.sigmas = stats.invgamma.rvs(self.alphas_0,scale=self.betas_0)
+            self.sigmas = stats.invgamma.rvs(self.alphas_0,scale=self.betas_0,size=len(self.alphas_0)) # size needed, apparent scipy bug
             self.mu = np.sqrt(self.sigmas/self.nus_0)*np.random.randn(k)+self.mu_0
         else:
             xbar = data.mean(0)
             nus_n = n + self.nus_0
             alphas_n = self.alphas_0 + n/2
             betas_n = self.betas_0 + 1./2 * ((data-xbar)**2).sum(0) + n*self.nus_0/(n+self.nus_0)\
-                    * 1./2 * (data.mean(0) - self.mu_0)**2
-            mu_n = (n*data.mean(0) + self.nus_0*self.mu_0) / (n + self.nus_0)
+                    * 1./2 * (xbar - self.mu_0)**2
+            mu_n = (n*xbar + self.nus_0*self.mu_0) / (n + self.nus_0)
 
-            self.sigmas = stats.invgamma.rvs(alphas_n,scale=betas_n)
+            self.sigmas = stats.invgamma.rvs(alphas_n,scale=betas_n,size=len(alphas_n))
             self.mu = np.sqrt(self.sigmas / nus_n) * np.random.randn(k)+mu_n
 
     def rvs(self,size=[]):
@@ -262,6 +264,40 @@ class diagonal_gaussian(gaussian):
             mu = self.mu
         return (-0.5*((x-self.mu)**2/self.sigmas) - np.log(np.sqrt(2*np.pi*self.sigmas))).sum(1)
 
+class diagonal_gaussian_nonconj(diagonal_gaussian):
+    '''
+    sigmasq_0, alpha_0, beta_0 parameters can either be vectors of same length
+    as mu_0 (to have different parameters along each dimension) or scalars
+    '''
+    # TODO make argument names consistent with diagonal_gaussian
+    def __init__(self,mu_0,sigmasq_0,alpha_0,beta_0,mu=None,sigmas=None):
+        self.mu_0 = mu_0
+        self.sigmasq_0 = sigmasq_0 if type(sigmasq_0) == np.ndarray else sigmasq_0 * np.ones(len(mu_0))
+        self.alpha_0 = alpha_0 if type(alpha_0) == np.ndarray else alpha_0 * np.ones(len(mu_0))
+        self.beta_0 = beta_0 if type(beta_0) == np.ndarray else beta_0 * np.ones(len(mu_0))
+
+        if mu is None or sigmas is None:
+            self.resample()
+        else:
+            self.mu = mu
+            self.sigmas = sigmas
+
+    def resample(self,data=np.array([]),niter=5,**kwargs):
+        n = float(len(data))
+        k = len(self.mu_0)
+        if n == 0:
+            self.mu = np.sqrt(self.sigmasq_0)*np.random.normal(self.mu_0.shape) + self.mu_0
+            self.sigmas = stats.invgamma.rvs(self.alpha_0,scale=self.beta_0,size=len(self.mu_0)) # size needed, apparent scipy bug
+        else:
+            for itr in range(niter):
+                # resample mean given data and var
+                mu_n = (self.mu_0/self.sigmasq_0 + data.sum(0)/self.sigmas)/(1/self.sigmasq_0 + n/self.sigmas)
+                sigmasq_n = 1/(1/self.sigmasq_0 + n/self.sigmas)
+                self.mu = np.sqrt(sigmasq_n)*np.random.normal(self.mu_0.shape)+mu_n
+                # resample var given data and mean
+                alpha_n = self.alpha_0 + n/2
+                beta_n = self.beta_0 + ((data-self.mu)**2).sum(0)/2
+                self.sigmas = stats.invgamma.rvs(alpha_n,scale=beta_n,size=len(self.mu_0)) # size needed, apparent scipy bug
 
 class isotropic_gaussian(gaussian):
     '''
@@ -314,7 +350,6 @@ class isotropic_gaussian(gaussian):
             mu = self.mu
         k = len(mu)
         return (-0.5*((x-self.mu)**2).sum(1)/self.sigma - k*np.log(np.sqrt(2*np.pi*self.sigma)))
-
 
 class multinomial(ObservationBase):
     '''
@@ -580,7 +615,6 @@ class scalar_gaussian_nonconj_fixedvar(scalar_gaussian_nonconj_gelparams):
 
         if self.mubin is not None:
             self.mubin[...] = self.mu
-
 
 class scalar_gaussian_conj(scalar_gaussian_nonconj_gelparams):
     def __init__(self,mu_0,kappa_0,sigmasq_0,nu_0,mubin=None,sigmasqbin=None):
