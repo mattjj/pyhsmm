@@ -8,70 +8,12 @@ import abc
 from pyhsmm.util.general import rle
 from util.stats import sample_discrete
 
-# TODO add concentration parameter resampling to the classes
+# TODO the code organization in this file needs improvement
 # TODO add kappa resampling for sticky hdphmms
+# TODO concentration parameters untested in the case where there's a set of zero
+# counts
 
-class concentration_parameter(object):
-    # TODO maybe this class should include an rvs method
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self,a,b,concentration=None):
-        self.a = a
-        self.b = b
-
-        if concentration is not None:
-            self.concentration = concentration
-        else:
-            self.resample()
-
-    @abc.abstractmethod
-    def resample(self,*args,**kwargs):
-        pass
-
-class dir_concentration_parameter(concentration_parameter):
-    '''
-    implements Gamma(a,b) prior over symmetric finite Dirichlet concentration
-    parameter given weights
-    I haven't seen a procedure like this one written up anywhere but it's a
-    direct consequence of the relationship between the Dirichlet and Gamma
-    distributions
-    '''
-    def resample(self,weights=np.array([]),niter=30):
-        '''
-        weights = np.array([pi_1, pi_2, ...])
-        where pi_i ~ Dirichlet(concentration) iid
-        '''
-        weights = np.array(weights,ndmin=2)
-        if weights.size == 0:
-            self.concentration = stats.gamma.rvs(self.a,scale=1./self.b)
-        else:
-            Nobs = weights.shape[0]
-            Nsides = len(weights[0]) # should be same for every elt of weights
-            for itr in range(niter):
-                # sample total weights for each
-                totweights = stats.gamma.rvs(Nsides*self.concentration,1.,size=Nobs)
-                # rescale out to gammas
-                scaledweights = weights * totweights[:,na]
-                # do Gamma-Gamma conjugate sampling (with known rate beta=1.)
-                # TODO
-                pass
-
-    @classmethod
-    def test(cls):
-        from matplotlib import pyplot as plt
-        truth = cls(1.,1.)
-        pis = stats.gamma.rvs(truth.concentration,1.,size=(6,10)) # 6 10-sided die
-        print truth.concentration
-
-        infer = cls(1.,1.)
-        blah = []
-        for itr in range(100):
-            infer.resample(weights=pis)
-            blah.append(infer.concentration)
-        plt.hist(blah)
-
-
-class dp_concentration_parameter(concentration_parameter):
+class dp_concentration_parameter(object):
     '''
     Implements Gamma(a,b) prior over DP/CRP concentration parameter given
     CRP data (integrating out the weights)
@@ -81,7 +23,16 @@ class dp_concentration_parameter(concentration_parameter):
     measure space, and this sampling is exact if there are no collisions in that
     projection, i.e. if there is only one atom per fiber.)
     '''
-    def resample(self,sample_numbers=None,total_num_distinct=None,niter=30):
+    def __init__(self,a,b,concentration=None):
+        self.a = a
+        self.b = b
+
+        if concentration is not None:
+            self.concentration = concentration
+        else:
+            self.resample()
+
+    def resample(self,sample_numbers=np.array([]),total_num_distinct=0,niter=20):
         # num_samples can be a vector, one element for each multinomial
         # observation set from a different pi sample, and each element is
         # the number of draws in that multinomial set
@@ -90,10 +41,11 @@ class dp_concentration_parameter(concentration_parameter):
         # the notation of w's and s's follows from the HDP paper
         sample_numbers = np.array(sample_numbers)
         a,b = self.a, self.b
-        if sample_numbers is None or total_num_distinct is None:
+        if len(sample_numbers) == 0:
             self.concentration = stats.gamma.rvs(a,scale=1./b)
         else:
-            # sample_numbers += 1e-10 # convenient in case any element is zero
+            # print '%s, %d' % (sample_numbers,total_num_distinct)
+            sample_numbers += 1e-10 # convenient in case any element is zero
             for itr in range(niter):
                 wvec = stats.beta.rvs(self.concentration+1,sample_numbers)
                 svec = np.array(stats.bernoulli.rvs(sample_numbers/(sample_numbers+self.concentration)))
@@ -106,7 +58,6 @@ class dp_concentration_parameter(concentration_parameter):
     def test(cls):
         from matplotlib import pyplot as plt
         truth = cls(1.,1.)
-
 
         infer = cls(1.,1.)
         print truth.concentration
@@ -122,7 +73,60 @@ class dp_concentration_parameter(concentration_parameter):
             blah.append(infer.concentration)
 
         print np.median(blah)
-        plt.hist(blah)
+        plt.hist(blah,bins=25,normed=True)
+
+class dir_concentration_parameter(dp_concentration_parameter):
+    '''
+    implements concentration parameter resampling for finite dirichlet
+    concentration parameters by splitting atoms!
+    '''
+    def resample(self,rolldata=np.array([[]]),reweights=None,niter=10):
+        rolldata = np.array(rolldata,ndmin=2)
+        if rolldata.size == 0:
+            super(dir_concentration_parameter,self).resample()
+        else:
+            if reweights is None:
+                reweights = np.ones(rolldata.shape[1])
+            for itr in range(niter):
+                # same m sampling code as below, should be reused
+                # this splits atoms into tables
+                m = np.zeros(rolldata.shape)
+                for (rowidx,colidx), val in np.ndenumerate(rolldata):
+                    n = 0.
+                    for i in range(val):
+                        m[rowidx,colidx] += random() < self.concentration / rolldata.shape[1] * reweights[colidx] / (n + self.concentration / rolldata.shape[1] * reweights[colidx])
+                        n += 1.
+
+                super(dir_concentration_parameter,self).resample(sample_numbers=rolldata.sum(1),total_num_distinct=m.sum(),niter=20)
+
+    @classmethod
+    def test(cls):
+        from matplotlib import pyplot as plt
+
+        truth = cls(1.,1.)
+        print truth.concentration
+
+        infer = cls(1.,1.)
+
+        foo = []
+        for itr in range(50):
+            num_die = 1
+            num_sides = 6
+            dice = stats.gamma.rvs(truth.concentration * np.ones((num_die,num_sides))/num_sides)
+            dice /= dice.sum(1)[:,na]
+
+            # get some samples
+            num_samples = 50*np.ones(num_die)
+            counts = np.zeros((num_die,num_sides),dtype=np.int32)
+            for idx, (num, die) in enumerate(zip(num_samples,dice)):
+                counts[idx] = np.bincount(sample_discrete(die,size=num),minlength=num_sides)
+
+            infer.resample(counts)
+            foo.append(infer.concentration)
+
+        print np.median(foo)
+        plt.hist(foo,bins=25,normed=True)
+
 
 class hsmm_transitions(object):
     '''
@@ -234,21 +238,22 @@ class hdphmm_transitions(object):
             assert type(states_norep) == type(np.array([]))
 
         # count all transitions
-        data = np.zeros((self.state_dim,self.state_dim))
+        data = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         for states in states_list:
             if len(states) >= 2:
                 for idx in xrange(len(states)-1):
                     data[states[idx],states[idx+1]] += 1
 
-        m = np.zeros((self.state_dim,self.state_dim))
+        m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         if not (0 == data).all():
             # sample m's (auxiliary variables which make beta's posterior
             # conjugate and indep. of data)
-            for rowidx in xrange(self.state_dim):
-                for colidx in xrange(self.state_dim):
-                    for n in xrange(int(data[rowidx,colidx])):
-                        m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] /\
-                                                        (n + self.alpha * self.beta[colidx])
+            # basically sampling forward a CRP and checking when new tables are
+            # instantiated
+            for (rowidx, colidx), val in np.ndenumerate(data):
+                for n in range(val):
+                    m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] /\
+                                                    (n + self.alpha * self.beta[colidx])
 
         self.resample_beta(m)
         self.resample_A(data)
