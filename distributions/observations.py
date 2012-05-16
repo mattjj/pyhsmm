@@ -107,16 +107,6 @@ class mixture(ObservationBase):
     def plot(self):
         raise NotImplementedError
 
-# convenience method, TODO move elsewhere
-def gaussian_mixture(alpha_vec=np.array([3, 3]),
-        mu_0=np.zeros(39),lmbda_0=np.eye(39),kappa_0=5.,nu_0=49.):
-    return mixture(alpha=alpha_vec,components=[gaussian(mu_0,lmbda_0,kappa_0,nu_0)])
-
-
-def diagonal_gaussian_mixture(alpha_vec=np.array([3, 3]),
-        mu_0=np.zeros(39),nus_0=np.ones(39)*0.05,alphas_0=10*np.ones(39),betas_0=np.ones(39)):
-    return mixture(alpha=alpha_vec,components=[diagonal_gaussian(mu_0,nus_0, alphas_0, betas_0) for x in range(len(alpha_vec))])
-
 class gaussian(ObservationBase):
     '''
     Multivariate Gaussian observation distribution class. NOTE: Only
