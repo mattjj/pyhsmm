@@ -6,7 +6,7 @@ from numpy import newaxis as na
 import abc
 
 from pyhsmm.util.general import rle
-from util.stats import sample_discrete
+from pyhsmm.util.stats import sample_discrete
 
 # TODO the code organization in this file needs improvement
 # TODO add kappa resampling for sticky hdphmms
