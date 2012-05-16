@@ -12,10 +12,13 @@ class hmm(object):
     packages all the components.
     '''
 
-    def __init__(self,alpha,gamma,obs_distns,**kwargs):
+    def __init__(self,obs_distns,alpha=None,gamma=None,**kwargs):
         self.state_dim = len(obs_distns)
 
         self.obs_distns = obs_distns
+
+        if alpha is None or gamma is None:
+            assert 'trans_distn' in kwargs, 'must specify transition distribution to initialize %s without concentration parameters' % type(self)
 
         self.trans_distn = transitions.hdphmm_transitions(state_dim=self.state_dim,alpha=alpha,gamma=gamma,**kwargs)\
                 if 'transitions' not in kwargs else kwargs['transitions']
