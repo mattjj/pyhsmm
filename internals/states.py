@@ -457,6 +457,43 @@ class hmm_states_eigen(hmm_states_python):
 
         self.stateseq = stateseq
 
+
+class hsmm_states_possiblechangepoints(hsmm_states):
+    def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
+            trunc=None,data=None,stateseq=None):
+        self.changepoints = changepoints
+        self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+        self.T = T
+        self.Tblock = len(changepoints) # number of blocks
+
+        # mostly same as parent init past here EXCEPT if setting statesequences...
+
+        self.trunc = T if trunc is None else trunc
+        self.state_dim = state_dim
+        self.obs_distns = obs_distns
+        self.dur_distns = dur_distns
+        self.transition_distn = transition_distn
+        self.initial_distn = initial_distn
+
+        self.data = data
+
+        self.substates = []
+
+        if stateseq is None:
+            if data is not None:
+                self.resample()
+            else:
+                self.generate_states()
+        else:
+            self.stateseq = stateseq
+            self.stateseq_norep, self.durations = map(lambda x: np.array(x,dtype=np.int32),util.rle(stateseq))
+
+        # TODO
+
+
+
+# default is python
 hsmm_states = hsmm_states_python
 hmm_states = hmm_states_python
 
@@ -469,6 +506,7 @@ with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
     hmm_sample_forwards_codestr = infile.read()
 
 def use_eigen(useit=True):
+    # TODO this method is probably dumb; should get rid of use_eigen
     global hsmm_states, hmm_states
     if useit:
         hsmm_states = hsmm_states_eigen
