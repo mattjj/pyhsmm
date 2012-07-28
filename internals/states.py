@@ -4,7 +4,7 @@ from numpy.random import random
 import scipy.weave
 from warnings import warn
 
-from pyhsmm.util.stats import sample_discrete
+from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log
 from pyhsmm.util import general as util # perhaps a confusing name :P
 
 import os
@@ -197,7 +197,7 @@ class hsmm_states_python(object):
                     dur += 1
                     continue
                 if idx+dur < self.T:
-                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state]) # TODO unnecessarily slow for subhmms
+                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state])
                     p_d = mess_term * p_d_marg
                     #print 'dur: %d, durprob: %f, p_d_marg: %f, p_d: %f' % (dur+1,durprob,p_d_marg,p_d)
                     prob_so_far += p_d
@@ -461,13 +461,14 @@ class hmm_states_eigen(hmm_states_python):
 class hsmm_states_possiblechangepoints(hsmm_states):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None):
+        # TODO think through this execution
         self.changepoints = changepoints
         self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
         self.T = T
         self.Tblock = len(changepoints) # number of blocks
 
-        # mostly same as parent init past here EXCEPT if setting statesequences...
+        # mostly same as parent init past here EXCEPT if setting statesequences... TODO
 
         self.trunc = T if trunc is None else trunc
         self.state_dim = state_dim
@@ -489,9 +490,108 @@ class hsmm_states_possiblechangepoints(hsmm_states):
             self.stateseq = stateseq
             self.stateseq_norep, self.durations = map(lambda x: np.array(x,dtype=np.int32),util.rle(stateseq))
 
-        # TODO
+    def messages_backwards(self,Al,aDl,aDsl,trunc):
+        Tblock = self.Tblock
+        state_dim = Al.shape[0]
+        betal = np.zeros((Tblock,state_dim),dtype=np.float64)
+        betastarl = np.zeros(betal.shape)
+        if trunc is None:
+            trunc = self.T
+
+        for tblock in range(Tblock-1,-1,-1):
+            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
+            truncblock = len(possible_durations)
+            normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
+
+            np.logaddexp.reduce(betal[tblock:tblock+truncblock] + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations) + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
+            # TODO put censoring here, must implement likelihood_block
+            np.logaddexp.reduce(betastarl[tblock] + Al, axis=1, out=betal[tblock-1])
+        betal[-1] = 0.
+
+        assert not np.isnan(betal).any()
+        assert not np.isnan(betastarl).any()
+
+        # TODO a little ugly: set self.aDl so that this class's sample_forwards() can
+        # get it even though the parent class's resample() doesn't pass it in
+        self.aDl = aDl
+
+        return betal, betastarl
+
+    def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
+        # could recompute possible_durations given startblock, stopblock,
+        # trunc/truncblock, and self.blocklens, but why redo that effort?
+        start = self.startpoints[startblock]
+        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
+        return self.cumulative_likelihoods(start,stop)[possible_durations-1]
+
+    def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
+        start = self.startpoints[startblock]
+        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
+        return self.cumulative_likelihood_state(start,stop,state)[possible_durations-1]
+
+    def sample_forwards(self,betal,betastarl):
+        aDl = self.aDl
+        trunc = self.trunc
+
+        Tblock = betal.shape[0]
+        assert Tblock == len(self.changepoints)
+        blockstateseq = np.zeros(Tblock,dtype=np.int32)
+
+        tblock = 0
+        nextstate_unsmoothed = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        if trunc is None:
+            trunc = self.T
+
+        while tblock < Tblock:
+            # sample the state
+            logdomain = betastarl[tblock] - np.amax(betastarl[tblock])
+            nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
+            state = sample_discrete(nextstate_distr)
+
+            # compute possible duration info (indep. of state)
+            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
+            truncblock = len(possible_durations)
+
+            if truncblock > 1:
+                # compute the next few log likelihoods
+                loglikelihoods = self.block_cumulative_likelihood_state(tblock,tblock+truncblock,state,possible_durations)
+
+                # compute pmf over those steps
+                logpmf = aDl[possible_durations-1,state] + loglikelihoods + betal[tblock:tblock+truncblock,state] - betastarl[tblock,state]
+
+                # sample from it
+                blockdur = sample_discrete_from_log(logpmf)+1
+            else:
+                blockdur = 1
+
+            # set block sequence
+            blockstateseq[tblock:tblock+blockdur] = state
+
+            # set up next iteration
+            tblock += blockdur
+            nextstate_unsmoothed = A[state]
+
+        # convert block state sequence to full stateseq and stateseq_norep and
+        # durations
+        self.stateseq = np.zeros(self.T,dtype=np.int32)
+        for state, (start,stop) in zip(blockstateseq,self.changepoints):
+            self.stateseq[start:stop] = state
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+        # clean up the data passed to us from this class's messages_forwards()
+        del self.aDl
+
+    def generate(self): # TODO
+        raise NotImplementedError
 
 
+################################
+#  use_eigen stuff below here  #
+################################
 
 # default is python
 hsmm_states = hsmm_states_python
