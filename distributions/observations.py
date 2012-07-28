@@ -107,7 +107,6 @@ class mixture(ObservationBase):
     def plot(self,*args,**kwargs):
         warn('plotting not implemented for %s' % type(self))
 
-
 class gaussian(ObservationBase):
     '''
     Multivariate Gaussian observation distribution class. NOTE: Only
