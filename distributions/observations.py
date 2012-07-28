@@ -104,8 +104,9 @@ class mixture(ObservationBase):
                 plt.plot(c.mu[0],c.mu[1],'bo',markersize=10)
         plt.show()
 
-    def plot(self):
-        raise NotImplementedError
+    def plot(self,*args,**kwargs):
+        warn('plotting not implemented for %s' % type(self))
+
 
 class gaussian(ObservationBase):
     '''

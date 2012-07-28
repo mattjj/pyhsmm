@@ -7,6 +7,8 @@ from matplotlib import pyplot as plt
 from pyhsmm.abstractions import DurationBase
 from pyhsmm.util.stats import sample_discrete
 
+# TODO switch from scipy to numpy for basic distribution sampling
+
 '''
 Classes representing duration distributions. Each has internal parameter state and includes the following functions:
     __init__(hypparams)
