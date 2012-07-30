@@ -1,10 +1,10 @@
+#!/usr/bin/env python
 from __future__ import division
 import numpy as np
 np.seterr(divide='ignore')
 from matplotlib import pyplot as plt
 
 import pyhsmm
-from pyhsmm.models import hsmm_possiblechangepoints, hsmm
 from pyhsmm.util.text import progprint_xrange
 
 save_images = False
@@ -61,7 +61,7 @@ obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(
 dur_distns = [pyhsmm.durations.poisson(**dur_hypparams) for state in xrange(Nmax)]
 
 # build new hsmm_possiblechangepoints model that will represent the posterior
-posteriormodel = hsmm_possiblechangepoints(alpha=6.,gamma=6.,obs_distns=obs_distns,dur_distns=dur_distns,trunc=70)
+posteriormodel = pyhsmm.hsmm_possiblechangepoints(alpha=6.,gamma=6.,obs_distns=obs_distns,dur_distns=dur_distns,trunc=70)
 posteriormodel.add_data(data,changepoints)
 
 
