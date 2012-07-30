@@ -91,7 +91,7 @@ dur_hypparams = {'k':8,
 obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.durations.poisson(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.hsmm(6.,6.,obs_distns,dur_distns,trunc=75)
+posteriormodel = pyhsmm.models.hsmm(6.,6.,obs_distns,dur_distns,trunc=75)
 ```
 
 (The first two arguments set the "new-table" proportionality constant for the
