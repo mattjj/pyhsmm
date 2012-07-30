@@ -45,7 +45,8 @@ plt.gcf().suptitle('True HSMM')
 temp = np.concatenate(((0,),truemodel.states_list[0].durations.cumsum()))
 changepoints = zip(temp[:-1],temp[1:])
 changepoints[-1] = (changepoints[-1][0],T) # because last duration might be censored
-print 'changepoints:'
+# TODO could add in some extras here
+print 'segments:'
 print changepoints
 
 ### build the posterior
