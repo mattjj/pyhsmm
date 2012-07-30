@@ -245,7 +245,13 @@ class hsmm(hmm):
 
 class hsmm_possiblechangepoints(hsmm):
     def add_data(self,data,changepoints,stateseq=None):
-        self.states_list.append(states.hsmm_states_possiblechangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns.self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+        self.states_list.append(states.hsmm_states_possiblechangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+
+    def generate(self,T,changepoints,keep=True):
+        raise NotImplementedError
+
+    def loglike(self,data,trunc=None):
+        raise NotImplementedError
 
 
 class hmm_sticky(hmm):

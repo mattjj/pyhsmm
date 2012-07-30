@@ -458,10 +458,9 @@ class hmm_states_eigen(hmm_states_python):
         self.stateseq = stateseq
 
 
-class hsmm_states_possiblechangepoints(hsmm_states):
+class hsmm_states_possiblechangepoints(hsmm_states_python):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None):
-        # TODO think through this execution
         self.changepoints = changepoints
         self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
@@ -499,7 +498,7 @@ class hsmm_states_possiblechangepoints(hsmm_states):
             trunc = self.T
 
         for tblock in range(Tblock-1,-1,-1):
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.blocklens[tblock:].cumsum() # TODO could precompute these
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
@@ -518,17 +517,20 @@ class hsmm_states_possiblechangepoints(hsmm_states):
 
         return betal, betastarl
 
+    def get_aBl(self,data):
+        # this method actually sets self.aBBl for block likelihoods
+        aBBl = np.zeros((self.Tblock,self.state_dim))
+        aBl = super(hsmm_states_possiblechangepoints,self).get_aBl(data)
+        for idx, (start,stop) in enumerate(self.changepoints):
+            aBBl[idx] = aBl[start:stop].sum(0)
+        self.aBBl = aBBl
+        return None
+
     def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
-        # could recompute possible_durations given startblock, stopblock,
-        # trunc/truncblock, and self.blocklens, but why redo that effort?
-        start = self.startpoints[startblock]
-        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
-        return self.cumulative_likelihoods(start,stop)[possible_durations-1]
+        return self.aBBl[startblock:stopblock].cumsum(0)[:possible_durations.shape[0]]
 
     def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
-        start = self.startpoints[startblock]
-        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
-        return self.cumulative_likelihood_state(start,stop,state)[possible_durations-1]
+        return self.aBBl[startblock:stopblock,state].cumsum(0)[:possible_durations.shape[0]]
 
     def sample_forwards(self,betal,betastarl):
         aDl = self.aDl
