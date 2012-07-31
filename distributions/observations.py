@@ -468,7 +468,11 @@ class indicator_multinomial(multinomial):
         # I've tested this by hand
         raise NotImplementedError
 
-class scalar_gaussian_nonconj(ObservationBase):
+class scalar_gaussian(ObservationBase):
+    # this class just serves as a node in the class hierarchy
+    pass
+
+class scalar_gaussian_nonconj(scalar_gaussian):
     def __init__(self,mu_0,sigmasq_0,alpha,beta,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
         self.sigmasq_0 = sigmasq_0
@@ -518,7 +522,7 @@ class scalar_gaussian_nonconj(ObservationBase):
     def __repr__(self):
         return 'gaussian_scalar_nonconj(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
 
-class scalar_gaussian_nonconj_gelparams(ObservationBase):
+class scalar_gaussian_nonconj_gelparams(scalar_gaussian):
     # uses parameters from Gelman's Bayesian Data Analysis
     def __init__(self,mu_0,tausq_0,sigmasq_0,nu_0,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
