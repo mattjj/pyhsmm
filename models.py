@@ -72,9 +72,7 @@ class hmm(object):
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
-        # TODO probably already generated when tempstates was added, so this
-        # call to generate only needs to be a call to generate_obs
-        obs,labels = tempstates.generate(), tempstates.stateseq
+        obs,labels = tempstates.generate_obs(), tempstates.stateseq
 
         if keep:
             tempstates.added_with_generate = True # I love Python
