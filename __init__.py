@@ -2,4 +2,5 @@
 import models
 from distributions import observations, durations
 from internals.states import use_eigen
+import plugins
 
