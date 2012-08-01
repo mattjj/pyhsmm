@@ -478,8 +478,6 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
 
         self.data = data
 
-        self.substates = []
-
         if stateseq is None:
             if data is not None:
                 self.resample()
