@@ -8,12 +8,9 @@ from warnings import warn
 import abc
 
 from pyhsmm.abstractions import ObservationBase
-from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log, scalar_t_loglike
+from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log
 
 # TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
-
-# TODO perhaps a few too many gaussian classes... should reduce repetition, esp.
-# between diagonal and scalar classes
 
 '''
 This module includes general distribution classes that can be used in sampling
@@ -21,6 +18,8 @@ hierarchical Bayesian models. Though module is called 'observations', there
 aren't really any restrictions placed on an observation distribution, so these
 classes can be reused as general distributions.
 '''
+
+# TODO make a collapsed crp mixture and a directassignment crp mixture
 
 class mixture(ObservationBase):
     '''
@@ -471,8 +470,18 @@ class indicator_multinomial(multinomial):
         raise NotImplementedError
 
 class scalar_gaussian(ObservationBase):
-    # this class just serves as a node in the class hierarchy
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = abc.ABCMeta # not a full implementation of ObservationBase
+
+    def rvs(self,size=None):
+        return np.sqrt(self.sigmasq)*np.random.normal(size=size)+self.mu
+
+    def log_likelihood(self,x):
+        assert x.ndim == 2
+        assert x.shape[1] == 1
+        return (-0.5*(x-self.mu)**2/self.sigmasq - np.log(np.sqrt(2*np.pi*self.sigmasq))).flatten()
+
+    def __repr__(self):
+        return 'scalar_gaussian(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
 
 class scalar_gaussian_nonconj(scalar_gaussian):
     def __init__(self,mu_0,sigmasq_0,alpha,beta,mu=None,sigmasq=None,mubin=None,sigmasqbin=None):
@@ -512,14 +521,6 @@ class scalar_gaussian_nonconj(scalar_gaussian):
         if self.mubin is not None and self.sigmasqbin is not None:
             self.mubin[...] = self.mu
             self.sigmasqbin[...] = self.sigmasq
-
-    def rvs(self,size=None):
-        return np.sqrt(self.sigmasq)*np.random.normal(size=size)+self.mu
-
-    def log_likelihood(self,x):
-        assert x.ndim == 2
-        assert x.shape[1] == 1
-        return (-0.5*(x-self.mu)**2/self.sigmasq - np.log(np.sqrt(2*np.pi*self.sigmasq))).flatten()
 
     def __repr__(self):
         return 'gaussian_scalar_nonconj(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
@@ -570,14 +571,6 @@ class scalar_gaussian_nonconj_gelparams(scalar_gaussian):
             self.mubin[...] = self.mu
             self.sigmasqbin[...] = self.sigmasq
 
-    def rvs(self,size=None):
-        return np.sqrt(self.sigmasq)*np.random.normal(size=size)+self.mu
-
-    def log_likelihood(self,x):
-        assert x.ndim == 2
-        assert x.shape[1] == 1
-        return (-0.5*(x-self.mu)**2/self.sigmasq - np.log(np.sqrt(2*np.pi*self.sigmasq))).flatten()
-
     def __repr__(self):
         return 'gaussian_scalar_nonconj(mu=%f,sigmasq=%f)' % (self.mu,self.sigmasq)
 
@@ -613,9 +606,10 @@ class scalar_gaussian_nonconj_fixedvar(scalar_gaussian_nonconj_gelparams):
         if self.mubin is not None:
             self.mubin[...] = self.mu
 
-# TODO write a scalar_gaussian_conj NIG class as a wrapper around this one
-class scalar_gaussian_conj(scalar_gaussian_nonconj_gelparams):
-    # normal inverse chisquare prior
+# TODO write a scalar_gaussian_conj NIG class
+
+class scalar_gaussian_conj_NIX(scalar_gaussian):
+    # normal inverse chi-square prior
     def __init__(self,mu_0,kappa_0,sigmasq_0,nu_0,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
         self.kappa_0 = kappa_0

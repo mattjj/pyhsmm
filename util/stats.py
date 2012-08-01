@@ -74,15 +74,6 @@ def sample_wishart(sigma, dof):
 
 ### Predictive
 
-def scalar_t_loglike(y,mu,sigmasq,dof):
-    temp = (y-mu)/sigmasq
-    r = dof*1.0
-    lPx = scipy.special.gammaln((r+1)/2)-scipy.special.gammaln(r/2)
-    lPx -= 0.5*np.log(r*np.pi) + (r+1)/2*np.log(1+(temp**2)/r)
-    return lPx - np.log(sigmasq)
-    #return stats.t.logpdf(y,dof,loc=mu,scale=sigmasq)
-    #return stats.t._logpdf((y-mu)/sigmasq,dof) - np.log(sigmasq)
-
 def multivariate_t_loglik(y,nu,mu,lmbda):
     # returns the log value
     # TODO check... gelman says lmbda but emily says nulmbda
