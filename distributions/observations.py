@@ -548,8 +548,8 @@ class scalar_gaussian_nonconj_gelparams(scalar_gaussian):
             self.mu = np.sqrt(self.tausq_0)*np.random.randn()+self.mu_0
             self.sigmasq = self.nu_0 * self.sigmasq_0 / stats.chi2.rvs(self.nu_0)
         else:
-            assert data.ndim == 2
-            assert data.shape[1] == 1
+            assert data.ndim == 2 or data.ndim == 1
+            data = np.reshape(data,(-1,1))
             n = len(data)
             mu_hat = data.mean()
             for iter in xrange(niter):

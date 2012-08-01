@@ -554,6 +554,7 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
             state = sample_discrete(nextstate_distr)
 
             # compute possible duration info (indep. of state)
+            # TODO doesn't handle censoring quite correctly
             possible_durations = self.blocklens[tblock:].cumsum()
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
@@ -586,6 +587,48 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
 
         # clean up the data passed to us from this class's messages_forwards()
         del self.aDl
+
+    def generate_states(self):
+        # this method can probably call sample_forwards with dummy uniform
+        # aBl/betal/betastarl, but that's just too complicated!
+        Tblock = self.Tblock
+        assert Tblock == len(self.changepoints)
+        blockstateseq = np.zeros(Tblock,dtype=np.int32)
+
+        tblock = 0
+        nextstate_distr = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        while tblock < Tblock:
+            # sample the state
+            state = sample_discrete(nextstate_distr)
+
+            # compute possible duration info (indep. of state)
+            possible_durations = self.blocklens[tblock:].cumsum()
+
+            # compute the pmf over those steps
+            durprobs = self.dur_distns[state].pmf(possible_durations)
+            # TODO censoring: the last possible duration isn't quite right
+            durprobs /= durprobs.sum()
+
+            # sample it
+            blockdur = sample_discrete(durprobs) + 1
+
+            # set block sequence
+            blockstateseq[tblock:tblock+blockdur] = state
+
+            # set up next iteration
+            tblock += blockdur
+            nextstate_distr = A[state]
+
+        # convert block state sequence to full stateseq and stateseq_norep and
+        # durations
+        self.stateseq = np.zeros(self.T,dtype=np.int32)
+        for state, (start,stop) in zip(blockstateseq,self.changepoints):
+            self.stateseq[start:stop] = state
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+        return self.stateseq
 
     def generate(self): # TODO
         raise NotImplementedError
