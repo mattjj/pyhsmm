@@ -4,10 +4,12 @@ from numpy.random import random
 import scipy.weave
 from warnings import warn
 
+
 from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log
 from pyhsmm.util import general as util # perhaps a confusing name :P
 
-import os
+# TODO instead of refs to initial_state and transition objects, should just get
+# refs to the vectors
 
 class hsmm_states_python(object):
     '''
@@ -640,6 +642,7 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
 hsmm_states = hsmm_states_python
 hmm_states = hmm_states_python
 
+import os
 eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
     hsmm_sample_forwards_codestr = infile.read()

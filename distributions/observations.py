@@ -636,8 +636,8 @@ class scalar_gaussian_conj_NIX(scalar_gaussian):
         return self._predictive(newdata,olddata,
                 mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
 
-    def single_predictive(self,y,olddata=np.array([])):
-        return self._single_predictive(y,olddata,
+    def predictive_single(self,y,olddata=np.array([])):
+        return self._predictive_single(y,olddata,
                 mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
 
     def marginal_likelihood(self,data):
@@ -687,7 +687,7 @@ class scalar_gaussian_conj_NIX(scalar_gaussian):
                        + (n_old - n_all)*np.log(np.pi)))
 
     @classmethod
-    def _single_predictive(cls,y,olddata,*args,**kwargs):
+    def _predictive_single(cls,y,olddata,*args,**kwargs):
         mu_n, kappa_n, sigmasq_n, nu_n = cls._posterior_hypparams(olddata,*args,**kwargs)
         return stats.t.pdf(y,nu_n,loc=mu_n,scale=np.sqrt((1+kappa_n)*sigmasq_n/kappa_n))
 
