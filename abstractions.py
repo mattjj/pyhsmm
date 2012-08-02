@@ -61,3 +61,16 @@ class DurationBase(object):
     def rvs(self,size=[]):
         pass
 
+
+class Collapsed(object):
+    __metaclass__ = abc.ABCMeta
+
+    def predictive(self,newdata,olddata=np.array([])):
+        olddata.shape = (-1,) + newdata.shape[1:] if newdata.ndim > 1 else olddata.shape
+        return np.exp(np.log(self.marginal_likelihood(np.concatenate((newdata,olddata))))
+                - np.log(self.marginal_likelihood(olddata)))
+
+    @abc.abstractmethod
+    def marginal_likelihood(self,data):
+        pass
+

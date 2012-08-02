@@ -1,10 +1,10 @@
 from __future__ import division
 import numpy as np
 import scipy.stats as stats
-import scipy.special
+import scipy.special as special
 from matplotlib import pyplot as plt
 
-from pyhsmm.abstractions import DurationBase
+from pyhsmm.abstractions import DurationBase, Collapsed
 from pyhsmm.util.stats import sample_discrete
 
 # TODO switch from scipy to numpy for basic distribution sampling
@@ -23,7 +23,7 @@ Classes representing duration distributions. Each has internal parameter state a
 Duration distributions are supported on {1,2,...}, so pmf definitions starting at 0 must be shifted accordingly.
 '''
 
-class geometric(DurationBase):
+class geometric(DurationBase, Collapsed):
     '''
     Geometric duration distribution class. Supported on {1,2,...}
     Uses a conjugate Beta prior.
@@ -49,7 +49,7 @@ class geometric(DurationBase):
     def resample(self,data=np.array([]),**kwargs):
         if len(data) > 0:
             assert np.min(data) >= 1
-        self.p = stats.beta.rvs(self.alpha + float(len(data)), self.beta + np.sum(data-1))
+        self.p = stats.beta.rvs(*self._posterior_hypparams(data,self.alpha,self.beta))
 
     def log_pmf(self,x,p=None):
         if p is None:
@@ -68,8 +68,28 @@ class geometric(DurationBase):
     def rvs(self,size=[]):
         return stats.geom.rvs(self.p,size=size)
 
+    def predictive(self,newdata,olddata=np.array([])):
+        return self._predictive(newdata,olddata,self.alpha,self.beta)
 
-class poisson(DurationBase):
+    def marginal_likelihood(self,data):
+        return self._marginal_likelihood(data,self.alpha,self.beta)
+
+    @classmethod
+    def _posterior_hypparams(cls,data,alpha_0,beta_0):
+        return alpha_0 + len(data), beta_0 + sum(data-1)
+
+    @classmethod
+    def _marginal_likelihood(cls,data,alpha_0,beta_0):
+        alpha_n, beta_n = cls._posterior_hypparams(data,alpha_0,beta_0)
+        return special.beta(alpha_n,beta_n)
+
+    @classmethod
+    def _predictive(cls,newdata,olddata,alpha_0,beta_0):
+        alpha_all, beta_all = cls._posterior_hypparams(np.concatenate((newdata,olddata)),alpha_0,beta_0)
+        alpha_old, beta_old = cls._posterior_hypparams(olddata,alpha_0,beta_0)
+        return np.exp(special.betaln(alpha_all,beta_all) - special.betaln(alpha_old,beta_old))
+
+class poisson(DurationBase, Collapsed):
     '''
     Poisson duration distribution class. Supported on {1,2,...}
     Uses a conjugate Gamma prior.
@@ -106,7 +126,7 @@ class poisson(DurationBase):
         if lmbda is None:
             lmbda = self.lmbda
         x = np.array(x,ndmin=1)
-        raw = -lmbda + (x-1.)*np.log(lmbda) - scipy.special.gammaln(x)
+        raw = -lmbda + (x-1.)*np.log(lmbda) - special.gammaln(x)
         raw[x < 1] = np.log(0.)
         return raw if raw.size > 1 else raw[0]
 
@@ -118,6 +138,28 @@ class poisson(DurationBase):
 
     def rvs(self,size=[]):
         return stats.poisson.rvs(self.lmbda,size=size,loc=1)
+
+    def predictive(self,newdata,olddata=np.array([])):
+        return self._predictive(newdata,olddata,self.k,self.theta)
+
+    def marginal_likelihood(self,data):
+        return self._marginal_likelihood(data,self.k,self.theta)
+
+    @classmethod
+    def _posterior_hypparams(cls,data,k_0,theta_0):
+        return k_0 + sum(data-1), theta_0/(theta_0 + len(data) + 1)
+
+    @classmethod
+    def _marginal_likelihood(cls,data,k_0,theta_0):
+        k_n, theta_n = cls._posterior_hypparams(data,k_0,theta_0)
+        return np.exp(special.gammaln(k_n) + k_n * np.log(theta_n))
+
+    @classmethod
+    def _predictive(cls,newdata,olddata,k_0,theta_0):
+        k_all, theta_all = cls._posterior_hypparams(np.concatenate((newdata,olddata)),k_0,theta_0)
+        k_old, theta_old = cls._posterior_hypparams(olddata,k_0,theta_0)
+        return np.exp( special.gammaln(k_all) + k_all * np.log(theta_all)
+                     - special.gammaln(k_old) + k_old * np.log(theta_old) )
 
     @classmethod
     def test(cls,num_tests=4,k=8.,theta=5.):
@@ -249,7 +291,7 @@ class negative_binomial(DurationBase):
             p = self.p
         x = np.array(x,ndmin=1)
         r = float(r)
-        raw = (scipy.special.gammaln(x+r-1) - scipy.special.gammaln(x) - scipy.special.gammaln(r) + r * np.log(p) + (x-1.) * np.log(1-p))
+        raw = (special.gammaln(x+r-1) - special.gammaln(x) - special.gammaln(r) + r * np.log(p) + (x-1.) * np.log(1-p))
         raw[x < 1] = np.log(0.)
         if p == 1.:
             raw[np.isnan(raw)] = np.log(1.)
@@ -264,7 +306,7 @@ class negative_binomial(DurationBase):
         if p is None:
             p = self.p
         x = np.array(x,ndmin=1)
-        raw = np.log(1. - scipy.special.betainc(r,x,p))
+        raw = np.log(1. - special.betainc(r,x,p))
         raw[x < 1] = np.log(1.)
         return raw
 

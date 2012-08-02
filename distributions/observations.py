@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from warnings import warn
 import abc
 
-from pyhsmm.abstractions import ObservationBase
+from pyhsmm.abstractions import ObservationBase, Collapsed
 from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log
 
 # TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
@@ -608,7 +608,10 @@ class scalar_gaussian_nonconj_fixedvar(scalar_gaussian_nonconj_gelparams):
 
 # TODO write a scalar_gaussian_conj NIG class
 
-class scalar_gaussian_conj_NIX(scalar_gaussian):
+# TODO collapsed abstract class, generic implementation of predictive in terms
+# of marg / marg
+
+class scalar_gaussian_conj_NIX(scalar_gaussian, Collapsed):
     # normal inverse chi-square prior
     def __init__(self,mu_0,kappa_0,sigmasq_0,nu_0,mubin=None,sigmasqbin=None):
         self.mu_0 = mu_0
@@ -644,7 +647,6 @@ class scalar_gaussian_conj_NIX(scalar_gaussian):
         return self._marginal_likelihood(data,
                 mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
 
-
     @classmethod
     def _posterior_hypparams(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
         data = np.array(data)
@@ -671,9 +673,6 @@ class scalar_gaussian_conj_NIX(scalar_gaussian):
         # marginal_likelihood(newdata,olddata) / marginal_likelihood(olddata)
         # but I think using this should be numerically nicer...
 
-        newdata = np.array(newdata,ndmin=1)
-        olddata = np.array(olddata,ndmin=1)
-
         n_old = olddata.shape[0]
         n_all = newdata.shape[0] + n_old
 
@@ -693,7 +692,6 @@ class scalar_gaussian_conj_NIX(scalar_gaussian):
 
     @classmethod
     def _marginal_likelihood(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
-        data = np.array(data,ndmin=1)
         n = data.shape[0]
         assert n > 0
         mu_n, kappa_n, sigmasq_n, nu_n = cls._posterior_hypparams(data,mu_0,kappa_0,sigmasq_0,nu_0)

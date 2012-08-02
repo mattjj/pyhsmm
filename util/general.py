@@ -8,7 +8,6 @@ def one_vs_all(stuff):
         yield thing, stuffset - set([thing])
 
 def rle(stateseq):
-    stateseq = np.array(stateseq)
     pos, = np.where(np.diff(stateseq) != 0)
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
