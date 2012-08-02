@@ -4,10 +4,15 @@ import scipy.stats as stats
 import scipy.special as special
 from matplotlib import pyplot as plt
 
+<<<<<<< HEAD:distributions/durations.py
 from pyhsmm.abstractions import DurationBase, Collapsed
 from pyhsmm.util.stats import sample_discrete
 
 # TODO switch from scipy to numpy for basic distribution sampling
+=======
+from pyhsmm.abstractions import DurationBase
+from pyhsmm.util.stats import sample_discrete
+>>>>>>> 9c588d87c3173bbcda7724d380274771087a4187:distributions/durations.py
 
 '''
 Classes representing duration distributions. Each has internal parameter state and includes the following functions:

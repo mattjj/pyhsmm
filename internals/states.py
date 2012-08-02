@@ -459,7 +459,6 @@ class hmm_states_eigen(hmm_states_python):
 
         self.stateseq = stateseq
 
-
 class hsmm_states_possiblechangepoints(hsmm_states_python):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None):
