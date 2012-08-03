@@ -19,6 +19,17 @@ def getdatasize(data):
     else:
         return sum(d.shape[0] for d in data)
 
+def combinedata(datas):
+    assert all(
+            (isinstance(data,np.ndarray) and data.ndim > 0) or \
+                    (isinstance(data,list) and
+                        all((isinstance(d,np.ndarray) and d.ndim > 0) for d in data))
+                    for data in datas)
+
+    raise NotImplementedError
+
+
+
 ### Sampling functions
 
 def sample_discrete(foo,size=[]):

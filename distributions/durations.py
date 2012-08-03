@@ -6,9 +6,15 @@ import scipy.special as special
 from matplotlib import pyplot as plt
 
 from pyhsmm.abstractions import DurationBase, Collapsed
-from pyhsmm.util.stats import sample_discrete, getdatasize
+from pyhsmm.util.stats import sample_discrete, getdatasize, combinedata
 
 # TODO switch from scipy to numpy for basic distribution sampling
+
+# TODO consider making hyperparameters not explicit so that methods can be more
+# generic
+
+# TODO check for np.ndarray, np.concatenate, etc. calls that are unsafe for
+# masked arrays
 
 '''
 Classes representing duration distributions. Duration distributions are
@@ -18,18 +24,17 @@ accordingly.
 
 class geometric(DurationBase, Collapsed):
     '''
-    Geometric duration distribution class. Supported on {1,2,...}
-    Uses a conjugate Beta prior.
+    Geometric duration distribution class. Uses a conjugate Beta prior.
 
-    Hyperparameters follow Wikipedia's notation:
-    alpha, beta
+    Hyperparameters (following Wikipedia's notation):
+        alpha, beta
 
     Parameters are the success probability:
-    p
+        p
     '''
 
     def __repr__(self):
-        return 'geometric(alpha=%0.2f,beta=%0.2f,p=%0.2f)' % (self.alpha, self.beta, self.p)
+        return 'geometric(p=%0.2f)' % (self.p,)
 
     def __init__(self, alpha=1., beta=1., p=None):
         self.alpha = alpha
@@ -40,7 +45,7 @@ class geometric(DurationBase, Collapsed):
             self.resample()
 
     def resample(self,data=np.array([]),**kwargs):
-        self.p = stats.beta.rvs(*self._posterior_hypparams(data,self.alpha,self.beta))
+        self.p = stats.beta.rvs(*self.posterior_hypparams(data))
 
     def log_pmf(self,x,p=None):
         if p is None:
@@ -59,54 +64,50 @@ class geometric(DurationBase, Collapsed):
     def rvs(self,size=[]):
         return stats.geom.rvs(self.p,size=size)
 
-    def predictive(self,newdata,olddata=np.array([])):
-        return self._predictive(newdata,olddata,self.alpha,self.beta)
-
     def marginal_likelihood(self,data):
-        return self._marginal_likelihood(data,self.alpha,self.beta)
+        alpha_n, beta_n = self.posterior_hypparams(data)
+        return special.beta(alpha_n,beta_n)
+
+    def predictive(self,newdata,olddata=np.array([])):
+        alpha_all, beta_all = self.posterior_hypparams(combinedata((newdata,olddata)))
+        alpha_old, beta_old = self.posterior_hypparams(olddata)
+        return np.exp(special.betaln(alpha_all,beta_all)
+                    - special.betaln(alpha_old,beta_old))
+
+    def posterior_hypparams(self,data):
+        n, tot = self._get_statistics(data)
+        return self.alpha + n, self.beta + tot
 
     @classmethod
     def _get_statistics(cls,data):
-        assert (isinstance(data,np.ndarray) and data.ndim == 1) or \
-                isinstance(data,list) and all((isinstance(d,np.ndarray) and d.ndim == 1) for d in data)
+        assert (isinstance(data,np.ndarray) and data.ndim == 1 and data.min() >= 1) or \
+                (isinstance(data,list) and
+                        all((isinstance(d,np.ndarray) and d.ndim == 1 and d.min() >= 1) for d in data))
 
         if isinstance(data,np.ndarray):
-            pass
+            n = data.shape[0]
+            tot = data.sum() - n
         else:
-            pass
+            n = sum(d.shape[0] for d in data)
+            tot = sum(d.sum() for d in data) - n
         return n, tot
 
-    @classmethod
-    def _posterior_hypparams(cls,data,alpha_0,beta_0):
-        return alpha_0 + len(data), beta_0 + sum(data-1)
-
-    @classmethod
-    def _marginal_likelihood(cls,data,alpha_0,beta_0):
-        alpha_n, beta_n = cls._posterior_hypparams(data,alpha_0,beta_0)
-        return special.beta(alpha_n,beta_n)
-
-    @classmethod
-    def _predictive(cls,newdata,olddata,alpha_0,beta_0):
-        alpha_all, beta_all = cls._posterior_hypparams(ma.concatenate((newdata,olddata)),alpha_0,beta_0)
-        alpha_old, beta_old = cls._posterior_hypparams(olddata,alpha_0,beta_0)
-        return np.exp(special.betaln(alpha_all,beta_all) - special.betaln(alpha_old,beta_old))
 
 class poisson(DurationBase, Collapsed):
     '''
-    Poisson duration distribution class. Supported on {1,2,...}
-    Uses a conjugate Gamma prior.
+    Poisson duration distribution class. Uses a conjugate Gamma prior.
 
-    Hyperparameters follow Wikipedia's notation:
-    alpha, theta
+    Hyperparameters (following Wikipedia's notation):
+        alpha, theta
 
     Parameter is the mean/variance parameter:
-    lmbda
+        lmbda
     '''
 
     def __repr__(self):
-        return 'poisson(k=%0.2f,theta=%0.2f,lmbda=%0.2f)' % (self.k,self.theta,self.lmbda)
+        return 'poisson(lmbda=%0.2f)' % (self.lmbda,)
 
-    def __init__(self, k=8., theta=5., lmbda=None):
+    def __init__(self, k, theta, lmbda=None):
         self.k = k
         self.theta = theta
         if lmbda is not None:
@@ -115,16 +116,10 @@ class poisson(DurationBase, Collapsed):
             self.resample()
 
     def resample(self,data=np.array([]),**kwargs):
-        data = np.array(data,ndmin=1)
-        if len(data) > 0:
-            assert np.min(data) >= 1
-        self.lmbda = stats.gamma.rvs(self.k + np.sum(data-1.),loc=0,scale=self.theta / (self.theta * len(data) + 1.))
+        k_n, theta_n = self.posterior_hypparams(data)
+        self.lmbda = stats.gamma.rvs(k_n,loc=0,scale=theta_n)
 
     def log_pmf(self,x,lmbda=None):
-        '''
-        x is a vector of observations in {1,2,...}. (1-dimensional)
-        Uses current value of parameter lmbda by default.
-        '''
         if lmbda is None:
             lmbda = self.lmbda
         x = np.array(x,ndmin=1)
@@ -141,27 +136,33 @@ class poisson(DurationBase, Collapsed):
     def rvs(self,size=[]):
         return stats.poisson.rvs(self.lmbda,size=size,loc=1)
 
-    def predictive(self,newdata,olddata=np.array([])):
-        return self._predictive(newdata,olddata,self.k,self.theta)
-
     def marginal_likelihood(self,data):
-        return self._marginal_likelihood(data,self.k,self.theta)
-
-    @classmethod
-    def _posterior_hypparams(cls,data,k_0,theta_0):
-        return k_0 + sum(data-1), theta_0/(theta_0 + len(data) + 1)
-
-    @classmethod
-    def _marginal_likelihood(cls,data,k_0,theta_0):
-        k_n, theta_n = cls._posterior_hypparams(data,k_0,theta_0)
+        k_n, theta_n = self._posterior_hypparams(data,self.k,self.theta)
         return np.exp(special.gammaln(k_n) + k_n * np.log(theta_n))
 
-    @classmethod
-    def _predictive(cls,newdata,olddata,k_0,theta_0):
-        k_all, theta_all = cls._posterior_hypparams(ma.concatenate((newdata,olddata)),k_0,theta_0)
-        k_old, theta_old = cls._posterior_hypparams(olddata,k_0,theta_0)
+    def predictive(self,newdata,olddata):
+        k_all, theta_all = self.posterior_hypparams(combinedata((olddata,newdata)))
+        k_old, theta_old = self.posterior_hypparams(olddata)
         return np.exp( special.gammaln(k_all) + k_all * np.log(theta_all)
                      - special.gammaln(k_old) + k_old * np.log(theta_old) )
+
+    def posterior_hypparams(self,data):
+        n, tot = self._get_statistics(data)
+        return self.k + tot, self.theta/(self.theta*n+1)
+
+    @classmethod
+    def _get_statistics(cls,data):
+        assert (isinstance(data,np.ndarray) and data.ndim == 1 and data.min() >= 1) or \
+                (isinstance(data,list) and
+                        all((isinstance(d,np.ndarray) and d.ndim == 1 and d.min() >= 1) for d in data))
+
+        if isinstance(data,np.ndarray):
+            n = data.shape[0]
+            tot = data.sum() - n
+        else:
+            n = sum(d.shape[0] for d in data)
+            tot = sum(d.sum() for d in data) - n
+        return n, tot
 
     @classmethod
     def test(cls,num_tests=4,k=8.,theta=5.):
@@ -198,19 +199,7 @@ class poisson(DurationBase, Collapsed):
 
         fig.legend((line1,line2),('before resampling','after resampling'),'lower left')
 
-    # TODO should be implemented in an ABC for all durations
-    def plot(self,data=None,tmax=None,color='b'):
-        if tmax is None:
-            if data is not None:
-                tmax = 2*data.max()
-            else:
-                tmax = 2*self.rvs(size=1000).mean()
-        t = np.arange(1,tmax)
-        plt.plot(t,self.pmf(t),color=color)
-
-        if data is not None:
-            plt.hist(data,bins=t-0.5,color=color,normed=True)
-
+# TODO TODO stuff below here is getting cleaned...
 
 class negative_binomial(DurationBase):
     '''
@@ -225,6 +214,8 @@ class negative_binomial(DurationBase):
     r, p
     only accepts positive integer r!
     '''
+
+    # TODO do smarter resampling with gamma/poisson representation!
 
     def __repr__(self):
         return 'negbin(r=%d,p=%0.2f)' % (self.r,self.p)

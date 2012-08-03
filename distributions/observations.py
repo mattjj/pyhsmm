@@ -9,9 +9,11 @@ from warnings import warn
 import abc
 
 from pyhsmm.abstractions import ObservationBase, Collapsed
-from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log, getdatasize
+from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log, getdatasize, combinedata
 
 # TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
+
+# TODO use the _0 subscript convention for hyperparameter arguments
 
 '''
 This module includes general distribution classes that can be used in sampling
@@ -111,19 +113,20 @@ class mixture(ObservationBase):
 
 class gaussian(ObservationBase):
     '''
-    Multivariate Gaussian observation distribution class. NOTE: Only
-    works for 2 or more dimensions. For a scalar Gaussian, use one of the scalar
-    classes.
+    Multivariate Gaussian observation distribution class. NOTE: Only works for 2
+    or more dimensions. For a scalar Gaussian, use one of the scalar classes.
     Uses a conjugate Normal/Inverse-Wishart prior.
 
     Hyperparameters follow Gelman et al.'s notation in Bayesian Data
     Analysis:
-    nu_0, lmbda_0
-    mu_0, kappa_0
+        nu_0, lmbda_0
+        mu_0, kappa_0
 
     Parameters are mean and covariance matrix:
-    mu, sigma
+        mu, sigma
     '''
+
+    # TODO collapsed version
 
     def __init__(self,mu_0,lmbda_0,kappa_0,nu_0,mu=None,sigma=None):
         self.nu_0 = nu_0
@@ -214,6 +217,9 @@ class diagonal_gaussian(gaussian):
         sigmas     ~ InvGamma(alpha_0,beta_0) iid
         mu | sigma ~ N(mu_0,1/nu_0 * diag(sigmas))
     '''
+
+    # TODO collapsed version
+
     def __init__(self,mu_0,nus_0,alphas_0,betas_0,mu=None,sigmas=None):
         self.mu_0 = mu_0
         # all the s's refer to the fact that these are vectors of length
@@ -261,6 +267,9 @@ class diagonal_gaussian_nonconj(diagonal_gaussian):
     sigmasq_0, alpha_0, beta_0 parameters can either be vectors of same length
     as mu_0 (to have different parameters along each dimension) or scalars
     '''
+
+    # TODO collapsed version
+
     # TODO make argument names consistent with diagonal_gaussian
     def __init__(self,mu_0,sigmasq_0,alpha_0,beta_0,mu=None,sigmas=None):
         self.mu_0 = mu_0
@@ -301,6 +310,9 @@ class isotropic_gaussian(gaussian):
         sigma      ~ InvGamma(alpha_0,beta_0)
         mu | sigma ~ N(mu_0,sigma/nu_0 * I)
     '''
+
+    # TODO collapsed version
+
     def __init__(self,mu_0,nu_0,alpha_0,beta_0,mu=None,sigma=None):
         self.mu_0 = mu_0
         self.nu_0 = nu_0
@@ -354,6 +366,8 @@ class multinomial(ObservationBase):
     Parameters: discrete, which is a vector encoding of a discrete
     probability distribution
     '''
+
+    # TODO collapsed version
 
     def __init__(self,alpha_vec,discrete=None):
         self.alpha_vec = alpha_vec
@@ -443,6 +457,8 @@ class indicator_multinomial(multinomial):
     Parameters: discrete, which is a vector encoding of a discrete
     probability distribution
     '''
+
+    # TODO collapsed version
 
     def resample(self,data=np.array([]),**kwargs):
         if data.size == 0:
@@ -633,37 +649,39 @@ class scalar_gaussian_conj_NIX(scalar_gaussian, Collapsed):
             self.mubin[...] = self.mu
             self.sigmasqbin[...] = self.sigmasq
 
-    def predictive(self,newdata,olddata=np.array([])):
-        return self._predictive(newdata,olddata,
-                mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
-
-    def predictive_single(self,y,olddata=np.array([])):
-        return self._predictive_single(y,olddata,
-                mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
-
     def marginal_likelihood(self,data):
-        return self._marginal_likelihood(data,
-                mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
+        n = getdatasize(data)
+        mu_0, kappa_0, sigmasq_0, nu_0 = self.mu_0, self.kappa_0, self.sigmasq_0, self.nu_0
+        mu_n, kappa_n, sigmasq_n, nu_n = self.posterior_hypparams(data)
+        return np.exp(special.gammaln(nu_n/2) - special.gammaln(nu_0/2) \
+                + 0.5*(np.log(kappa_0) - np.log(kappa_n) \
+                       + nu_0 * (np.log(nu_0) + np.log(sigmasq_0)) \
+                         - nu_n * (np.log(nu_n) + np.log(sigmasq_n)) \
+                       - n*np.log(np.pi)))
 
-    @classmethod
-    def _get_statistics(cls,data):
-        assert (isinstance(data,np.ndarray) and data.ndim == 1) or \
-                isinstance(data,list) and all((isinstance(d,np.ndarray) and d.ndim == 1) for d in data)
+    def predictive(self,newdata,olddata):
+        n_old = getdatasize(olddata)
+        n_all = getdatasize(newdata) + n_old
 
-        if isinstance(data,np.ndarray):
-            ybar = data.mean()
-            sumsqc = ((data-ybar)**2).sum()
-        else:
-            n = getdatasize(data)
-            ybar = sum(d.sum() for d in data)/n
-            sumsqc = sum(np.sum((d-ybar)**2) for d in data)
-        return ybar, sumsqc
+        mu_old, kappa_old, sigmasq_old, nu_old = self.posterior_hypparams(olddata)
+        mu_all, kappa_all, sigmasq_all, nu_all = self.posterior_hypparams(combinedata((olddata,newdata)))
 
-    @classmethod
-    def _posterior_hypparams(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
+        return np.exp(special.gammaln(nu_all/2) - special.gammaln(nu_old/2) \
+                + 0.5*(np.log(kappa_old) - np.log(kappa_all) \
+                       + nu_old * (np.log(nu_old) + np.log(sigmasq_old)) \
+                         - nu_all * (np.log(nu_all) + np.log(sigmasq_all)) \
+                       + (n_old - n_all)*np.log(np.pi)))
+
+    def predictive_single(self,y,olddata):
+        # mostly for testing or speed
+        mu_n, kappa_n, sigmasq_n, nu_n = self.posterior_hypparams(olddata)
+        return stats.t.pdf(y,nu_n,loc=mu_n,scale=np.sqrt((1+kappa_n)*sigmasq_n/kappa_n))
+
+    def posterior_hypparams(self,data):
+        mu_0, kappa_0, sigmasq_0, nu_0 = self.mu_0, self.kappa_0, self.sigmasq_0, self.nu_0
         n = getdatasize(data)
         if n > 0:
-            ybar, sumsqc = cls._get_statistics(data)
+            ybar, sumsqc = self._get_statistics(data)
 
             kappa_n = kappa_0 + n
             mu_n = (kappa_0 * mu_0 + n * ybar) / kappa_n
@@ -675,39 +693,17 @@ class scalar_gaussian_conj_NIX(scalar_gaussian, Collapsed):
         else:
             return mu_0, kappa_0, sigmasq_0, nu_0
 
-    # TODO should these return log probs instead of probs?
-
     @classmethod
-    def _predictive(cls,newdata,olddata,*args,**kwargs):
-        # this can be written as a ratio of marginal likelihoods
-        # marginal_likelihood(newdata,olddata) / marginal_likelihood(olddata)
-        # but I think using this should be numerically nicer...
+    def _get_statistics(cls,data):
+        assert (isinstance(data,np.ndarray) and data.ndim == 1) or \
+                isinstance(data,list) and all((isinstance(d,np.ndarray) and d.ndim == 1) for d in data)
 
-        n_old = olddata.shape[0]
-        n_all = newdata.shape[0] + n_old
-
-        mu_old, kappa_old, sigmasq_old, nu_old = cls._posterior_hypparams(olddata,*args,**kwargs)
-        mu_all, kappa_all, sigmasq_all, nu_all = cls._posterior_hypparams(ma.concatenate((olddata,newdata)),*args,**kwargs)
-
-        return np.exp(special.gammaln(nu_all/2) - special.gammaln(nu_old/2) \
-                + 0.5*(np.log(kappa_old) - np.log(kappa_all) \
-                       + nu_old * (np.log(nu_old) + np.log(sigmasq_old)) \
-                         - nu_all * (np.log(nu_all) + np.log(sigmasq_all)) \
-                       + (n_old - n_all)*np.log(np.pi)))
-
-    @classmethod
-    def _predictive_single(cls,y,olddata,*args,**kwargs):
-        mu_n, kappa_n, sigmasq_n, nu_n = cls._posterior_hypparams(olddata,*args,**kwargs)
-        return stats.t.pdf(y,nu_n,loc=mu_n,scale=np.sqrt((1+kappa_n)*sigmasq_n/kappa_n))
-
-    @classmethod
-    def _marginal_likelihood(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
-        n = data.shape[0]
-        assert n > 0
-        mu_n, kappa_n, sigmasq_n, nu_n = cls._posterior_hypparams(data,mu_0,kappa_0,sigmasq_0,nu_0)
-        return np.exp(special.gammaln(nu_n/2) - special.gammaln(nu_0/2) \
-                + 0.5*(np.log(kappa_0) - np.log(kappa_n) \
-                       + nu_0 * (np.log(nu_0) + np.log(sigmasq_0)) \
-                         - nu_n * (np.log(nu_n) + np.log(sigmasq_n)) \
-                       - n*np.log(np.pi)))
+        if isinstance(data,np.ndarray):
+            ybar = data.mean()
+            sumsqc = ((data-ybar)**2).sum()
+        else:
+            n = sum(d.shape[0] for d in data)
+            ybar = sum(d.sum() for d in data)/n
+            sumsqc = sum(np.sum((d-ybar)**2) for d in data)
+        return ybar, sumsqc
 

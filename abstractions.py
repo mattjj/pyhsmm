@@ -2,6 +2,9 @@ import abc
 import numpy as np
 from warnings import warn
 
+from pyhsmm.util.stats import combinedata
+from matplotlib import pyplot as plt
+
 class ObservationBase(object):
     __metaclass__ = abc.ABCMeta
 
@@ -10,7 +13,7 @@ class ObservationBase(object):
         pass
 
     @abc.abstractmethod
-    def resample(self,data=np.array([])):
+    def resample(self,data=[]):
         # data is a (possibly masked) np.ndarray or list of (possibly masked)
         # np.ndarrays
         pass
@@ -19,10 +22,12 @@ class ObservationBase(object):
     def rvs(self,size=[]):
         pass
 
+    ### optional but recommended
+
     def plot(self,data=None,color='b'):
         raise NotImplementedError
 
-    def test(self,**kwargs):
+    def test(self,*args,**kwargs):
         raise NotImplementedError
 
 
@@ -56,7 +61,7 @@ class DurationBase(object):
         pass
 
     @abc.abstractmethod
-    def resample(self,data=np.array([])):
+    def resample(self,data=[]):
         # data is a (possibly masked) np.ndarray or list of (possibly masked)
         # np.ndarrays
         pass
@@ -65,20 +70,40 @@ class DurationBase(object):
     def rvs(self,size=[]):
         pass
 
+    ### optional but recommended
+
+    def test(self,*args,**kwargs):
+        raise NotImplementedError
+
+    ### generic
+
+    def plot(self,data=None,tmax=None,color='b'):
+        if tmax is None:
+            if data is not None:
+                tmax = 2*data.max()
+            else:
+                tmax = 2*self.rvs(size=1000).mean() # TODO improve to log_sf less than something
+        t = np.arange(1,tmax)
+        plt.plot(t,self.pmf(t),color=color)
+
+        if data is not None:
+            plt.hist(data,bins=t-0.5,color=color,normed=True) # TODO only works with data as single array
+
 
 class Collapsed(object):
     __metaclass__ = abc.ABCMeta
-
-    def predictive(self,newdata,olddata=np.array([])):
-        # data is a (possibly masked) np.ndarray or list of (possibly masked)
-        # np.ndarrays
-        olddata.shape = (-1,) + newdata.shape[1:] if newdata.ndim > 1 else olddata.shape
-        return np.exp(np.log(self.marginal_likelihood(np.concatenate((newdata,olddata))))
-                - np.log(self.marginal_likelihood(olddata)))
 
     @abc.abstractmethod
     def marginal_likelihood(self,data):
         # data is a (possibly masked) np.ndarray or list of (possibly masked)
         # np.ndarrays
         pass
+
+    ### generic
+
+    def predictive(self,newdata,olddata):
+        # data is a (possibly masked) np.ndarray or list of (possibly masked)
+        # np.ndarrays
+        return np.exp(np.log(self.marginal_likelihood(combinedata((newdata,olddata))))
+                - np.log(self.marginal_likelihood(olddata)))
 
