@@ -11,6 +11,8 @@ class ObservationBase(object):
 
     @abc.abstractmethod
     def resample(self,data=np.array([])):
+        # data is a (possibly masked) np.ndarray or list of (possibly masked)
+        # np.ndarrays
         pass
 
     @abc.abstractmethod
@@ -55,6 +57,8 @@ class DurationBase(object):
 
     @abc.abstractmethod
     def resample(self,data=np.array([])):
+        # data is a (possibly masked) np.ndarray or list of (possibly masked)
+        # np.ndarrays
         pass
 
     @abc.abstractmethod
@@ -66,11 +70,15 @@ class Collapsed(object):
     __metaclass__ = abc.ABCMeta
 
     def predictive(self,newdata,olddata=np.array([])):
+        # data is a (possibly masked) np.ndarray or list of (possibly masked)
+        # np.ndarrays
         olddata.shape = (-1,) + newdata.shape[1:] if newdata.ndim > 1 else olddata.shape
         return np.exp(np.log(self.marginal_likelihood(np.concatenate((newdata,olddata))))
                 - np.log(self.marginal_likelihood(olddata)))
 
     @abc.abstractmethod
     def marginal_likelihood(self,data):
+        # data is a (possibly masked) np.ndarray or list of (possibly masked)
+        # np.ndarrays
         pass
 

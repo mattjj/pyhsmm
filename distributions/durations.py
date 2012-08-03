@@ -6,22 +6,14 @@ import scipy.special as special
 from matplotlib import pyplot as plt
 
 from pyhsmm.abstractions import DurationBase, Collapsed
-from pyhsmm.util.stats import sample_discrete
+from pyhsmm.util.stats import sample_discrete, getdatasize
 
 # TODO switch from scipy to numpy for basic distribution sampling
 
 '''
-Classes representing duration distributions. Each has internal parameter state and includes the following functions:
-    __init__(hypparams)
-    pmf
-    log_pmf
-    log_sf (log prob duration is strictly greater than argument)
-    getparams
-    setparams
-    resample(data=[]) # re-samples internal parameter state from posterior given data
-    rvs(size) # return samples of shape (default=1)
-    test() # some form of test to make sure the class works correctly
-Duration distributions are supported on {1,2,...}, so pmf definitions starting at 0 must be shifted accordingly.
+Classes representing duration distributions. Duration distributions are
+supported on {1,2,...}, so pmf definitions starting at 0 must be shifted
+accordingly.
 '''
 
 class geometric(DurationBase, Collapsed):
@@ -48,8 +40,6 @@ class geometric(DurationBase, Collapsed):
             self.resample()
 
     def resample(self,data=np.array([]),**kwargs):
-        if len(data) > 0:
-            assert np.min(data) >= 1
         self.p = stats.beta.rvs(*self._posterior_hypparams(data,self.alpha,self.beta))
 
     def log_pmf(self,x,p=None):
@@ -74,6 +64,17 @@ class geometric(DurationBase, Collapsed):
 
     def marginal_likelihood(self,data):
         return self._marginal_likelihood(data,self.alpha,self.beta)
+
+    @classmethod
+    def _get_statistics(cls,data):
+        assert (isinstance(data,np.ndarray) and data.ndim == 1) or \
+                isinstance(data,list) and all((isinstance(d,np.ndarray) and d.ndim == 1) for d in data)
+
+        if isinstance(data,np.ndarray):
+            pass
+        else:
+            pass
+        return n, tot
 
     @classmethod
     def _posterior_hypparams(cls,data,alpha_0,beta_0):

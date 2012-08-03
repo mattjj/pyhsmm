@@ -8,6 +8,17 @@ import scipy.linalg
 # TODO write testing code for all these
 # TODO write cholesky versions
 
+
+def getdatasize(data):
+    assert (isinstance(data,np.ndarray) and data.ndim > 0) or \
+            (isinstance(data,list) and
+                    all((isinstance(d,np.ndarray) and d.ndim > 0) for d in data))
+
+    if isinstance(data,np.ndarray):
+        return data.shape[0]
+    else:
+        return sum(d.shape[0] for d in data)
+
 ### Sampling functions
 
 def sample_discrete(foo,size=[]):
@@ -88,5 +99,4 @@ def beta_predictive(priorcounts,newcounts):
     numer = scipy.special.gammaln(np.array([nsuc+prior_nsuc, nfail+prior_nfail, prior_nsuc+prior_nfail])).sum()
     denom = scipy.special.gammaln(np.array([prior_nsuc, prior_nfail, prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
-
 

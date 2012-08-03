@@ -37,6 +37,9 @@ can make the inference run much faster in many cases (and only a bit faster in
 others). If you install Eigen, you can enable its use by calling
 `pyhsmm.use_eigen()` after importing `pyhsmm`.
 
+There are a lot of asserts in the code; to disable assertions, run your CPython
+interpreter with the `-O` flag.
+
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
 observations. (The same example, along with the code to generate the synthetic

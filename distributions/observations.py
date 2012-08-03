@@ -9,7 +9,7 @@ from warnings import warn
 import abc
 
 from pyhsmm.abstractions import ObservationBase, Collapsed
-from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log
+from pyhsmm.util.stats import sample_niw, sample_discrete, sample_discrete_from_log, getdatasize
 
 # TODO TODO switch away from scipy.stats for sampling (use np.random instead!)
 
@@ -646,12 +646,24 @@ class scalar_gaussian_conj_NIX(scalar_gaussian, Collapsed):
                 mu_0=self.mu_0,kappa_0=self.kappa_0,sigmasq_0=self.sigmasq_0,nu_0=self.nu_0)
 
     @classmethod
-    def _posterior_hypparams(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
-        data = np.array(data)
-        n = len(data)
-        if n > 0:
+    def _get_statistics(cls,data):
+        assert (isinstance(data,np.ndarray) and data.ndim == 1) or \
+                isinstance(data,list) and all((isinstance(d,np.ndarray) and d.ndim == 1) for d in data)
+
+        if isinstance(data,np.ndarray):
             ybar = data.mean()
             sumsqc = ((data-ybar)**2).sum()
+        else:
+            n = getdatasize(data)
+            ybar = sum(d.sum() for d in data)/n
+            sumsqc = sum(np.sum((d-ybar)**2) for d in data)
+        return ybar, sumsqc
+
+    @classmethod
+    def _posterior_hypparams(cls,data,mu_0,kappa_0,sigmasq_0,nu_0):
+        n = getdatasize(data)
+        if n > 0:
+            ybar, sumsqc = cls._get_statistics(data)
 
             kappa_n = kappa_0 + n
             mu_n = (kappa_0 * mu_0 + n * ybar) / kappa_n
