@@ -5,9 +5,7 @@ from numpy import newaxis as na
 import scipy.stats as stats
 import scipy.linalg
 
-# TODO write testing code for all these
 # TODO write cholesky versions
-
 
 def getdatasize(data):
     assert (isinstance(data,np.ndarray) and data.ndim > 0) or \
@@ -26,9 +24,13 @@ def combinedata(datas):
                         all((isinstance(d,np.ndarray) and d.ndim > 0) for d in data))
                     for data in datas)
 
-    raise NotImplementedError
-
-
+    ret = []
+    for data in datas:
+        if isinstance(data,np.ndarray):
+            ret.append(data)
+        else:
+            ret.extend(data)
+    return ret
 
 ### Sampling functions
 
