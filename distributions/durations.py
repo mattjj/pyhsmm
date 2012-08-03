@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import numpy.ma as ma
 import scipy.stats as stats
 import scipy.special as special
 from matplotlib import pyplot as plt
@@ -85,7 +86,7 @@ class geometric(DurationBase, Collapsed):
 
     @classmethod
     def _predictive(cls,newdata,olddata,alpha_0,beta_0):
-        alpha_all, beta_all = cls._posterior_hypparams(np.concatenate((newdata,olddata)),alpha_0,beta_0)
+        alpha_all, beta_all = cls._posterior_hypparams(ma.concatenate((newdata,olddata)),alpha_0,beta_0)
         alpha_old, beta_old = cls._posterior_hypparams(olddata,alpha_0,beta_0)
         return np.exp(special.betaln(alpha_all,beta_all) - special.betaln(alpha_old,beta_old))
 
@@ -156,7 +157,7 @@ class poisson(DurationBase, Collapsed):
 
     @classmethod
     def _predictive(cls,newdata,olddata,k_0,theta_0):
-        k_all, theta_all = cls._posterior_hypparams(np.concatenate((newdata,olddata)),k_0,theta_0)
+        k_all, theta_all = cls._posterior_hypparams(ma.concatenate((newdata,olddata)),k_0,theta_0)
         k_old, theta_old = cls._posterior_hypparams(olddata,k_0,theta_0)
         return np.exp( special.gammaln(k_all) + k_all * np.log(theta_all)
                      - special.gammaln(k_old) + k_old * np.log(theta_old) )

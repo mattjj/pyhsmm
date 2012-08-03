@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import numpy.ma as ma
 from numpy import newaxis as na
 import scipy.stats as stats
 import scipy.special as special
@@ -674,7 +675,7 @@ class scalar_gaussian_conj_NIX(scalar_gaussian, Collapsed):
         n_all = newdata.shape[0] + n_old
 
         mu_old, kappa_old, sigmasq_old, nu_old = cls._posterior_hypparams(olddata,*args,**kwargs)
-        mu_all, kappa_all, sigmasq_all, nu_all = cls._posterior_hypparams(np.concatenate((olddata,newdata)),*args,**kwargs)
+        mu_all, kappa_all, sigmasq_all, nu_all = cls._posterior_hypparams(ma.concatenate((olddata,newdata)),*args,**kwargs)
 
         return np.exp(special.gammaln(nu_all/2) - special.gammaln(nu_old/2) \
                 + 0.5*(np.log(kappa_old) - np.log(kappa_all) \
