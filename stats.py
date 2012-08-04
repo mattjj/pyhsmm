@@ -34,17 +34,18 @@ def combinedata(datas):
 
 ### Sampling functions
 
-def sample_discrete(foo,size=[]):
+def sample_discrete(foo,size=[],dtype=np.int):
+    '''samples from a one-dimensional finite pmf'''
     assert (foo >=0).all() and foo.ndim == 1
     cumvals = np.cumsum(foo)
-    return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1)
+    return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
-def sample_discrete_from_log(p_log,axis=0):
+def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
     '''samples log probability array along specified axis'''
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis)
     randvals = np.expand_dims(random(np.delete(p_log.shape,axis)),axis) \
             * cumvals[[slice(None) if idx is not axis else -1 for idx in range(len(p_log.shape))]]
-    return np.sum(randvals > cumvals,axis=axis)
+    return np.sum(randvals > cumvals,axis=axis,dtype=dtype)
 
 def sample_niw(mu,lmbda,kappa,nu):
     '''
