@@ -8,22 +8,12 @@ import scipy.linalg
 # TODO write cholesky versions
 
 def getdatasize(data):
-    assert (isinstance(data,np.ndarray) and data.ndim > 0) or \
-            (isinstance(data,list) and
-                    all((isinstance(d,np.ndarray) and d.ndim > 0) for d in data))
-
     if isinstance(data,np.ndarray):
         return data.shape[0]
     else:
         return sum(d.shape[0] for d in data)
 
 def combinedata(datas):
-    assert all(
-            (isinstance(data,np.ndarray) and data.ndim > 0) or \
-                    (isinstance(data,list) and
-                        all((isinstance(d,np.ndarray) and d.ndim > 0) for d in data))
-                    for data in datas)
-
     ret = []
     for data in datas:
         if isinstance(data,np.ndarray):
