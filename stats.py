@@ -5,6 +5,8 @@ from numpy import newaxis as na
 import scipy.stats as stats
 import scipy.linalg
 
+import pdb
+
 # TODO write cholesky versions
 
 def getdatasize(data):
@@ -33,8 +35,11 @@ def sample_discrete(foo,size=[],dtype=np.int):
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
     '''samples log probability array along specified axis'''
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
-    randvals = np.expand_dims(random(size=np.delete(p_log.shape,axis)) \
-            * cumvals[[slice(None) if idx is not axis else -1 for idx in range(p_log.ndim)]],axis)
+    thesize = np.array(p_log.shape)
+    thesize[axis] = 1
+    randvals = random(size=thesize) * \
+            np.reshape(cumvals[[slice(None) if i is not axis else -1
+                for i in range(p_log.ndim)]],thesize)
     return np.sum(randvals > cumvals,axis=axis,dtype=dtype)
 
 def sample_niw(mu,lmbda,kappa,nu):
