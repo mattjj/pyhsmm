@@ -80,10 +80,6 @@ class geometric(DurationBase, Collapsed):
 
     @classmethod
     def _get_statistics(cls,data):
-        assert (isinstance(data,np.ndarray) and data.ndim == 1 and data.min() >= 1) or \
-                (isinstance(data,list) and
-                        all((isinstance(d,np.ndarray) and d.ndim == 1 and d.min() >= 1) for d in data))
-
         if isinstance(data,np.ndarray):
             n = data.shape[0]
             tot = data.sum() - n
@@ -152,10 +148,6 @@ class poisson(DurationBase, Collapsed):
 
     @classmethod
     def _get_statistics(cls,data):
-        assert (isinstance(data,np.ndarray) and data.ndim == 1 and data.min() >= 1) or \
-                (isinstance(data,list) and
-                        all((isinstance(d,np.ndarray) and d.ndim == 1 and d.min() >= 1) for d in data))
-
         if isinstance(data,np.ndarray):
             n = data.shape[0]
             tot = data.sum() - n
