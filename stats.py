@@ -3,6 +3,7 @@ import numpy as np
 from numpy.random import random
 from numpy import newaxis as na
 import scipy.stats as stats
+import scipy.special as special
 import scipy.linalg
 
 import pdb
@@ -87,6 +88,17 @@ def sample_wishart(sigma, dof):
         X = np.dot(chol,A)
 
     return np.dot(X,X.T)
+
+### Entropy
+def invwishart_entropy(self,sigma,nu):
+    D = sigma.shape[0]
+    Elogdetlmbda = special.digamma((nu-np.arange(D))/2) + D*np.log(2) - np.log(np.linalg.det(sigma))
+    return invwishart_log_partitionfunction(sigma,nu)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
+
+def invwishart_log_partitionfunction(self,sigma,nu):
+    D = sigma.shape[0]
+    return -1*(nu/2*np.log(np.linalg.det(sigma)) - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
+            + special.gammaln((nu-np.arange(D))/2).sum()))
 
 ### Predictive
 
