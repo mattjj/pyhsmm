@@ -107,13 +107,18 @@ def multivariate_t_loglik(y,nu,mu,lmbda):
     # TODO check... gelman says lmbda but emily says nulmbda
     d = len(mu)
     yc = np.array(y-mu,ndmin=2)
-    return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) - (d/2.)*np.log(nu*np.pi) - (1./2.)*np.log(np.linalg.det(lmbda)) - (nu+d)/2.*np.log1p(1./nu*np.dot(yc,np.linalg.solve(lmbda,yc.T)).diagonal()) # TODO get rid of diagonal business
+    return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) \
+            - (d/2.)*np.log(nu*np.pi) - (1./2.)*np.log(np.linalg.det(lmbda)) \
+            - (nu+d)/2.*np.log1p(1./nu*np.dot(yc,
+                np.linalg.solve(lmbda,yc.T)).diagonal()) # TODO get rid of diagonal business
 
 def beta_predictive(priorcounts,newcounts):
     prior_nsuc, prior_nfail = priorcounts
     nsuc, nfail = newcounts
 
-    numer = scipy.special.gammaln(np.array([nsuc+prior_nsuc, nfail+prior_nfail, prior_nsuc+prior_nfail])).sum()
-    denom = scipy.special.gammaln(np.array([prior_nsuc, prior_nfail, prior_nsuc+prior_nfail+nsuc+nfail])).sum()
+    numer = scipy.special.gammaln(np.array([nsuc+prior_nsuc,
+        nfail+prior_nfail, prior_nsuc+prior_nfail])).sum()
+    denom = scipy.special.gammaln(np.array([prior_nsuc, prior_nfail,
+        prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
 
