@@ -1,28 +1,35 @@
 from __future__ import division
 import numpy as np
 from numpy.random import random
-from numpy import newaxis as na
+na = np.newaxis
+import numpy.ma as ma
 import scipy.stats as stats
 import scipy.special as special
 import scipy.linalg
-
-import pdb
 
 # TODO write cholesky versions
 
 def getdatasize(data):
     if isinstance(data,np.ndarray):
         return data.shape[0]
-    else:
+    elif isinstance(data,list):
         return sum(d.shape[0] for d in data)
+    else:
+        # should be a single number that got unboxed
+        assert isinstance(data,int) or isinstance(data,float)
+        return 1
 
 def combinedata(datas):
     ret = []
     for data in datas:
         if isinstance(data,np.ndarray):
             ret.append(data)
-        else:
+        elif isinstance(data,list):
             ret.extend(data)
+        else:
+            # should be a single number that got unboxed
+            assert isinstance(data,int) or isinstance(data,float)
+            ret.append(np.array(data,ndmin=1)) # ndmin=1 so that we can call .shape on it
     return ret
 
 ### Sampling functions
