@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 from numpy.random import random
 na = np.newaxis
-import numpy.ma as ma
 import scipy.stats as stats
 import scipy.special as special
 import scipy.linalg
@@ -15,7 +14,6 @@ def getdatasize(data):
     elif isinstance(data,list):
         return sum(d.shape[0] for d in data)
     else:
-        # should be a single number that got unboxed
         assert isinstance(data,int) or isinstance(data,float)
         return 1
 
@@ -42,6 +40,7 @@ def sample_discrete(foo,size=[],dtype=np.int):
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
     '''samples log probability array along specified axis'''
+    p_log[np.isnan(p_log)] = -np.inf
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
     thesize = np.array(p_log.shape)
     thesize[axis] = 1
