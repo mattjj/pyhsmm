@@ -25,10 +25,20 @@ def combinedata(datas):
         elif isinstance(data,list):
             ret.extend(data)
         else:
-            # should be a single number that got unboxed
             assert isinstance(data,int) or isinstance(data,float)
             ret.append(np.array(data,ndmin=1)) # ndmin=1 so that we can call .shape on it
     return ret
+
+def flattendata(data):
+    # data is either an array or a list of arrays
+    if isinstance(data,np.ndarray):
+        return data
+    elif isinstance(data,list):
+        return np.ma.concatenate(data)
+    else:
+        assert isinstance(data,int) or isinstance(data,float)
+        return np.array(data,ndmin=1)
+
 
 ### Sampling functions
 
@@ -40,7 +50,6 @@ def sample_discrete(foo,size=[],dtype=np.int):
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
     '''samples log probability array along specified axis'''
-    p_log[np.isnan(p_log)] = -np.inf
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
     thesize = np.array(p_log.shape)
     thesize[axis] = 1
