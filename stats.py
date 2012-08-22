@@ -12,7 +12,7 @@ def getdatasize(data):
     if isinstance(data,np.ndarray):
         return data.shape[0]
     elif isinstance(data,list):
-        return sum(d.shape[0] for d in data)
+        return sum(getdatasize(d) for d in data)
     else:
         assert isinstance(data,int) or isinstance(data,float)
         return 1
