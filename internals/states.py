@@ -35,7 +35,7 @@ class hsmm_states_python(object):
     stateseq_norep = None
 
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
-            stateseq=None,trunc=None,data=None,**kwargs):
+    stateseq=None,trunc=None,data=None,**kwargs):
         # TODO T parameter only makes sense with censoring. it should be
         # removed.
         self.T = T

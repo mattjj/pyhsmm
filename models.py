@@ -35,7 +35,8 @@ class hmm(object):
     def resample(self):
         # resample obsparams
         for state, distn in enumerate(self.obs_distns):
-            # TODO make obs distns take lols
+            # TODO make obs distns take lols instead of concatenating
+            # (pybasicbayes fixes this)
             all_obs = [s.data[s.stateseq == state] for s in self.states_list]
             if len(all_obs) > 0:
                 distn.resample(np.concatenate(all_obs))
@@ -156,13 +157,14 @@ class hsmm(hmm):
             trans = transitions.hsmm_transitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
         super(hsmm,self).__init__(alpha=alpha,gamma=gamma,obs_distns=obs_distns,transitions=trans,**kwargs)
 
-    def add_data(self,data):
+    def add_data(self,data,stateseq=None):
         self.states_list.append(states.hsmm_states(len(data),self.state_dim,self.obs_distns,self.dur_distns,
-            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq))
 
     def resample(self):
         # resample durparams
         for state, distn in enumerate(self.dur_distns):
+            # TODO pybasicbayes versions dont need concatenation anymore
             all_durs = [s.durations[s.stateseq_norep == state] for s in self.states_list]
             if len(all_durs) > 0:
                 distn.resample(np.concatenate(all_durs))
@@ -178,6 +180,7 @@ class hsmm(hmm):
         return self._generate(tempstates,keep)
 
     def plot(self,color=None):
+        import itertools
         assert len(self.obs_distns) != 0
         assert len(set([type(o) for o in self.obs_distns])) == 1, \
                 'plot can only be used when all observation distributions are the same'
@@ -185,13 +188,17 @@ class hsmm(hmm):
         # set up figure and state-color mapping dict
         fig = plt.gcf()
         fig.set_size_inches((6,6))
-        state_colors = {}
-        cmap = cm.get_cmap()
-        used_states = reduce(set.union,[set(s.stateseq_norep) for s in self.states_list])
-        num_states = len(used_states)
-        for idx,state in enumerate(used_states):
-            state_colors[state] = idx/(num_states-1) if color is None else color
+        num_states = len(reduce(set.union,[set(s.stateseq_norep) for s in self.states_list]))
 
+        # color is ordered by order seen
+        idx = 0
+        state_colors = {}
+        for state in itertools.chain(*[s.stateseq_norep for s in self.states_list]):
+            if state not in state_colors:
+                state_colors[state] = idx/(num_states-1) if color is None else color
+                idx += 1
+
+        cmap = cm.get_cmap()
         num_subfig_cols = len(self.states_list)
         for subfig_idx,s in enumerate(self.states_list):
 
