@@ -3,7 +3,7 @@ import numpy as np
 import scipy.stats as stats
 import scipy.special as special
 
-from pybasicbayes.distributions import Poisson, Geometric, NegativeBinomial
+from pybasicbayes.distributions import *
 from abstractions import DurationDistribution
 
 
