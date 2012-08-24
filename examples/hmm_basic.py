@@ -29,12 +29,12 @@ obs_dim = 2
 # Set observation hyperparameters (which control the randomly-sampled mean and
 # covariance matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
-                'lmbda_0':np.eye(obs_dim),
+                'sigma_0':np.eye(obs_dim),
                 'kappa_0':0.15,
                 'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions
-true_obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(N)]
+true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
 # Build the true HSMM model
 truemodel = pyhsmm.models.hmm(alpha=4.,gamma=4.,
@@ -44,6 +44,7 @@ truemodel = pyhsmm.models.hmm(alpha=4.,gamma=4.,
 data, labels = truemodel.generate(T)
 
 # Plot the truth
+plt.title()
 truemodel.plot()
 plt.gcf().suptitle('True HMM')
 if save_images:
@@ -56,7 +57,7 @@ Nmax = 10
 
 # Construct the observation and duration distribution objects, which set priors
 # over parameters and then infer parameter values.
-obs_distns = [pyhsmm.observations.gaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 
 # Build the HMM model that will represent the posterior
 posteriormodel = pyhsmm.models.hmm(alpha=6.,gamma=6.,
@@ -65,6 +66,7 @@ posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration and plotting
 # every so often
+plt.figure()
 plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
