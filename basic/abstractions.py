@@ -1,7 +1,7 @@
 from __future__ import division
 import abc
 import numpy as np
-from matplotlib import pylplt as plt
+from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
 
