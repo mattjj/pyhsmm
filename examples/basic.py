@@ -71,7 +71,7 @@ for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         plt.gcf().clf()
         posteriormodel.plot()
-        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+        plt.gcf().suptitle('inferred HSMM after %d iterations' % idx)
         plt.draw()
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)

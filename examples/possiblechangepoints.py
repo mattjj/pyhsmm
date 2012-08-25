@@ -55,7 +55,7 @@ Nmax = 10
 # Construct the observation and duration distribution objects, which set priors
 # over parameters and then infer parameter values.
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
-dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(N)]
+dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
 # build new hsmm_possiblechangepoints model that will represent the posterior
 posteriormodel = pyhsmm.models.HSMMPossiblechangepoints(alpha=6.,gamma=6.,
@@ -71,7 +71,7 @@ for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
         plt.gcf().clf()
         posteriormodel.plot()
-        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
+        plt.gcf().suptitle('inferred HSMM after %d iterations' % idx)
         plt.draw()
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)

@@ -235,7 +235,7 @@ class HSMM(HMM, ModelGibbsSampling):
             # plot the current duration distributions
             plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
             for state,d in enumerate(self.dur_distns):
-                if state in s.stateseq_norep:
+                if state in s.stateseq:
                     d.plot(color=cmap(state_colors[state]),
                             data=s.durations[s.stateseq_norep == state])
             plt.xlim((0,s.durations.max()*1.1))
