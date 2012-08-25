@@ -1,0 +1,6 @@
+[submodule "util"]
+	path = util
+	url = git@github.com:mattjj/pymattutil.git
+[submodule "basic/pybasicbayes"]
+	path = basic/pybasicbayes
+	url = git@github.com:mattjj/pybasicbayes.git

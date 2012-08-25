@@ -1,12 +1,12 @@
 import numpy as np
 import scipy.stats as stats
 
-from pyhsmm.util.stats import sample_discrete
+from ..util.stats import sample_discrete
 
 # TODO this just repeats code from multinomial distribution in observations.py.
 # I should figure out a better way to organize these things.
 
-class initial_state(object):
+class InitialState(object):
     '''
     Initial state distribution class. Not usually of much consequence.
     '''
@@ -20,9 +20,6 @@ class initial_state(object):
             self.state_dim = len(pi_0)
 
     def resample(self,init_states=[]):
-        # TODO these checks can probably be removed
-        assert type(init_states) == type([])
-
         data = np.zeros(self.state_dim)
         for init_state in init_states:
             data[init_state] += 1
@@ -34,11 +31,11 @@ class initial_state(object):
         return sample_discrete(self.pi_0,size=size)
 
 
-class start_zero(object):
+class StartInZero(object):
     '''
     always start in state 0
     '''
-    deterministic = True
+    deterministic = True # TODO is this needed?
     def __init__(self,state_dim,**kwargs):
         self.pi_0 = np.zeros(state_dim)
         self.pi_0[0] = 1.

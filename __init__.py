@@ -1,6 +1,6 @@
-# __all__ = ['hsmm','hmm','observations','durations']
+# __all__ = something
 import models
-from distributions import observations, durations
-from internals.states import use_eigen
+import basic.distributions as distributions
+from internals.states import use_eigen # TODO get rid of use_eigen
 import plugins
 
