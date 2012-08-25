@@ -456,7 +456,7 @@ class HMMStatesEigen(HMMStatesPython):
 
         self.stateseq = stateseq
 
-class HSMMStatesPossiblechangepoints(HSMMStatesPython):
+class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None):
         self.changepoints = changepoints
@@ -516,7 +516,7 @@ class HSMMStatesPossiblechangepoints(HSMMStatesPython):
     def get_aBl(self,data):
         # this method actually sets self.aBBl for block likelihoods
         aBBl = np.zeros((self.Tblock,self.state_dim))
-        aBl = super(HSMMStatesPossiblechangepoints,self).get_aBl(data)
+        aBl = super(HSMMStatesPossibleChangepoints,self).get_aBl(data)
         for idx, (start,stop) in enumerate(self.changepoints):
             aBBl[idx] = aBl[start:stop].sum(0)
         self.aBBl = aBBl

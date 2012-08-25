@@ -58,7 +58,7 @@ obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
 # build new hsmm_possiblechangepoints model that will represent the posterior
-posteriormodel = pyhsmm.models.HSMMPossiblechangepoints(alpha=6.,gamma=6.,
+posteriormodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=6.,gamma=6.,
         obs_distns=obs_distns,dur_distns=dur_distns,trunc=70)
 posteriormodel.add_data(data,changepoints)
 

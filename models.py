@@ -264,9 +264,9 @@ class HSMM(HMM, ModelGibbsSampling):
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
 
 
-class HSMMPossiblechangepoints(HSMM, ModelGibbsSampling):
+class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,stateseq=None):
-        self.states_list.append(states.HSMMStatesPossiblechangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+        self.states_list.append(states.HSMMStatesPossibleChangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
 
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
