@@ -21,8 +21,8 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'kappa_0':0.15,
                 'nu_0':obs_dim+2}
 
-dur_hypparams = {'alpha_0':5,
-                 'beta_0':1/8}
+dur_hypparams = {'alpha_0':2*30,
+                 'beta_0':2}
 
 # Construct the true observation and duration distributions
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
