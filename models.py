@@ -4,9 +4,10 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
 
-from pyhsmm.internals import states, initial_state, transitions
+from basic.abstractions import ModelGibbsSampling
+from internals import states, initial_state, transitions
 
-class hmm(object):
+class HMM(ModelGibbsSampling):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
@@ -20,19 +21,19 @@ class hmm(object):
         if alpha is None or gamma is None:
             assert 'transitions' in kwargs, 'must specify transition distribution to initialize %s without concentration parameters' % type(self)
 
-        self.trans_distn = transitions.hdphmm_transitions(state_dim=self.state_dim,alpha=alpha,gamma=gamma,**kwargs)\
+        self.trans_distn = transitions.HDPHMMTransitions(state_dim=self.state_dim,alpha=alpha,gamma=gamma,**kwargs)\
                 if 'transitions' not in kwargs else kwargs['transitions']
 
-        self.init_state_distn = initial_state.initial_state(state_dim=self.state_dim,**kwargs)\
+        self.init_state_distn = initial_state.InitialState(state_dim=self.state_dim,**kwargs)\
                 if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
 
         self.states_list = []
 
     def add_data(self,data,stateseq=None):
-        self.states_list.append(states.hmm_states(len(data),self.state_dim,self.obs_distns,self.trans_distn,
+        self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
                 self.init_state_distn,data=data,stateseq=stateseq))
 
-    def resample(self):
+    def resample_model(self):
         # resample obsparams
         for state, distn in enumerate(self.obs_distns):
             # TODO make obs distns take lols instead of concatenating
@@ -67,7 +68,7 @@ class hmm(object):
         from the posterior (as long as the Gibbs sampling has converged). In
         these cases, the keep argument should be False.
         '''
-        tempstates = states.hmm_states(T,self.state_dim,self.obs_distns,self.trans_distn,
+        tempstates = states.HMMStates(T,self.state_dim,self.obs_distns,self.trans_distn,
                 self.init_state_distn)
 
         return self._generate(tempstates,keep)
@@ -121,7 +122,7 @@ class hmm(object):
         else:
             # we have to create a temporary one just for its methods, though the
             # details of the actual state sequence are never used
-            s = states.hmm_states(len(data),self.state_dim,self.obs_distns,self.trans_distn,
+            s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
                     self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
 
         aBl = s.get_aBl(data)
@@ -129,7 +130,22 @@ class hmm(object):
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
 
 
-class hsmm(hmm):
+class StickyHMM(HMM, ModelGibbsSampling):
+    '''
+    The HMM class is a convenient wrapper that provides useful constructors and
+    packages all the components.
+    '''
+    def __init__(self,obs_distns,**kwargs):
+        warn('the %s class is completely untested!' % type(self))
+        if 'transitions' not in kwargs:
+            super(StickyHMM,self).__init__(obs_distns,
+                    transitions=transitions.StickyHDPHMMTransitions(state_dim=self.state_dim,**kwargs),
+                    **kwargs)
+        else:
+            super(StickyHMM,self).__init__(obs_distns,**kwargs)
+
+
+class HSMM(HMM, ModelGibbsSampling):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
         * HSMM internals, including distribution objects for
@@ -152,16 +168,16 @@ class hsmm(hmm):
         if 'transitions' in kwargs:
             trans = kwargs['transitions']
             del kwargs['transitions']
-            assert type(trans) == transitions.hsmm_transitions
+            assert type(trans) == transitions.HDPHSMMTransitions
         else:
-            trans = transitions.hsmm_transitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
-        super(hsmm,self).__init__(alpha=alpha,gamma=gamma,obs_distns=obs_distns,transitions=trans,**kwargs)
+            trans = transitions.HDPHSMMTransitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
+        super(HSMM,self).__init__(alpha=alpha,gamma=gamma,obs_distns=obs_distns,transitions=trans,**kwargs)
 
     def add_data(self,data,stateseq=None):
-        self.states_list.append(states.hsmm_states(len(data),self.state_dim,self.obs_distns,self.dur_distns,
+        self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,
             self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq))
 
-    def resample(self):
+    def resample_model(self):
         # resample durparams
         for state, distn in enumerate(self.dur_distns):
             # TODO pybasicbayes versions dont need concatenation anymore
@@ -172,10 +188,10 @@ class hsmm(hmm):
                 distn.resample()
 
         # resample everything else an hmm does
-        super(hsmm,self).resample()
+        super(HSMM,self).resample_model()
 
     def generate(self,T,keep=True):
-        tempstates = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
+        tempstates = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
         return self._generate(tempstates,keep)
 
@@ -233,7 +249,7 @@ class hsmm(hmm):
         if trunc is None:
             trunc = T
         # make a temporary states object to make sure no data gets clobbered
-        s = states.hsmm_states(T,self.state_dim,self.obs_distns,self.dur_distns,
+        s = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
                 self.trans_distn,self.init_state_distn,trunc=trunc)
         s.obs = data
         possible_durations = np.arange(1,trunc + 1,dtype=np.float64)
@@ -248,9 +264,9 @@ class hsmm(hmm):
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
 
 
-class hsmm_possiblechangepoints(hsmm):
+class HSMMPossiblechangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,stateseq=None):
-        self.states_list.append(states.hsmm_states_possiblechangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+        self.states_list.append(states.HSMMStatesPossiblechangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
 
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
@@ -258,17 +274,3 @@ class hsmm_possiblechangepoints(hsmm):
     def loglike(self,data,trunc=None):
         raise NotImplementedError
 
-
-class hmm_sticky(hmm):
-    '''
-    The HMM class is a convenient wrapper that provides useful constructors and
-    packages all the components.
-    '''
-    def __init__(self,obs_distns,**kwargs):
-        warn('the %s class is completely untested!' % type(self))
-        if 'transitions' not in kwargs:
-            hmm.__init__(self,obs_distns,
-                    transitions=transitions.sticky_hdphmm_transitions(state_dim=self.state_dim,**kwargs),
-                    **kwargs)
-        else:
-            hmm.__init__(self,obs_distns,**kwargs)

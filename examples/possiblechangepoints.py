@@ -29,7 +29,7 @@ true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in x
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.models.hsmm(alpha=4.,gamma=4.,
+truemodel = pyhsmm.models.HSMM(alpha=4.,gamma=4.,
                         obs_distns=true_obs_distns,
                         dur_distns=true_dur_distns)
 
@@ -58,7 +58,7 @@ obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(N)]
 
 # build new hsmm_possiblechangepoints model that will represent the posterior
-posteriormodel = pyhsmm.models.hsmm_possiblechangepoints(alpha=6.,gamma=6.,
+posteriormodel = pyhsmm.models.HSMMPossiblechangepoints(alpha=6.,gamma=6.,
         obs_distns=obs_distns,dur_distns=dur_distns,trunc=70)
 posteriormodel.add_data(data,changepoints)
 
@@ -76,6 +76,6 @@ for idx in progprint_xrange(101):
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)
 
-    posteriormodel.resample()
+    posteriormodel.resample_model()
 
 plt.show()

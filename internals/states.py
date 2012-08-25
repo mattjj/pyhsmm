@@ -2,16 +2,12 @@ import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
-from warnings import warn
+
+from ..util.stats import sample_discrete, sample_discrete_from_log
+from ..util import general as util # perhaps a confusing name :P
 
 
-from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log
-from pyhsmm.util import general as util # perhaps a confusing name :P
-
-# TODO instead of refs to initial_state and transition objects, should just get
-# refs to the vectors
-
-class hsmm_states_python(object):
+class HSMMStatesPython(object):
     '''
     HSMM states distribution class. Connects the whole model.
 
@@ -248,8 +244,9 @@ class hsmm_states_python(object):
         plt.yticks([])
 
 
-class hsmm_states_eigen(hsmm_states_python):
+class HSMMStatesEigen(HSMMStatesPython):
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
+        # TODO shouldn't this use parent's init?
         self.T = T
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -305,7 +302,7 @@ class hsmm_states_eigen(hsmm_states_python):
     # TODO could also write Eigen version of the generate() methods
 
 
-class hmm_states_python(object):
+class HMMStatesPython(object):
     def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -419,8 +416,9 @@ class hmm_states_python(object):
         plt.xlim((0,durations.sum()))
         plt.yticks([])
 
-class hmm_states_eigen(hmm_states_python):
+class HMMStatesEigen(HMMStatesPython):
     def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
+        # TODO shouldn't this use parent's init?
         self.state_dim = state_dim
         self.obs_distns = obs_distns
         self.transition_distn = transition_distn
@@ -459,7 +457,7 @@ class hmm_states_eigen(hmm_states_python):
 
         self.stateseq = stateseq
 
-class hsmm_states_possiblechangepoints(hsmm_states_python):
+class HSMMStatesPossiblechangepoints(HSMMStatesPython):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None):
         self.changepoints = changepoints
@@ -519,7 +517,7 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
     def get_aBl(self,data):
         # this method actually sets self.aBBl for block likelihoods
         aBBl = np.zeros((self.Tblock,self.state_dim))
-        aBl = super(hsmm_states_possiblechangepoints,self).get_aBl(data)
+        aBl = super(HSMMStatesPossiblechangepoints,self).get_aBl(data)
         for idx, (start,stop) in enumerate(self.changepoints):
             aBBl[idx] = aBl[start:stop].sum(0)
         self.aBBl = aBBl
@@ -638,8 +636,8 @@ class hsmm_states_possiblechangepoints(hsmm_states_python):
 ################################
 
 # default is python
-hsmm_states = hsmm_states_python
-hmm_states = hmm_states_python
+HSMMStates = HSMMStatesPython
+HMMStates = HMMStatesPython
 
 import os
 eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
@@ -651,12 +649,12 @@ with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
     hmm_sample_forwards_codestr = infile.read()
 
 def use_eigen(useit=True):
-    # TODO this method is probably dumb; should get rid of use_eigen
-    global hsmm_states, hmm_states
+    # TODO this method is probably dumb; should get rid of it
+    global HSMMStates, HMMStates
     if useit:
-        hsmm_states = hsmm_states_eigen
-        hmm_states = hmm_states_eigen
+        HSMMStates = HSMMStatesEigen
+        HMMStates = HMMStatesEigen
     else:
-        hsmm_states = hsmm_states_python
-        hmm_states = hmm_states_python
+        HSMMStates = HSMMStatesPython
+        HMMStates = HMMStatesPython
 

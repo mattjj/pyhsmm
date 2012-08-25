@@ -37,7 +37,7 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.models.hmm(alpha=4.,gamma=4.,
+truemodel = pyhsmm.models.HMM(alpha=4.,gamma=4.,
                               obs_distns=true_obs_distns)
 
 # Sample data from the true model
@@ -60,7 +60,7 @@ Nmax = 10
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 
 # Build the HMM model that will represent the posterior
-posteriormodel = pyhsmm.models.hmm(alpha=6.,gamma=6.,
+posteriormodel = pyhsmm.models.HMM(alpha=6.,gamma=6.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
@@ -75,6 +75,6 @@ for idx in progprint_xrange(101):
         if save_images:
             plt.savefig('posterior_sample_%d.png' % idx)
 
-    posteriormodel.resample()
+    posteriormodel.resample_model()
 
 plt.show()
