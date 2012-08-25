@@ -402,8 +402,7 @@ class HMMStatesPython(object):
 
     def plot(self,colors_dict=None):
         from matplotlib import pyplot as plt
-        from pyhsmm.util.general import rle
-        states,durations = rle(self.stateseq)
+        states,durations = util.rle(self.stateseq)
         X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
 
         if colors_dict is not None:
