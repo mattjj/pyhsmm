@@ -42,7 +42,7 @@ class GeometricDuration(Geometric, DurationDistribution):
 
 class NegativeBinomialDuration(NegativeBinomial, DurationDistribution):
     def __repr__(self):
-        return 'NegativeBinomialDuration(r=0.2f,p=%0.2f)' % (self.r,self.p)
+        return 'NegativeBinomialDuration(r=%0.2f,p=%0.2f)' % (self.r,self.p)
 
     def log_sf(self,x):
         return np.log(special.betainc(x,self.r,self.p))

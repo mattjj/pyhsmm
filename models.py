@@ -36,13 +36,7 @@ class HMM(ModelGibbsSampling):
     def resample_model(self):
         # resample obsparams
         for state, distn in enumerate(self.obs_distns):
-            # TODO make obs distns take lols instead of concatenating
-            # (pybasicbayes fixes this)
-            all_obs = [s.data[s.stateseq == state] for s in self.states_list]
-            if len(all_obs) > 0:
-                distn.resample(np.concatenate(all_obs))
-            else:
-                distn.resample()
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
 
         # resample transitions
         self.trans_distn.resample([s.stateseq for s in self.states_list])
@@ -168,7 +162,7 @@ class HSMM(HMM, ModelGibbsSampling):
         if 'transitions' in kwargs:
             trans = kwargs['transitions']
             del kwargs['transitions']
-            assert type(trans) == transitions.HDPHSMMTransitions
+            assert isinstance(trans,transitions.HDPHSMMTransitions)
         else:
             trans = transitions.HDPHSMMTransitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
         super(HSMM,self).__init__(alpha=alpha,gamma=gamma,obs_distns=obs_distns,transitions=trans,**kwargs)
@@ -180,12 +174,7 @@ class HSMM(HMM, ModelGibbsSampling):
     def resample_model(self):
         # resample durparams
         for state, distn in enumerate(self.dur_distns):
-            # TODO pybasicbayes versions dont need concatenation anymore
-            all_durs = [s.durations[s.stateseq_norep == state] for s in self.states_list]
-            if len(all_durs) > 0:
-                distn.resample(np.concatenate(all_durs))
-            else:
-                distn.resample()
+            distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
 
         # resample everything else an hmm does
         super(HSMM,self).resample_model()
