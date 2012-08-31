@@ -31,9 +31,7 @@ class HSMMStatesPython(object):
     stateseq_norep = None
 
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
-    stateseq=None,trunc=None,data=None,**kwargs):
-        # TODO T parameter only makes sense with censoring. it should be
-        # removed.
+    stateseq=None,trunc=None,data=None,censoring=True,**kwargs):
         self.T = T
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -42,6 +40,7 @@ class HSMMStatesPython(object):
         self.initial_distn = initial_distn
         self.trunc = T if trunc is None else trunc
         self.data = data
+        self.censoring = censoring
 
         # this arg is for initialization heuristics which may pre-determine the
         # state sequence
@@ -66,6 +65,7 @@ class HSMMStatesPython(object):
         return np.concatenate(obs)[:self.T] # censoring
 
     def generate_states(self):
+        # TODO TODO make censoring work?
         idx = 0
         nextstate_distr = self.initial_distn.pi_0
         A = self.transition_distn.A
@@ -116,6 +116,7 @@ class HSMMStatesPython(object):
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
         # run backwards message passing
         betal, betastarl = self.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
+        self.betal, self.betastarl = betal, betastarl # TODO remove, for debugging
         # sample forwards
         self.sample_forwards(betal,betastarl)
 
@@ -130,10 +131,10 @@ class HSMMStatesPython(object):
 
         for t in xrange(T-1,-1,-1):
             np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            if T-t < trunc:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t-1], betastarl[t]) # censoring calc, -1 for zero indexing of aDl compared to arguments to log_sf
+            if T-t < trunc and self.censoring:
+                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t-1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
-        betal[-1] = 0. # overwritten in last loop for loop expression simplicity, set it back to 0 here
+        betal[-1] = 0.
 
         assert not np.isnan(betal).any()
         assert not np.isinf(betal[0]).all()
@@ -197,23 +198,20 @@ class HSMMStatesPython(object):
                 if idx+dur < self.T:
                     mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state])
                     p_d = mess_term * p_d_marg
-                    #print 'dur: %d, durprob: %f, p_d_marg: %f, p_d: %f' % (dur+1,durprob,p_d_marg,p_d)
                     prob_so_far += p_d
-                else:
-                    # we're out of data, so we need to sample a duration
-                    # conditioned on having lasted at least this long. the
-                    # likelihood contributes the same to all possibilities, so
-                    # we can just sample from the prior (conditioned on it being
-                    # at least this long).
-                    arg = np.arange(dur+1,2*self.T) # 2*T is just a guessed upper bound, +1 because 'dur' is one less than the duration we're actually considering
-                    remaining = dur_distn.pmf(arg)
-                    therest = sample_discrete(remaining)
-                    dur = dur + therest
-                    durprob = -1 # just to get us out of loop
 
-                assert not np.isnan(p_d)
-                durprob -= p_d
-                dur += 1
+                    assert not np.isnan(p_d)
+                    durprob -= p_d
+                    dur += 1
+                else:
+                    if self.censoring:
+                        arg = np.arange(dur+1,3*self.T) # TODO instead of 3*T, use log_sf
+                        remaining = dur_distn.pmf(arg)
+                        therest = sample_discrete(remaining)
+                        dur = dur + therest
+                    else:
+                        dur += 1
+                    durprob = -1 # just to get us out of loop
 
             assert dur > 0
 
@@ -499,8 +497,10 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
 
-            np.logaddexp.reduce(betal[tblock:tblock+truncblock] + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations) + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
-            # TODO put censoring here, must implement likelihood_block
+            np.logaddexp.reduce(betal[tblock:tblock+truncblock]
+                    + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations)
+                    + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
+            # TODO TODO put censoring here, must implement likelihood_block
             np.logaddexp.reduce(betastarl[tblock] + Al, axis=1, out=betal[tblock-1])
         betal[-1] = 0.
 
@@ -550,7 +550,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             state = sample_discrete(nextstate_distr)
 
             # compute possible duration info (indep. of state)
-            # TODO doesn't handle censoring quite correctly
+            # TODO TODO doesn't handle censoring quite correctly
             possible_durations = self.blocklens[tblock:].cumsum()
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)

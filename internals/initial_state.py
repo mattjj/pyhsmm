@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import scipy.stats as stats
 
@@ -9,7 +10,7 @@ class InitialState(object):
     '''
     Initial state distribution class. Not usually of much consequence.
     '''
-    def __init__(self,state_dim,rho=1.,pi_0=None,**kwargs):
+    def __init__(self,state_dim,rho,pi_0=None,**kwargs):
         self.rho = rho
         self.state_dim = state_dim
         self.pi_0 = pi_0

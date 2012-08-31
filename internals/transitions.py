@@ -66,8 +66,7 @@ class HDPHSMMTransitions(object):
             assert (data.diagonal() == 0).all()
             froms = np.sum(data,axis=1)
             self_transitions = np.array([np.sum(stats.geom.rvs(1.-self.fullA.diagonal()[idx],size=from_num)) if from_num > 0 else 0 for idx, from_num in enumerate(froms)])
-            self_transitions[froms == 0] = 0 # really emphasized here!
-            assert (self_transitions < 1e7).all(), 'maybe alpha is too low... code is not happy about that at the moment'
+            assert (self_transitions < 1e7).all() and (self_transitions >= 0).all(), 'maybe alpha is too low... code is not happy about that at the moment'
             augmented_data = data + np.diag(self_transitions)
             # then, compute m's and stuff
             m = np.zeros((self.state_dim,self.state_dim))

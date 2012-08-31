@@ -24,7 +24,7 @@ class HMM(ModelGibbsSampling):
         self.trans_distn = transitions.HDPHMMTransitions(state_dim=self.state_dim,alpha=alpha,gamma=gamma,**kwargs)\
                 if 'transitions' not in kwargs else kwargs['transitions']
 
-        self.init_state_distn = initial_state.InitialState(state_dim=self.state_dim,**kwargs)\
+        self.init_state_distn = initial_state.InitialState(state_dim=self.state_dim,rho=5,**kwargs)\
                 if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
 
         self.states_list = []
@@ -167,9 +167,10 @@ class HSMM(HMM, ModelGibbsSampling):
             trans = transitions.HDPHSMMTransitions(alpha=alpha,gamma=gamma,state_dim=len(obs_distns))
         super(HSMM,self).__init__(alpha=alpha,gamma=gamma,obs_distns=obs_distns,transitions=trans,**kwargs)
 
-    def add_data(self,data,stateseq=None):
+    def add_data(self,data,stateseq=None,censoring=True):
         self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,
-            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq))
+            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,
+            censoring=censoring))
 
     def resample_model(self):
         # resample durparams
