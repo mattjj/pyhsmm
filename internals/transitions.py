@@ -20,7 +20,7 @@ class HDPHSMMTransitions(object):
 
     Parameters are the shared transition vector beta, the full transition matrix,
     and the matrix with the diagonal zeroed.
-        beta, fullA, A
+        beta, A
     '''
 
     def __init__(self,state_dim,alpha,gamma,beta=None,A=None,fullA=None):
