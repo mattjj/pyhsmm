@@ -196,7 +196,8 @@ class HSMMStatesPython(object):
                     dur += 1
                     continue
                 if idx+dur < self.T:
-                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) + betal[idx+dur,state] - betastarl[idx,state])
+                    mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) \
+                            + betal[idx+dur,state] - betastarl[idx,state])
                     p_d = mess_term * p_d_marg
                     prob_so_far += p_d
 
@@ -205,10 +206,8 @@ class HSMMStatesPython(object):
                     dur += 1
                 else:
                     if self.censoring:
-                        arg = np.arange(dur+1,3*self.T) # TODO instead of 3*T, use log_sf
-                        remaining = dur_distn.pmf(arg)
-                        therest = sample_discrete(remaining)
-                        dur = dur + therest
+                        # TODO instead of 3*T, use log_sf
+                        dur += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
                     else:
                         dur += 1
                     durprob = -1 # just to get us out of loop
@@ -243,31 +242,9 @@ class HSMMStatesPython(object):
 
 
 class HSMMStatesEigen(HSMMStatesPython):
-    def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,stateseq=None,trunc=None,data=None,**kwargs):
-        # TODO shouldn't this use parent's init?
-        self.T = T
-        self.state_dim = state_dim
-        self.obs_distns = obs_distns
-        self.dur_distns = dur_distns
-        self.transition_distn = transition_distn
-        self.initial_distn = initial_distn
-        self.trunc = T if trunc is None else trunc
-        self.data = data
-
+    def __init__(self,T,state_dim,*args,**kwargs):
         self.sample_forwards_codestr = hsmm_sample_forwards_codestr % {'M':state_dim,'T':T}
-
-        # self.messages_backwards_codestr = hsmm_messages_backwards_codestr % {'M':state_dim,'T':T}
-
-        # this arg is for initialization heuristics which may pre-determine the state sequence
-        if stateseq is not None:
-            self.stateseq = stateseq
-            # gather durations and stateseq_norep
-            self.stateseq_norep, self.durations = util.rle(stateseq)
-        else:
-            if data is not None:
-                self.resample()
-            else:
-                self.generate_states()
+        super(HSMMStatesEigen,self).__init__(T,state_dim,*args,**kwargs)
 
     def sample_forwards(self,betal,betastarl):
         aBl = self.aBl
@@ -281,23 +258,21 @@ class HSMMStatesEigen(HSMMStatesPython):
         for state_idx, dur_distn in enumerate(self.dur_distns):
             apmf[state_idx] = dur_distn.pmf(arg)
 
-        scipy.weave.inline(self.sample_forwards_codestr,['betal','betastarl','aBl','stateseq','A','pi0','apmf'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])#,'-march=native'])
+        scipy.weave.inline(self.sample_forwards_codestr,
+                ['betal','betastarl','aBl','stateseq','A','pi0','apmf'],
+                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
+                extra_compile_args=['-O3'])#,'-march=native'])
+
 
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
 
-    def messages_backwards_NOTUSED(self,Al,aDl,aDsl,trunc):
-        # this isn't actually used: it is the same speed or slower than the
-        # python/numpy version, since the code is very vectorized
-        A = np.exp(Al).T.copy()
-        mytrunc = trunc;
-        aBl = self.aBl
-        betal = np.zeros((self.T,self.state_dim))
-        betastarl = np.zeros((self.T,self.state_dim))
-        scipy.weave.inline(self.messages_backwards_codestr,['A','mytrunc','betal','betastarl','aDl','aBl','aDsl'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3','-march=native'])
-        return betal, betastarl
+        if self.censoring:
+            dur = self.durations[-1]
+            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
 
-    # TODO could also write Eigen version of the generate() methods
+            # TODO instead of 3*T, use log_sf
+            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
 
 
 class HMMStatesPython(object):
@@ -414,7 +389,7 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,censoring=True,**kwargs):
         # TODO shouldn't this use parent's init?
         self.state_dim = state_dim
         self.obs_distns = obs_distns

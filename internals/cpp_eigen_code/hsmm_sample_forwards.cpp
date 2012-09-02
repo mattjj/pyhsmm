@@ -58,9 +58,10 @@ while (idx < %(T)d) {
                 continue;
         }
         if (idx+dur < %(T)d) {
-                p_d = p_d_marg * (exp(eaBl.row(state).segment(idx,dur+1).sum() + ebetal(state,idx+dur) - ebetastarl(state,idx)));
+                p_d = p_d_marg * (exp(eaBl.row(state).segment(idx,dur+1).sum()
+                            + ebetal(state,idx+dur) - ebetastarl(state,idx)));
         } else {
-            break; // TODO fix this
+            break; // will be fixed in python
         }
         durprob -= p_d;
         dur += 1;
