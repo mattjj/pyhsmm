@@ -44,7 +44,7 @@ truemodel = pyhsmm.models.HMM(alpha=4.,gamma=4.,
 data, labels = truemodel.generate(T)
 
 # Plot the truth
-plt.title()
+plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HMM')
 if save_images:
