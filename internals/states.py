@@ -467,7 +467,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             trunc = self.T
 
         for tblock in range(Tblock-1,-1,-1):
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.blocklens[tblock:].cumsum() # TODO could precompute these
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
@@ -489,13 +489,12 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         return betal, betastarl
 
     def get_aBl(self,data):
-        # this method actually sets self.aBBl for block likelihoods
+        # this method also sets self.aBBl for block likelihoods
         aBBl = np.zeros((self.Tblock,self.state_dim))
         aBl = super(HSMMStatesPossibleChangepoints,self).get_aBl(data)
         for idx, (start,stop) in enumerate(self.changepoints):
             aBBl[idx] = aBl[start:stop].sum(0)
         self.aBBl = aBBl
-        self.aBl = aBl
         return None
 
     def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
