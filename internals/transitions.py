@@ -60,8 +60,8 @@ class HDPHSMMTransitions(object):
             assert (data.diagonal() == 0).all()
 
             froms = np.sum(data,axis=1)
-            self_transitions = [np.random.geometric(1-pi_ii,size=n) if n > 0 else 0
-                    for pi_ii,n in zip(self.fullA.diagional(),froms)]
+            self_transitions = [np.random.geometric(1-pi_ii,size=n).sum() if n > 0 else 0
+                    for pi_ii,n in zip(self.fullA.diagonal(),froms)]
             augmented_data = data + np.diag(self_transitions)
 
             m = np.zeros((self.state_dim,self.state_dim))
