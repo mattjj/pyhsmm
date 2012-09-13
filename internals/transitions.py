@@ -3,6 +3,7 @@ import numpy as np
 import scipy.stats as stats
 from numpy.random import random
 from numpy import newaxis as na
+import operator
 
 from ..util.general import rle
 
@@ -38,55 +39,42 @@ class HDPHSMMTransitions(object):
         if type(stateseqs) != type([]):
             stateseqs = [stateseqs]
 
-        states_noreps = map(lambda x: rle(x)[0], stateseqs)
+        states_noreps = map(operator.itemgetter(0),map(rle, stateseqs))
 
         if not any(len(states_norep) >= 2 for states_norep in states_noreps):
             # if there is no data we just sample from the prior
-            self.beta = stats.gamma.rvs(self.alpha / self.state_dim, size=self.state_dim)
-            self.beta /= np.sum(self.beta)
+            self.beta = np.random.dirichlet((self.alpha / self.state_dim)*np.ones(self.state_dim))
 
-            self.fullA = stats.gamma.rvs(self.beta * self.gamma * np.ones((self.state_dim,1)))
+            self.fullA = np.random.dirichlet(self.beta*self.gamma,size=self.state_dim)
             self.A = (1.-np.eye(self.state_dim)) * self.fullA
-            self.fullA /= np.sum(self.fullA,axis=1)[:,na]
-            self.A /= np.sum(self.A,axis=1)[:,na]
+            self.A /= self.A.sum(1)[:,na]
 
             assert not np.isnan(self.beta).any()
             assert not np.isnan(self.fullA).any()
             assert (self.A.diagonal() == 0).all()
         else:
-            # make 2d array of transition counts
             data = np.zeros((self.state_dim,self.state_dim))
             for states_norep in states_noreps:
                 for idx in xrange(len(states_norep)-1):
                     data[states_norep[idx],states_norep[idx+1]] += 1
-            # we resample the children (A) then the mother (beta)
-            # first, we complete the data using the current parameters
-            # every time we transferred from a state, we had geometrically many
-            # self-transitions thrown away that we want to sample
             assert (data.diagonal() == 0).all()
+
             froms = np.sum(data,axis=1)
-            self_transitions = np.array([np.sum(stats.geom.rvs(1.-self.fullA.diagonal()[idx],size=from_num)) if from_num > 0 else 0 for idx, from_num in enumerate(froms)])
-            assert (self_transitions < 1e7).all() and (self_transitions >= 0).all(), 'maybe alpha is too low... code is not happy about that at the moment'
+            self_transitions = [np.random.geometric(1-pi_ii,size=n) if n > 0 else 0
+                    for pi_ii,n in zip(self.fullA.diagional(),froms)]
             augmented_data = data + np.diag(self_transitions)
-            # then, compute m's and stuff
+
             m = np.zeros((self.state_dim,self.state_dim))
-            for rowidx in xrange(self.state_dim):
-                for colidx in xrange(self.state_dim):
-                    n = 0.
-                    for i in xrange(int(augmented_data[rowidx,colidx])):
-                        m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] / (n + self.alpha * self.beta[colidx])
-                        n += 1.
+            for (i,j), n in np.ndenumerate(augmented_data):
+                m[i,j] = (np.random.rand(n) < self.alpha*self.beta[j] \
+                        / (np.arange(n) + self.alpha*self.beta[j])).sum()
             self.m = m # save it for possible use in any child classes
 
-            # resample mother (beta)
-            self.beta = stats.gamma.rvs(self.alpha / self.state_dim  + np.sum(m,axis=0))
-            self.beta /= np.sum(self.beta)
-            assert not np.isnan(self.beta).any()
-            # resample children (fullA and A)
-            self.fullA = stats.gamma.rvs(self.gamma * self.beta + augmented_data)
-            self.fullA /= np.sum(self.fullA,axis=1)[:,na]
+            self.beta = np.random.dirichlet(self.alpha/self.state_dim + m.sum(0))
+            self.fullA = np.random.gamma(self.gamma * self.beta + augmented_data)
+            self.fullA /= self.fullA.sum(1)[:,na]
             self.A = self.fullA * (1.-np.eye(self.state_dim))
-            self.A /= np.sum(self.A,axis=1)[:,na]
+            self.A /= self.A.sum(1)[:,na]
             assert not np.isnan(self.A).any()
 
 class HDPHMMTransitions(object):
@@ -125,14 +113,9 @@ class HDPHMMTransitions(object):
 
         m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         if not (0 == data).all():
-            # sample m's (auxiliary variables which make beta's posterior
-            # conjugate and indep. of data)
-            # basically sampling forward a CRP and checking when new tables are
-            # instantiated
             for (rowidx, colidx), val in np.ndenumerate(data):
-                for n in range(val):
-                    m[rowidx,colidx] += random() < self.alpha * self.beta[colidx] /\
-                                                    (n + self.alpha * self.beta[colidx])
+                m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx]\
+                        /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
 
         self.resample_beta(m)
         self.resample_A(data)
@@ -148,53 +131,3 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
         super(StickyHDPHMMTransitions,self).resample_A(aug_data)
 
-
-# TODO below here
-
-# NOTE none of the below should be able to learn the number of states very well,
-# since they don't have the hierarchical construction to regularize the total
-# number of states
-
-# class hmm_transitions(object):
-#     # self_trans is like a simple sticky bias
-#     def __init__(self,state_dim,gamma,A=None,**kwargs):
-#         self.state_dim = state_dim
-#         self.gamma = gamma
-#         if A is None:
-#             self.resample()
-#         else:
-#             self.A = A
-
-#     def resample_A(self,data):
-#         self.A = stats.gamma.rvs(self.gamma/self.state_dim + data)
-#         self.A /= np.sum(self.A,axis=1)[:,na]
-#         assert not np.isnan(self.A).any()
-
-#     def resample(self,statess=[]):
-#         data = np.zeros((self.state_dim,self.state_dim))
-#         # data += self.self_trans * np.eye(len(data))
-#         if len(statess) > 0:
-#             for states in statess:
-#                 if len(states) >= 2:
-#                     for idx in xrange(len(states)-1):
-#                         data[states[idx],states[idx+1]] += 1
-
-#         self.resample_A(data)
-
-# class ltr_hmm_transitions(hmm_transitions):
-#     '''upper triangle only'''
-#     def resample_A(self,data):
-#         self.A = stats.gamma.rvs(self.gamma/self.state_dim + data)
-#         self.A = np.triu(self.A)
-#         self.A /= np.sum(self.A,axis=1)[:,na]
-#         assert not np.isnan(self.A).any()
-
-# # TODO make this work as an hdp-hmm
-# class sticky_ltr_hmm_transitions(ltr_hmm_transitions):
-#     def __init__(self,kappa,*args,**kwargs):
-#         self.kappa = kappa
-#         super(sticky_ltr_hmm_transitions,self).__init__(*args,**kwargs)
-
-#     def resample_A(self,data):
-#         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
-#         super(sticky_ltr_hmm_transitions,self).resample_A(aug_data)
