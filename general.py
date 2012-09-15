@@ -12,6 +12,12 @@ def rle(stateseq):
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
 
+def irle(vals,lens):
+    out = np.empty(np.sum(lens))
+    for v,l,start in zip(vals,lens,np.concatenate(((0,),np.cumsum(lens)[:-1]))):
+        out[start:start+l] = v
+    return out
+
 def deepcopy(obj):
     # there's a library function that does the same thing, consider replacing
     # this function with that one
