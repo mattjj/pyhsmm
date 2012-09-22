@@ -112,7 +112,7 @@ def invwishart_entropy(sigma,nu):
 
 def invwishart_log_partitionfunction(sigma,nu):
     D = sigma.shape[0]
-    return -1*(nu/2*np.log(np.linalg.det(sigma)) - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
+    return -1*(nu/2*np.linalg.slogdet(sigma)[1] - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
             + special.gammaln((nu-np.arange(D))/2).sum()))
 
 ### Predictive
