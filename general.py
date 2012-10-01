@@ -33,3 +33,51 @@ def nice_indices(arr):
     for idx,x in enumerate(arr):
         arr[idx] = ids[x]
     return arr
+
+def ndargmax(arr):
+    return np.unravel_index(np.argmax(np.ravel(arr)),arr.shape)
+
+def match_by_overlap(a,b):
+    assert a.ndim == b.ndim == 1 and a.shape[0] == b.shape[0]
+    ais, bjs = list(set(a)), list(set(b))
+    scores = np.zeros((len(ais),len(bjs)))
+    for i,ai in enumerate(ais):
+        for j,bj in enumerate(bjs):
+            scores[i,j] = np.dot(a==ai,b==bj)
+
+    flip = len(bjs) > len(ais)
+
+    if flip:
+        ais, bjs = bjs, ais
+        scores = scores.T
+
+    matching = []
+    while scores.size > 0:
+        i,j = ndargmax(scores)
+        matching.append((ais[i],bjs[j]))
+        scores = np.delete(np.delete(scores,i,0),j,1)
+        ais = np.delete(ais,i)
+        bjs = np.delete(bjs,j)
+
+    return matching if not flip else [(x,y) for y,x in matching]
+
+def hamming_error(a,b):
+    return (a!=b).sum()
+
+def scoreatpercentile(data,per,axis):
+    '''
+    like the function in scipy.stats but with an axis argument, and works on
+    arrays.
+    '''
+    a = np.sort(data,axis=axis)
+    idx = per/100. * (data.shape[axis]-1)
+
+    if (idx % 1 == 0):
+        return a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]]
+    else:
+        lowerweight = 1-(idx % 1)
+        upperweight = (idx % 1)
+        idx = int(np.floor(idx))
+        return lowerweight * a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]] \
+                + upperweight * a[[slice(None) if ii != axis else idx+1 for ii in range(a.ndim)]]
+
