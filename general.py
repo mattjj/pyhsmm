@@ -81,3 +81,29 @@ def scoreatpercentile(data,per,axis):
         return lowerweight * a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]] \
                 + upperweight * a[[slice(None) if ii != axis else idx+1 for ii in range(a.ndim)]]
 
+def stateseq_hamming_error(sampledstates,truestates):
+    sampledstates = np.array(sampledstates,ndmin=2).copy()
+
+    errors = np.zeros(sampledstates.shape[0])
+    for idx,s in enumerate(sampledstates):
+        # match labels by maximum overlap
+        matching = match_by_overlap(s,truestates)
+        s2 = s.copy()
+        for i,j in matching:
+            s2[s==i] = j
+        errors[idx] = hamming_error(s2,truestates)
+
+    return errors if errors.shape[0] > 1 else errors[0]
+
+def get_autocorr(chains):
+    '''
+    component-by-component
+    '''
+    chains = np.array(chains)
+    results = np.zeros(chains.shape)
+    for chainidx, chain in enumerate(chains):
+        for idx in range(chain.shape[1]):
+            temp = chain[:,idx] - chain[:,idx].mean(0)
+            temp = np.correlate(temp,temp,'full')
+            results[chainidx,:,idx] = temp[temp.shape[0]//2:]
+    return results
