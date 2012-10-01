@@ -95,15 +95,3 @@ def stateseq_hamming_error(sampledstates,truestates):
 
     return errors if errors.shape[0] > 1 else errors[0]
 
-def get_autocorr(chains):
-    '''
-    component-by-component
-    '''
-    chains = np.array(chains)
-    results = np.zeros(chains.shape)
-    for chainidx, chain in enumerate(chains):
-        for idx in range(chain.shape[1]):
-            temp = chain[:,idx] - chain[:,idx].mean(0)
-            temp = np.correlate(temp,temp,'full')
-            results[chainidx,:,idx] = temp[temp.shape[0]//2:]
-    return results
