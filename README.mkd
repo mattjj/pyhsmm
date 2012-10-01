@@ -99,7 +99,7 @@ dur_hypparams = {'alpha_0':2*20,
 obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.hsmm(6.,6.,obs_distns,dur_distns,trunc=75)
+posteriormodel = pyhsmm.models.HSMM(6.,6.,obs_distns,dur_distns,trunc=75)
 ```
 
 (The first two arguments set the "new-table" proportionality constant for the
