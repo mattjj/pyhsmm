@@ -136,9 +136,9 @@ class HDPHSMMTransitionsConcResampling(HDPHSMMTransitions):
 
     def resample(self,*args,**kwargs):
         super(HDPHSMMTransitionsConcResampling,self).resample(*args,**kwargs)
-        self.alpha_obj.resample(self.augmented_data) # TODO needs to know abot column weights
+        self.alpha_obj.resample(self.augmented_data,weighted_cols=self.beta,niter=5)
         self.alpha = self.alpha_obj.concentration
-        self.gamma_obj.resample(self.m)
+        self.gamma_obj.resample(self.m,niter=5)
         self.gamma = self.gamma_obj.concentration
 
 class StickyHDPHMMTransitions(HDPHMMTransitions):
