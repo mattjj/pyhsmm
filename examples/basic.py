@@ -33,7 +33,7 @@ true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in r
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.models.HSMM(alpha=4.,gamma=4.,
+truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
@@ -58,7 +58,7 @@ obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
 # Build the HSMM model that will represent the posterior
-posteriormodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,
+posteriormodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                                     obs_distns=obs_distns,
                                     dur_distns=dur_distns,trunc=70)
 posteriormodel.add_data(data)

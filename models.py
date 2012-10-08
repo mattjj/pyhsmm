@@ -7,44 +7,49 @@ from warnings import warn
 from basic.abstractions import ModelGibbsSampling
 from internals import states, initial_state, transitions
 
-# TODO get rid of superfluous kwargs
-# TODO get rid of default pi_0 weight!
-
 class HMM(ModelGibbsSampling):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
     '''
 
-    def __init__(self,obs_distns,
+    def __init__(self,
+            obs_distns,
+            trans_distn=None,
             alpha=None,gamma=None,
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
-            **kwargs):
+            init_state_distn=None,
+            init_state_concentration=None):
 
         self.state_dim = len(obs_distns)
-
         self.obs_distns = obs_distns
+        self.states_list = []
 
-        assert ('transitions' in kwargs) ^ \
+        assert (trans_distn is not None) ^ \
                 (alpha is not None and gamma is not None) ^ \
                 (alpha_a_0 is not None and alpha_b_0 is not None
                         and gamma_a_0 is not None and gamma_b_0 is not None)
-
-        if 'transitions' in kwargs:
-            self.trans_distn = kwargs['transitions']
+        if trans_distn is not None:
+            self.trans_distn = trans_distn
         elif alpha is not None:
-            self.trans_distn = transitions.HDPHMMTransitions(state_dim=self.state_dim,
-                    alpha=alpha,gamma=gamma,**kwargs)
+            self.trans_distn = transitions.HDPHMMTransitions(
+                    state_dim=self.state_dim,
+                    alpha=alpha,gamma=gamma)
         else:
             self.trans_distn = transitions.HDPHMMTransitionsConcResampling(
                     state_dim=self.state_dim,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
-        self.init_state_distn = initial_state.InitialState(state_dim=self.state_dim,rho=5,**kwargs)\
-                if 'initial_state_distn' not in kwargs else kwargs['initial_state_distn']
+        assert (init_state_distn is not None) ^ \
+                (init_state_concentration is not None)
 
-        self.states_list = []
+        if init_state_distn is not None:
+            self.init_state_distn = init_state_distn
+        else:
+            self.init_state_distn = initial_state.InitialState(
+                    state_dim=self.state_dim,
+                    rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None):
         self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
@@ -146,15 +151,31 @@ class StickyHMM(HMM, ModelGibbsSampling):
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
     '''
-    def __init__(self,obs_distns,**kwargs):
-        warn('the %s class is completely untested!' % type(self))
-        if 'transitions' not in kwargs:
-            super(StickyHMM,self).__init__(obs_distns,
-                    transitions=transitions.StickyHDPHMMTransitions(state_dim=self.state_dim,**kwargs),
-                    **kwargs)
-        else:
-            super(StickyHMM,self).__init__(obs_distns,**kwargs)
+    def __init__(self,
+            obs_distns,
+            trans_distn=None,
+            kappa=None,alpha=None,gamma=None,
+            kappa_a_0=None,kappa_b_0=None,alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
+            **kwargs):
 
+        assert (trans_distn is not None) ^ \
+                (kappa is not None and alpha is not None and gamma is not None) ^ \
+                (kappa_a_0 is not None and kappa_b_0 is not None
+                        and alpha_a_0 is not None and alpha_b_0 is not None
+                        and gamma_a_0 is not None and gamma_b_0 is not None)
+        if trans_distn is not None:
+            self.trans_distn = trans_distn
+        elif kappa is not None:
+            self.trans_distn = transitions.StickyHDPHMMTransitions(
+                    state_dim=self.state_dim,
+                    alpha=alpha,gamma=gamma)
+        else:
+            self.trans_distn = transitions.StickyHDPHMMTransitionsConcResampling(
+                    state_dim=self.state_dim,
+                    alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
+                    gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
+
+        super(StickyHMM,self).__init__(obs_distns,trans_distn=self.trans_distn,**kwargs)
 
 class HSMM(HMM, ModelGibbsSampling):
     '''
@@ -173,34 +194,35 @@ class HSMM(HMM, ModelGibbsSampling):
     method.
     '''
 
-    def __init__(self,obs_distns,dur_distns,
+    def __init__(self,
+            obs_distns,dur_distns,
             trunc=None,
+            trans_distn=None,
             alpha=None,gamma=None,
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
             **kwargs):
 
-        state_dim = len(obs_distns)
+        self.state_dim = len(obs_distns)
         self.trunc = trunc
         self.dur_distns = dur_distns
 
-        assert ('transitions' in kwargs
-                    and isinstance(kwargs['transitions'],transitions.HDPHSMMTransitions)) ^ \
+        assert (trans_distn is not None) ^ \
                 (alpha is not None and gamma is not None) ^ \
                 (alpha_a_0 is not None and alpha_b_0 is not None
                         and gamma_a_0 is not None and gamma_b_0 is not None)
-
-        if 'transitions' in kwargs:
-            self.trans_distn = kwargs['transitions']
+        if trans_distn is not None:
+            self.trans_distn = trans_distn
         elif alpha is not None:
-            self.trans_distn = transitions.HDPHSMMTransitions(state_dim=state_dim,
-                    alpha=alpha,gamma=gamma,**kwargs)
+            self.trans_distn = transitions.HDPHSMMTransitions(
+                    state_dim=self.state_dim,
+                    alpha=alpha,gamma=gamma)
         else:
             self.trans_distn = transitions.HDPHSMMTransitionsConcResampling(
-                    state_dim=state_dim,
+                    state_dim=self.state_dim,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
-        super(HSMM,self).__init__(obs_distns=obs_distns,transitions=self.trans_distn,**kwargs)
+        super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True):
         self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,

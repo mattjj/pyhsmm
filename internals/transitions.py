@@ -7,8 +7,62 @@ import operator
 from ..basic.distributions import DirGamma
 from ..util.general import rle
 
-# TODO the code organization in this file needs improvement... could use a Dir
-# distribution object?
+
+######################
+#  HDP-HMM classes  #
+######################
+
+class HDPHMMTransitions(object):
+    def __init__(self,state_dim,alpha,gamma,beta=None,A=None):
+        self.state_dim = state_dim
+        self.alpha = alpha
+        self.gamma = gamma
+        if A is None or beta is None:
+            self.resample()
+        else:
+            self.A = A
+            self.beta = beta
+
+    def resample_beta(self,m):
+        self.beta = stats.gamma.rvs(self.alpha / self.state_dim + np.sum(m,axis=0))
+        self.beta /= np.sum(self.beta)
+        assert not np.isnan(self.beta).any()
+
+    def resample_A(self,data):
+        self.A = stats.gamma.rvs(self.gamma * self.beta + data)
+        self.A /= np.sum(self.A,axis=1)[:,na]
+        assert not np.isnan(self.A).any()
+
+    def resample(self,states_list=[]):
+        # TODO these checks can be removed at some point
+        assert type(states_list) == type([])
+        for states_norep in states_list:
+            assert type(states_norep) == type(np.array([]))
+
+        # count all transitions
+        data = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
+        for states in states_list:
+            if len(states) >= 2:
+                for idx in xrange(len(states)-1):
+                    data[states[idx],states[idx+1]] += 1
+
+        m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
+        if not (0 == data).all():
+            for (rowidx, colidx), val in np.ndenumerate(data):
+                m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx]\
+                        /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
+
+        self.resample_beta(m)
+        self.resample_A(data)
+
+
+class HDPHMMTransitionsConcResampling(HDPHMMTransitions):
+    pass # TODO
+
+
+######################
+#  HDP-HSMM classes  #
+######################
 
 class HDPHSMMTransitions(object):
     '''
@@ -78,49 +132,6 @@ class HDPHSMMTransitions(object):
             self.A /= self.A.sum(1)[:,na]
             assert not np.isnan(self.A).any()
 
-class HDPHMMTransitions(object):
-    def __init__(self,state_dim,alpha,gamma,beta=None,A=None):
-        self.state_dim = state_dim
-        self.alpha = alpha
-        self.gamma = gamma
-        if A is None or beta is None:
-            self.resample()
-        else:
-            self.A = A
-            self.beta = beta
-
-    def resample_beta(self,m):
-        self.beta = stats.gamma.rvs(self.alpha / self.state_dim + np.sum(m,axis=0))
-        self.beta /= np.sum(self.beta)
-        assert not np.isnan(self.beta).any()
-
-    def resample_A(self,data):
-        self.A = stats.gamma.rvs(self.gamma * self.beta + data)
-        self.A /= np.sum(self.A,axis=1)[:,na]
-        assert not np.isnan(self.A).any()
-
-    def resample(self,states_list=[]):
-        # TODO these checks can be removed at some point
-        assert type(states_list) == type([])
-        for states_norep in states_list:
-            assert type(states_norep) == type(np.array([]))
-
-        # count all transitions
-        data = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
-        for states in states_list:
-            if len(states) >= 2:
-                for idx in xrange(len(states)-1):
-                    data[states[idx],states[idx+1]] += 1
-
-        m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
-        if not (0 == data).all():
-            for (rowidx, colidx), val in np.ndenumerate(data):
-                m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx]\
-                        /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
-
-        self.resample_beta(m)
-        self.resample_A(data)
-
 
 class HDPHSMMTransitionsConcResampling(HDPHSMMTransitions):
     def __init__(self,state_dim,
@@ -144,8 +155,12 @@ class HDPHSMMTransitionsConcResampling(HDPHSMMTransitions):
         self.gamma_obj.resample(self.m,niter=5)
         self.gamma = self.gamma_obj.concentration*self.state_dim
 
+
+############################
+#  Sticky HDP-HMM classes  #
+############################
+
 class StickyHDPHMMTransitions(HDPHMMTransitions):
-    # TODO resample kappa
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
         super(StickyHDPHMMTransitions,self).__init__(*args,**kwargs)
@@ -154,3 +169,6 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
         super(StickyHDPHMMTransitions,self).resample_A(aug_data)
 
+
+class StickyHDPHMMTransitionsConcResampling(StickyHDPHMMTransitions):
+    pass # TODO
