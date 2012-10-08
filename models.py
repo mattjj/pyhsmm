@@ -8,6 +8,7 @@ from basic.abstractions import ModelGibbsSampling
 from internals import states, initial_state, transitions
 
 # TODO get rid of superfluous kwargs
+# TODO get rid of default pi_0 weight!
 
 class HMM(ModelGibbsSampling):
     '''
@@ -24,8 +25,7 @@ class HMM(ModelGibbsSampling):
 
         self.obs_distns = obs_distns
 
-        assert ('transitions' in kwargs
-                    and isinstance(kwargs['transitions'],transitions.HDPHMMTransitions)) ^ \
+        assert ('transitions' in kwargs) ^ \
                 (alpha is not None and gamma is not None) ^ \
                 (alpha_a_0 is not None and alpha_b_0 is not None
                         and gamma_a_0 is not None and gamma_b_0 is not None)
@@ -179,6 +179,7 @@ class HSMM(HMM, ModelGibbsSampling):
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
             **kwargs):
 
+        state_dim = len(obs_distns)
         self.trunc = trunc
         self.dur_distns = dur_distns
 
@@ -191,11 +192,11 @@ class HSMM(HMM, ModelGibbsSampling):
         if 'transitions' in kwargs:
             self.trans_distn = kwargs['transitions']
         elif alpha is not None:
-            self.trans_distn = transitions.HDPHSMMTransitions(state_dim=self.state_dim,
+            self.trans_distn = transitions.HDPHSMMTransitions(state_dim=state_dim,
                     alpha=alpha,gamma=gamma,**kwargs)
         else:
             self.trans_distn = transitions.HDPHSMMTransitionsConcResampling(
-                    state_dim=self.state_dim,
+                    state_dim=state_dim,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 

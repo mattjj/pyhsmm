@@ -125,21 +125,24 @@ class HDPHMMTransitions(object):
 class HDPHSMMTransitionsConcResampling(HDPHSMMTransitions):
     def __init__(self,state_dim,
             alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0,
-            beta=None,A=None,fullA=None):
-        self.state_dim = state_dim
+            **kwargs):
 
-        self.alpha_obj = DirGamma(gamma_a_0,gamma_b_0,state_dim)
-        self.gamma = self.alpha_obj.concentration
+        self.gamma_obj = DirGamma(state_dim,gamma_a_0,gamma_b_0,state_dim)
+        self.alpha_obj = DirGamma(state_dim,alpha_a_0,alpha_b_0,state_dim)
 
-        self.alpha_obj = DirGamma(alpha_a_0,alpha_b_0,state_dim)
-        self.alpha = self.alpha_obj.concentration
+        super(HDPHSMMTransitionsConcResampling,self).__init__(state_dim,
+                alpha=self.alpha_obj.concentration*state_dim,
+                gamma=self.gamma_obj.concentration*state_dim,
+                **kwargs)
 
     def resample(self,*args,**kwargs):
+        self.augmented_data = []
+        self.m = []
         super(HDPHSMMTransitionsConcResampling,self).resample(*args,**kwargs)
         self.alpha_obj.resample(self.augmented_data,weighted_cols=self.beta,niter=5)
-        self.alpha = self.alpha_obj.concentration
+        self.alpha = self.alpha_obj.concentration*self.state_dim
         self.gamma_obj.resample(self.m,niter=5)
-        self.gamma = self.gamma_obj.concentration
+        self.gamma = self.gamma_obj.concentration*self.state_dim
 
 class StickyHDPHMMTransitions(HDPHMMTransitions):
     # TODO resample kappa
