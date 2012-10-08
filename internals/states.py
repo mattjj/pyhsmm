@@ -31,7 +31,8 @@ class HSMMStatesPython(object):
     stateseq_norep = None
 
     def __init__(self,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
-    stateseq=None,trunc=None,data=None,censoring=True,**kwargs):
+    stateseq=None,trunc=None,data=None,censoring=True,
+    initialize_from_prior=True,**kwargs):
         self.T = T
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -49,7 +50,7 @@ class HSMMStatesPython(object):
             # gather durations and stateseq_norep
             self.stateseq_norep, self.durations = util.rle(stateseq)
         else:
-            if data is not None:
+            if data is not None and not initialize_from_prior:
                 self.resample()
             else:
                 self.generate_states()
@@ -276,7 +277,8 @@ class HSMMStatesEigen(HSMMStatesPython):
 
 
 class HMMStatesPython(object):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,**kwargs):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,
+            initialize_from_prior=True,**kwargs):
         self.state_dim = state_dim
         self.obs_distns = obs_distns
         self.transition_distn = transition_distn
@@ -288,7 +290,7 @@ class HMMStatesPython(object):
         if stateseq is not None:
             self.stateseq = stateseq
         else:
-            if data is not None:
+            if data is not None and not initialize_from_prior:
                 self.resample()
             else:
                 self.generate_states()
@@ -389,7 +391,9 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,censoring=True,**kwargs):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,
+            stateseq=None,data=None,censoring=True,
+            initialize_from_prior=True,**kwargs):
         # TODO shouldn't this use parent's init?
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -404,7 +408,7 @@ class HMMStatesEigen(HMMStatesPython):
         if stateseq is not None:
             self.stateseq = stateseq
         else:
-            if data is not None:
+            if data is not None and not initialize_from_prior:
                 self.resample()
             else:
                 self.generate_states()
@@ -431,7 +435,8 @@ class HMMStatesEigen(HMMStatesPython):
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
-            trunc=None,data=None,stateseq=None):
+            trunc=None,data=None,stateseq=None,
+            initialize_from_prior=True):
         self.changepoints = changepoints
         self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
@@ -450,7 +455,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         self.data = data
 
         if stateseq is None:
-            if data is not None:
+            if data is not None and not initialize_from_prior:
                 self.resample()
             else:
                 self.generate_states()
