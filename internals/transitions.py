@@ -25,7 +25,7 @@ class HDPHMMTransitions(object):
             self.beta = beta
 
     def resample(self,states_list=[]):
-        if len(states_lis) > 0:
+        if len(states_list) > 0:
             trans_counts = self._count_transitions(states_list)
             m = self._get_m(trans_counts)
         else:
