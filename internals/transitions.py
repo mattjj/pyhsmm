@@ -7,6 +7,7 @@ import operator
 from ..basic.distributions import DirGamma
 from ..util.general import rle
 
+# TODO could reuse parts of basic.distributions.Multinomial
 
 ######################
 #  HDP-HMM classes  #
@@ -23,32 +24,38 @@ class HDPHMMTransitions(object):
             self.A = A
             self.beta = beta
 
-    def resample_beta(self,m):
+    def resample(self,states_list=[]):
+        data = self._count_transitions(states_list)
+        m = self._get_m(data)
+
+        self._resample_beta(m)
+        self._resample_A(data)
+
+    def _resample_beta(self,m):
         self.beta = stats.gamma.rvs(self.gamma / self.state_dim + np.sum(m,axis=0))
         self.beta /= np.sum(self.beta)
         assert not np.isnan(self.beta).any()
 
-    def resample_A(self,data):
+    def _resample_A(self,data):
         self.A = stats.gamma.rvs(self.alpha * self.beta + data)
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
-    def resample(self,states_list=[]):
-        # count all transitions
+    def _count_transitions(self,states_list):
         data = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         for states in states_list:
             if len(states) >= 2:
                 for idx in xrange(len(states)-1):
                     data[states[idx],states[idx+1]] += 1
+        return data
 
+    def _get_m(self,data):
         m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         if not (0 == data).all():
             for (rowidx, colidx), val in np.ndenumerate(data):
                 m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx]\
                         /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
-
-        self.resample_beta(m)
-        self.resample_A(data)
+        return m
 
 
 class HDPHMMTransitionsConcResampling(HDPHMMTransitions):
@@ -56,7 +63,20 @@ class HDPHMMTransitionsConcResampling(HDPHMMTransitions):
 
 
 class LTRHDPHMMTransitions(HDPHMMTransitions):
-    pass
+    def _count_transitions(self,states_list):
+        data = super(LTRHDPHMMTransitions,self)._count_transitions(states_list)
+        assert (0==np.tril(data,-1)).all()
+        totalfrom = data.sum(1)
+        totalweight = np.triu(self.fullA).sum(1)
+        for i in range(data.shape[0]):
+            tot = np.random.geometric(totalweight[i],size=totalfrom[i]).sum()
+            data[i,:i] = np.random.multinomial(tot,self.fullA[i,:i]/self.fullA[i,:i].sum())
+        return data
+
+    def _resample_A(self,data):
+        super(LTRHDPHMMTransitions,self)._resample_A(data)
+        self.fullA = self.A
+        self.A = np.triu(self.A) / np.triu(self.A).sum(1)[:,na]
 
 ######################
 #  HDP-HSMM classes  #
@@ -88,9 +108,6 @@ class HDPHSMMTransitions(object):
             self.fullA = fullA
 
     def resample(self,stateseqs=[]):
-        if type(stateseqs) != type([]):
-            stateseqs = [stateseqs]
-
         states_noreps = map(operator.itemgetter(0),map(rle, stateseqs))
 
         if not any(len(states_norep) >= 2 for states_norep in states_noreps):
