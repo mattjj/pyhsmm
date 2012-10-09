@@ -24,21 +24,16 @@ class HDPHMMTransitions(object):
             self.beta = beta
 
     def resample_beta(self,m):
-        self.beta = stats.gamma.rvs(self.alpha / self.state_dim + np.sum(m,axis=0))
+        self.beta = stats.gamma.rvs(self.gamma / self.state_dim + np.sum(m,axis=0))
         self.beta /= np.sum(self.beta)
         assert not np.isnan(self.beta).any()
 
     def resample_A(self,data):
-        self.A = stats.gamma.rvs(self.gamma * self.beta + data)
+        self.A = stats.gamma.rvs(self.alpha * self.beta + data)
         self.A /= np.sum(self.A,axis=1)[:,na]
         assert not np.isnan(self.A).any()
 
     def resample(self,states_list=[]):
-        # TODO these checks can be removed at some point
-        assert type(states_list) == type([])
-        for states_norep in states_list:
-            assert type(states_norep) == type(np.array([]))
-
         # count all transitions
         data = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         for states in states_list:
@@ -59,6 +54,9 @@ class HDPHMMTransitions(object):
 class HDPHMMTransitionsConcResampling(HDPHMMTransitions):
     pass # TODO
 
+
+class LTRHDPHMMTransitions(HDPHMMTransitions):
+    pass
 
 ######################
 #  HDP-HSMM classes  #
@@ -97,9 +95,9 @@ class HDPHSMMTransitions(object):
 
         if not any(len(states_norep) >= 2 for states_norep in states_noreps):
             # if there is no data we just sample from the prior
-            self.beta = np.random.dirichlet((self.alpha / self.state_dim)*np.ones(self.state_dim))
+            self.beta = np.random.dirichlet((self.gamma / self.state_dim)*np.ones(self.state_dim))
 
-            self.fullA = np.random.dirichlet(self.beta*self.gamma,size=self.state_dim)
+            self.fullA = np.random.dirichlet(self.beta*self.alpha,size=self.state_dim)
             self.A = (1.-np.eye(self.state_dim)) * self.fullA
             self.A /= self.A.sum(1)[:,na]
 
@@ -125,8 +123,8 @@ class HDPHSMMTransitions(object):
                         / (np.arange(n) + self.alpha*self.beta[j])).sum()
             self.m = m # save it for possible use in child classes
 
-            self.beta = np.random.dirichlet(self.alpha/self.state_dim + m.sum(0))
-            self.fullA = np.random.gamma(self.gamma * self.beta + augmented_data)
+            self.beta = np.random.dirichlet(self.gamma/self.state_dim + m.sum(0))
+            self.fullA = np.random.gamma(self.alpha * self.beta + augmented_data)
             self.fullA /= self.fullA.sum(1)[:,na]
             self.A = self.fullA * (1.-np.eye(self.state_dim))
             self.A /= self.A.sum(1)[:,na]
@@ -165,10 +163,18 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
         self.kappa = kappa
         super(StickyHDPHMMTransitions,self).__init__(*args,**kwargs)
 
+    def resample_beta(self,m):
+        newm = m.copy()
+        newm.flat[::m.shape[0]+1] = np.random.binomial(
+                m.flat[::m.shape[0]+1],
+                self.beta/(self.beta + self.kappa))
+        return super(StickyHDPHMMTransitions,self).resample_beta(newm)
+
     def resample_A(self,data):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
         super(StickyHDPHMMTransitions,self).resample_A(aug_data)
 
 
 class StickyHDPHMMTransitionsConcResampling(StickyHDPHMMTransitions):
+    # resample kappa too!
     pass # TODO
