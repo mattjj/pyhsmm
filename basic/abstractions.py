@@ -29,7 +29,7 @@ class DurationDistribution(Distribution):
         try:
             tmax = np.where(np.exp(self.log_sf(np.arange(1,1000))) < 1e-3)[0][0]
         except IndexError:
-            tmax = 2*self.rvs(1000).mean()
+            tmax = self.rvs(1000).max()
         tmax = max(tmax,data.max()) if data is not None else tmax
 
         t = np.arange(1,tmax)
