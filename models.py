@@ -257,6 +257,12 @@ class HSMM(HMM, ModelGibbsSampling):
         return self._generate(tempstates,keep)
 
     ### parallel sampling
+    def add_data_parallel(self,data_id):
+        import parallel
+        data_id = str(data_id)
+        self.add_data(parallel.alldata[data_id])
+        self.states_list[-1].data_id = data_id
+
     def resample_model_parallel(self,numtoresample='all'):
         import parallel
         if numtoresample == 'all':
@@ -347,12 +353,19 @@ class HSMM(HMM, ModelGibbsSampling):
 
 
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
-    def add_data(self,data,changepoints,stateseq=None):
+    def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
                 states.HSMMStatesPossibleChangepoints(
                     changepoints, len(data), self.state_dim, self.obs_distns,
                     self.dur_distns, self.trans_distn, self.init_state_distn,
-                    trunc=self.trunc, data=data))
+                    trunc=self.trunc, data=data,
+                    **kwargs))
+
+    def add_data_parallel(self,data_id,**kwargs):
+        import parallel
+        data_id = str(data_id)
+        self.add_data(parallel.alldata[data_id],parallel.allchangepoints[data_id],**kwargs)
+        self.states_list[-1].data_id = data_id
 
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
