@@ -39,7 +39,7 @@ class HDPHMMTransitions(object):
         self.beta = np.random.dirichlet(self.gamma / self.state_dim + m.sum(0))
 
     def _resample_A(self,trans_counts):
-        self.A = stats.gamma.rvs(self.alpha * self.beta + trans_counts)
+        self.A = stats.gamma.rvs(self.alpha * self.beta + trans_counts + 1e-6)
         self.A /= self.A.sum(1)[:,na]
 
     def _count_transitions(self,states_list):
