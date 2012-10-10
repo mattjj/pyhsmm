@@ -23,16 +23,18 @@ class DurationDistribution(Distribution):
     def log_pmf(self,x):
         return self.log_likelihood(x)
 
-    def plot(self,data=None,tmax=None,color='b'):
-        data = flattendata(data)
-        if tmax is None:
-            if data is not None:
-                tmax = 2*data.max()
-            else:
-                tmax = 2*self.rvs(size=1000).mean() # TODO improve to log_sf less than something
+    def plot(self,data=None,color='b'):
+        data = flattendata(data) if data is not None else None
+
+        try:
+            tmax = np.where(np.exp(self.log_sf(np.arange(1,1000))) < 1e-3)[0][0]
+        except IndexError:
+            tmax = 2*self.rvs(1000).mean()
+        tmax = max(tmax,data.max()) if data is not None else tmax
+
         t = np.arange(1,tmax)
         plt.plot(t,self.pmf(t),color=color)
 
         if data is not None:
-            plt.hist(data,bins=t-0.5,color=color,normed=True) # TODO only works with data as single array
+            plt.hist(data,bins=t-0.5,color=color,normed=True)
 

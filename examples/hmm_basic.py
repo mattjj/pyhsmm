@@ -44,6 +44,7 @@ truemodel = pyhsmm.models.HMM(alpha=6.,gamma=6.,init_state_concentration=6.,
 data, labels = truemodel.generate(T)
 
 # Plot the truth
+plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HMM')
 if save_images:
@@ -65,6 +66,7 @@ posteriormodel.add_data(data)
 
 # Resample the model 100 times, printing a dot at each iteration and plotting
 # every so often
+plt.figure()
 plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
