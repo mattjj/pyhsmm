@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
+from ..util.stats import flattendata
 
 class DurationDistribution(Distribution):
     __metaclass__ = abc.ABCMeta
