@@ -259,7 +259,6 @@ class HSMM(HMM, ModelGibbsSampling):
     ### parallel sampling
     def add_data_parallel(self,data_id):
         import parallel
-        data_id = str(data_id)
         self.add_data(parallel.alldata[data_id])
         self.states_list[-1].data_id = data_id
 
@@ -272,7 +271,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
         ### resample parameters locally
         self.trans_distn.resample([s.stateseq for s in self.states_list])
-        self.init_state_distn.resample([s.stateseq[0] for s in self.states])
+        self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
         for state, (o,d) in enumerate(zip(self.obs_distns,self.dur_distns)):
             d.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
             o.resample([s.data[s.stateseq == state] for s in self.states_list])
@@ -281,14 +280,14 @@ class HSMM(HMM, ModelGibbsSampling):
         states_to_resample = random.sample(self.states_list,numtoresample)
 
         ### resample states in parallel
-        self._push_self_paralel(states_to_resample)
+        self._push_self_parallel(states_to_resample)
         self._build_states_parallel(states_to_resample)
 
     def _push_self_parallel(self,states_to_resample):
         import parallel
         states_to_restore = [s for s in self.states_list if s not in states_to_resample]
         self.states_list = []
-        parallel.dv.push({'hsmm_subhmms_model':self},block=True)
+        parallel.dv.push({'global_model':self},block=True)
         self.states_list = states_to_restore
 
     def _build_states_parallel(self,states_to_resample):
@@ -364,13 +363,12 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data_parallel(self,data_id,**kwargs):
         import parallel
-        data_id = str(data_id)
         self.add_data(parallel.alldata[data_id],parallel.allchangepoints[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def _build_states_parallel(self,states_to_resample):
         import parallel
-        raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
+        raw_stateseq_tuples = parallel.build_states_changepoints.map([s.data_id for s in states_to_resample])
         for data_id, stateseq in raw_stateseq_tuples:
             self.add_data(
                     data=parallel.alldata[data_id],

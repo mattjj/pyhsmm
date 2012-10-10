@@ -242,6 +242,8 @@ class HSMMStatesPython(object):
         plt.yticks([])
         plt.title('State Sequence')
 
+    def get_states(self):
+        return self.stateseq
 
 class HSMMStatesEigen(HSMMStatesPython):
     def __init__(self,T,state_dim,*args,**kwargs):
