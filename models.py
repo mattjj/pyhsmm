@@ -112,7 +112,7 @@ class HMM(ModelGibbsSampling):
     def _get_colors(self):
         states = self._get_used_states()
         numstates = len(states)
-        return dict(zip(states,np.linspace(0,1,numstates,endpoint=True))) # TODO canonicalize
+        return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
 
     def plot_observations(self,colors=None,states_objs=None):
         self.obs_distns[0]._plot_setup(self.obs_distns)
