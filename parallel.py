@@ -2,6 +2,9 @@ from __future__ import division
 from IPython.parallel import Client
 from IPython.parallel.util import interactive
 
+# TODO may be able to use IPython.parallel.Reference as in
+# http://minrk.github.com/scipy-tutorial-2011/basic_remote.html
+
 # the ipcluster should be set up before this file is imported
 c = Client()
 dv = c.direct_view()

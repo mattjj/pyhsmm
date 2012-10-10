@@ -295,7 +295,8 @@ class HSMM(HMM, ModelGibbsSampling):
         import parallel
         raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
         for data_id, stateseq in raw_stateseq_tuples:
-            self.add_data(data=parallel.alldata[data_id],
+            self.add_data(
+                    data=parallel.alldata[data_id],
                     stateseq=stateseq)
             self.states_list[-1].data_id = data_id
 
@@ -366,6 +367,16 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
         data_id = str(data_id)
         self.add_data(parallel.alldata[data_id],parallel.allchangepoints[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
+
+    def _build_states_parallel(self,states_to_resample):
+        import parallel
+        raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
+        for data_id, stateseq in raw_stateseq_tuples:
+            self.add_data(
+                    data=parallel.alldata[data_id],
+                    changepoints=parallel.allchangepoints[data_id],
+                    stateseq=stateseq)
+            self.states_list[-1].data_id = data_id
 
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
