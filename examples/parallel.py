@@ -7,6 +7,10 @@ import pyhsmm.basic.distributions as distns
 import pyhsmm.parallel as parallel
 from pyhsmm.util.text import progprint_xrange
 
+# NOTE: before running this file, start some engines
+# for local engines, you can do something like this
+# ipcluster start --n=4
+
 ### data generation
 N = 4
 T = 500
