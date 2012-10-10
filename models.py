@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import itertools, collections, operator
+import itertools, collections, operator, random
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
@@ -70,6 +70,9 @@ class HMM(ModelGibbsSampling):
         # resample states
         for s in self.states_list:
             s.resample()
+
+    def resample_model_parallel(self):
+        raise NotImplementedError
 
     def generate(self,T,keep=True):
         '''
@@ -253,7 +256,44 @@ class HSMM(HMM, ModelGibbsSampling):
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
         return self._generate(tempstates,keep)
 
-    ### plotting stuff below here
+    ### parallel sampling
+    def resample_model_parallel(self,numtoresample='all'):
+        import parallel
+        if numtoresample == 'all':
+            numtoresample = len(self.states_list)
+        elif numtoresample == 'engines':
+            numtoresample = len(parallel.dv)
+
+        ### resample parameters locally
+        self.trans_distn.resample([s.stateseq for s in self.states_list])
+        self.init_state_distn.resample([s.stateseq[0] for s in self.states])
+        for state, (o,d) in enumerate(zip(self.obs_distns,self.dur_distns)):
+            d.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
+            o.resample([s.data[s.stateseq == state] for s in self.states_list])
+
+        ### choose which data to resample
+        states_to_resample = random.sample(self.states_list,numtoresample)
+
+        ### resample states in parallel
+        self._push_self_paralel(states_to_resample)
+        self._build_states_parallel(states_to_resample)
+
+    def _push_self_parallel(self,states_to_resample):
+        import parallel
+        states_to_restore = [s for s in self.states_list if s not in states_to_resample]
+        self.states_list = []
+        parallel.dv.push({'hsmm_subhmms_model':self},block=True)
+        self.states_list = states_to_restore
+
+    def _build_states_parallel(self,states_to_resample):
+        import parallel
+        raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
+        for data_id, stateseq in raw_stateseq_tuples:
+            self.add_data(data=parallel.alldata[data_id],
+                    stateseq=stateseq)
+            self.states_list[-1].data_id = data_id
+
+    ### plotting
 
     def plot_durations(self,colors=None,states_objs=None):
         if colors is None:
@@ -308,7 +348,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,stateseq=None):
-        self.states_list.append(states.HSMMStatesPossibleChangepoints(changepoints,len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data))
+        self.states_list.append(
+                states.HSMMStatesPossibleChangepoints(
+                    changepoints, len(data), self.state_dim, self.obs_distns,
+                    self.dur_distns, self.trans_distn, self.init_state_distn,
+                    trunc=self.trunc, data=data))
 
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
