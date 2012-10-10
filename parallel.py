@@ -29,7 +29,7 @@ def build_states(data_id):
 
     # adding the data to the pushed global model will build a substates object
     # and resample the states given the parameters in the model
-    global_model.add_data(alldata[data_id])
+    global_model.add_data(alldata[data_id],initialize_from_prior=False)
     global_model.states_list[-1].data_id = data_id
 
     # return the relevant tuple of
@@ -43,7 +43,7 @@ def build_states_changepoints(data_id):
     global global_model
     global alldata, allchangepoints
 
-    global_model.add_data(alldata[data_id],allchangepoints[data_id])
+    global_model.add_data(alldata[data_id],allchangepoints[data_id],initialize_from_prior=False)
     global_model.states_list[-1].data_id = data_id
 
     return (data_id,

@@ -191,6 +191,7 @@ class StickyHMM(HMM, ModelGibbsSampling):
 
         super(StickyHMM,self).__init__(obs_distns,trans_distn=self.trans_distn,**kwargs)
 
+
 class HSMM(HMM, ModelGibbsSampling):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
