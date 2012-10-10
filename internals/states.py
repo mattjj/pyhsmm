@@ -240,6 +240,7 @@ class HSMMStatesPython(object):
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])
+        plt.title('State Sequence')
 
 
 class HSMMStatesEigen(HSMMStatesPython):

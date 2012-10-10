@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import itertools, collections
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
@@ -242,53 +243,72 @@ class HSMM(HMM, ModelGibbsSampling):
                 self.trans_distn,self.init_state_distn,trunc=self.trunc)
         return self._generate(tempstates,keep)
 
-    def plot(self,color=None):
-        import itertools
-        assert len(self.obs_distns) != 0
-        assert len(set([type(o) for o in self.obs_distns])) == 1, \
-                'plot can only be used when all observation distributions are the same'
+    ### plotting stuff below here
 
-        # set up figure and state-color mapping dict
-        fig = plt.gcf()
-        fig.set_size_inches((6,6))
-        num_states = len(reduce(set.union,[set(s.stateseq_norep) for s in self.states_list]))
+    def _get_fig(self):
+        try:
+            fig = self.fig
+        except AttributeError:
+            fig = self.fig = plt.figure(figsize=(10,10))
+        plt.figure(fig.number)
+        return fig
 
-        # color is ordered by order seen
-        idx = 0
-        state_colors = {}
-        for state in itertools.chain(*[s.stateseq_norep for s in self.states_list]):
-            if state not in state_colors:
-                state_colors[state] = idx/(num_states-1) if color is None else color
-                idx += 1
+    def _get_used_states(self,states_objs=None):
+        if states_objs is None:
+            states_objs = self.states_list
+        return list(reduce(set.union,[set(s.stateseq_norep) for s in self.states_list]))
+
+    def _get_colors(self):
+        states = self._get_used_states()
+        numstates = len(states)
+        return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
+
+    def plot_durations(self,colors=None,states_objs=None):
+        if colors is None:
+            colors = self._get_colors()
+        if states_objs is None:
+            states_objs = self.states_list
 
         cmap = cm.get_cmap()
+        used_states = self._get_used_states(states_objs)
+        for state,d in enumerate(self.dur_distns):
+            if state in used_states:
+                d.plot(color=cmap(colors[state]),
+                        data=[s.durations[s.stateseq_norep == state]
+                            for s in states_objs])
+        plt.title('Durations')
+
+    def plot_observations(self,colors=None,states_objs=None):
+        self.obs_distns[0]._plot_setup(self.obs_distns)
+        if colors is None:
+            colors = self._get_colors()
+        if states_objs is None:
+            states_objs = self.states_list
+
+        cmap = cm.get_cmap()
+        used_states = self._get_used_states(states_objs)
+        for state,o in enumerate(self.obs_distns):
+            if state in used_states:
+                o.plot(color=cmap(colors[state]),
+                        data=[s.data[s.stateseq == state] if s.data is not None else None
+                            for s in states_objs])
+        plt.title('Observation Distributions')
+
+    def plot(self,color=None):
+        fig = self._get_fig()
+        colors = self._get_colors()
+
         num_subfig_cols = len(self.states_list)
         for subfig_idx,s in enumerate(self.states_list):
-
-            # plot the current observation distributions (and obs, if given)
             plt.subplot(3,num_subfig_cols,1+subfig_idx)
-            self.obs_distns[0]._plot_setup(self.obs_distns)
-            for state,o in enumerate(self.obs_distns):
-                if state in s.stateseq_norep:
-                    o.plot(color=cmap(state_colors[state]),
-                            data=s.data[s.stateseq == state] if s.data is not None else None)
-            plt.title('Observation Distributions')
+            self.plot_observations(colors=colors,states_objs=[s])
 
-            # plot the state sequence
             plt.subplot(3,num_subfig_cols,1+num_subfig_cols+subfig_idx)
-            s.plot(colors_dict=state_colors)
-            plt.title('State Sequence')
+            s.plot(colors_dict=colors)
 
             # plot the current duration distributions
             plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
-            for state,d in enumerate(self.dur_distns):
-                if state in s.stateseq:
-                    d.plot(color=cmap(state_colors[state]),
-                            data=s.durations[s.stateseq_norep == state])
-            plt.xlim((0,s.durations.max()*1.1))
-            plt.title('Durations')
-
-            # TODO add a figure legend
+            self.plot_durations(colors=colors,states_objs=[s])
 
     def loglike(self,data,trunc=None):
         warn('untested')

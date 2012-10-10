@@ -23,6 +23,7 @@ class DurationDistribution(Distribution):
         return self.log_likelihood(x)
 
     def plot(self,data=None,tmax=None,color='b'):
+        data = flattendata(data)
         if tmax is None:
             if data is not None:
                 tmax = 2*data.max()
