@@ -181,11 +181,12 @@ class StickyHMM(HMM, ModelGibbsSampling):
             self.trans_distn = trans_distn
         elif kappa is not None:
             self.trans_distn = transitions.StickyHDPHMMTransitions(
-                    state_dim=self.state_dim,
-                    alpha=alpha,gamma=gamma)
+                    state_dim=len(obs_distns),
+                    alpha=alpha,gamma=gamma,kappa=kappa)
         else:
             self.trans_distn = transitions.StickyHDPHMMTransitionsConcResampling(
-                    state_dim=self.state_dim,
+                    state_dim=len(obs_distns),
+                    kappa_a_0=kappa_a_0,kappa_b_0=kappa_b_0,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
@@ -331,6 +332,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
             plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
             self.plot_durations(colors=colors,states_objs=[s])
+
+    def plot_summary(self,color=None):
+        # if there are too many state sequences in states_list, make an
+        # alternative plot
+        raise NotImplementedError
 
     def loglike(self,data,trunc=None):
         warn('untested')

@@ -100,11 +100,8 @@ class HSMMStatesPython(object):
         assert (self.stateseq >= 0).all()
 
     def resample(self):
-        if self.data is not None:
-            data = self.data
-        else:
-            print 'ERROR: can only call resample on %s instances with data' % type(self)
-            return
+        assert self.data is not None
+        data= self.data
 
         # generate duration pmf and sf values
         # generate and cache iid likelihood values, used in cumulative_likelihood functions

@@ -15,8 +15,8 @@ lbv = c.load_balanced_view()
 # both locally (in this module) and in the ipython top-level module on every
 # engine
 # the second dict only needs to be used when calling build_states_changepoints
-alldata = None
-allchangepoints = None
+alldata = {}
+allchangepoints = {}
 
 # these functions function are run on the engines, and expects the alldata (and
 # allchangepoints) global(s) as well as the current model hsmm_subhmms_model to be

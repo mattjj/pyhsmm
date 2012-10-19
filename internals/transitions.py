@@ -25,12 +25,8 @@ class HDPHMMTransitions(object):
             self.beta = beta
 
     def resample(self,states_list=[]):
-        if len(states_list) > 0:
-            trans_counts = self._count_transitions(states_list)
-            m = self._get_m(trans_counts)
-        else:
-            trans_counts = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
-            m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
+        trans_counts = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
+        m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
 
         self._resample_beta(m)
         self._resample_A(trans_counts)
@@ -166,16 +162,17 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
         self.kappa = kappa
         super(StickyHDPHMMTransitions,self).__init__(*args,**kwargs)
 
-    def resample_beta(self,m):
+    def _resample_beta(self,m):
         newm = m.copy()
-        newm.flat[::m.shape[0]+1] = np.random.binomial(
-                m.flat[::m.shape[0]+1],
-                self.beta/(self.beta + self.kappa))
-        return super(StickyHDPHMMTransitions,self).resample_beta(newm)
+        if m.sum() > 0:
+            newm.flat[::m.shape[0]+1] = np.random.binomial(
+                    m.flat[::m.shape[0]+1],
+                    self.beta/(self.beta + self.kappa))
+        return super(StickyHDPHMMTransitions,self)._resample_beta(newm)
 
-    def resample_A(self,data):
+    def _resample_A(self,data):
         aug_data = data + np.diag(self.kappa * np.ones(data.shape[0]))
-        super(StickyHDPHMMTransitions,self).resample_A(aug_data)
+        super(StickyHDPHMMTransitions,self)._resample_A(aug_data)
 
 
 class StickyHDPHMMTransitionsConcResampling(StickyHDPHMMTransitions):
