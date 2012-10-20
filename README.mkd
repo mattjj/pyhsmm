@@ -2,43 +2,27 @@
 `pyhsmm` is a Python library for approximate unsupervised sampling inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
-and HDP-HSMM, via the weak-limit approximation.
-
-See also the [plugin for collapsed HDP direct-assignment sampling
+and HDP-HSMM, via the weak-limit approximation. See also the [plugin for
+collapsed HDP sampling
 inference](https://github.com/mattjj/pyhsmm-collapsedinfinite) and the [plugin
 for factorial models](https://github.com/mattjj/pyhsmm-factorial).
 
-<!--
-In the Bayesian paradigm, inference refers to both what would in other contexts
-be called "learning" (or "parameter fitting") as well as "inference": all the
-latent variables in the model, including hidden states and transition/emission
-parameters, are included in the posterior distribution. The goal of sampling
-inference is to produce (approximate) samples from the posterior, and each
-sample roughly represents an alternative HMM or HSMM to explain the data. Using
-the Bayesian Nonparametric HDP-HMM and HDP-HSMM, the sampled models that come
-out can be of different complexity: there may be good explanations using only 5
-states as well as good explanations that use 15 states. The purpose of this
-sampling code is to produce samples of those alternatives.
--->
+The inference can be run in parallel over multiple cores and/or multiple
+machines (even on EC2!) using [ipython](https://github.com/ipython/ipython)'s
+excellent `ipython.parallel` module. Someday I might even document how to do
+it!
 
 ## Installing ##
-You can clone this library with the usual command:
+You can clone this library and its dependencies with
 
 ```
-git clone git://github.com/mattjj/pyhsmm.git
+git clone --recursive git://github.com/mattjj/pyhsmm.git
 ```
 
 The library depends on `numpy`, `scipy`, and, for visualization, `matplotlib`.
 
-There is an optional dependency on the [Eigen C++ Template
-Library](http://eigen.tuxfamily.org/index.php?title=Main_Page) installed in the
-usual location of `/usr/local/include` (its default install location), which
-can make the inference run much faster in many cases (and only a bit faster in
-others). If you install Eigen, you can enable its use by calling
-`pyhsmm.use_eigen()` after importing `pyhsmm`.
-
-There are a lot of asserts in the code; to disable assertions, run your CPython
-interpreter with the `-O` flag.
+Disabling assertions may speed things up; to disable assertions, run your
+CPython interpreter with the `-O` flag.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
@@ -172,7 +156,7 @@ converge than comparable HMM samplers.
 
 Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
 Intel's MKL BLAS (which generally outperforms ATLAS for vectorized operations)
-along with `pyhsmm.use_eigen()`, here's how long the demo iterations took:
+along with the Eigen-backed classes, here's how long the demo iterations took:
 
 ```
 $ python -m pyhsmm.examples.basic
@@ -193,7 +177,7 @@ Contributions by Chia-ying Lee.
 
 ## References ##
 * Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden
-Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v1
+Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v2
 
 * Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process
 Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th
