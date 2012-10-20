@@ -107,7 +107,7 @@ class HMM(ModelGibbsSampling):
         if states_objs is None:
             states_objs = self.states_list
         canonical_ids = collections.defaultdict(itertools.count().next)
-        for s in self.states_list:
+        for s in states_objs:
             for state in s.stateseq:
                 canonical_ids[state]
         return map(operator.itemgetter(0),sorted(canonical_ids.items(),key=operator.itemgetter(1)))
