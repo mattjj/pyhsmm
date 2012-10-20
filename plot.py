@@ -1,5 +1,7 @@
+from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
+import itertools
 
 def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
     '''
@@ -42,3 +44,7 @@ def project_ellipsoid(ellipsoid,vecs):
     # vecs is a matrix whose columns are a subset of an orthonormal basis
     # ellipsoid is a pos def matrix
     return np.dot(vecs.T,np.dot(ellipsoid,vecs))
+
+
+def subplot_gridsize(num):
+    return sorted(min([(x,int(np.ceil(num/x))) for x in range(1,int(np.floor(np.sqrt(num)))+1)],key=sum))
