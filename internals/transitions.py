@@ -175,6 +175,6 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
         super(StickyHDPHMMTransitions,self)._resample_A(aug_data)
 
 
-class StickyHDPHMMTransitionsConcResampling(StickyHDPHMMTransitions):
+# class StickyHDPHMMTransitionsConcResampling(StickyHDPHMMTransitions):
     # resample kappa too!
-    pass # TODO
+    # pass # TODO

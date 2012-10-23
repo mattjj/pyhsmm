@@ -285,6 +285,9 @@ class HSMM(HMM, ModelGibbsSampling):
         self._push_self_parallel(states_to_resample)
         self._build_states_parallel(states_to_resample)
 
+        ### purge to prevent memory buildup
+        parallel.c.purge_results('all')
+
     def _push_self_parallel(self,states_to_resample):
         from pyhsmm import parallel
         states_to_restore = [s for s in self.states_list if s not in states_to_resample]
