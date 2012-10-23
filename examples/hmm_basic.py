@@ -9,7 +9,6 @@ matplotlib.rcParams['font.size'] = 8
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-# pyhsmm.use_eigen() # using Eigen will usually make inference faster
 save_images = False
 
 print \
