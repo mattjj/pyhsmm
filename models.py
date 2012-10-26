@@ -169,13 +169,13 @@ class StickyHMM(HMM, ModelGibbsSampling):
             obs_distns,
             trans_distn=None,
             kappa=None,alpha=None,gamma=None,
-            kappa_a_0=None,kappa_b_0=None,alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
+            rho_a_0=None,rho_b_0=None,alphakappa_a_0=None,alphakappa_b_0=None,gamma_a_0=None,gamma_b_0=None,
             **kwargs):
 
         assert (trans_distn is not None) ^ \
                 (kappa is not None and alpha is not None and gamma is not None) ^ \
-                (kappa_a_0 is not None and kappa_b_0 is not None
-                        and alpha_a_0 is not None and alpha_b_0 is not None
+                (rho_a_0 is not None and rho_b_0 is not None
+                        and alphakappa_a_0 is not None and alphakappa_b_0 is not None
                         and gamma_a_0 is not None and gamma_b_0 is not None)
         if trans_distn is not None:
             self.trans_distn = trans_distn
@@ -186,8 +186,8 @@ class StickyHMM(HMM, ModelGibbsSampling):
         else:
             self.trans_distn = transitions.StickyHDPHMMTransitionsConcResampling(
                     state_dim=len(obs_distns),
-                    kappa_a_0=kappa_a_0,kappa_b_0=kappa_b_0,
-                    alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
+                    rho_a_0=rho_a_0,rho_b_0=rho_b_0,
+                    alphakappa_a_0=alphakappa_a_0,alphakappa_b_0=alphakappa_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
         super(StickyHMM,self).__init__(obs_distns,trans_distn=self.trans_distn,**kwargs)
