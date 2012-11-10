@@ -2,3 +2,4 @@
 *.pyo
 *.png
 /thinking.md
+*.DS_Store

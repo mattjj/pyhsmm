@@ -59,7 +59,12 @@ class HMM(ModelGibbsSampling):
     def resample_model(self):
         # resample obsparams
         for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+            for s in self.states_list:
+                idx = np.where(s.stateseq == state)[0]
+                # print idx
+                # print s.data.shape
+                if len(idx) > 0:
+                    distn.resample(s.data[idx])
 
         # resample transitions
         self.trans_distn.resample([s.stateseq for s in self.states_list])
