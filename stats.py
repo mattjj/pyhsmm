@@ -74,6 +74,15 @@ def sample_niw(mu,lmbda,kappa,nu):
 
     return mu, lmbda
 
+def sample_mn(Sigma,M,K):
+    left = np.linalg.cholesky(Sigma)
+    right = np.linalg.cholesky(K)
+    return M + left.dot(np.random.normal(size=M.shape)).dot(right.T)
+
+def sample_mniw(dof,kappa,lmbda,M,K):
+    Sigma = sample_invwishart(lmbda,dof)
+    return sample_mn(Sigma/kappa,M,K), Sigma
+
 def sample_invwishart(lmbda,dof):
     # TODO make a version that returns the cholesky
     # TODO allow passing in chol/cholinv of matrix parameter lmbda
