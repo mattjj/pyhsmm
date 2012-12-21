@@ -81,7 +81,7 @@ def sample_mn(Sigma,M,K):
 
 def sample_mniw(dof,kappa,lmbda,M,K):
     Sigma = sample_invwishart(lmbda,dof)
-    return sample_mn(Sigma/kappa,M,K), Sigma
+    return sample_mn(Sigma,M,K), Sigma # TODO TODO divide by kappa here?
 
 def sample_invwishart(lmbda,dof):
     # TODO make a version that returns the cholesky
