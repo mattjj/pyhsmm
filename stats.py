@@ -86,7 +86,7 @@ def sample_mniw(dof,lmbda,M,K):
 def sample_invwishart(lmbda,dof):
     # TODO make a version that returns the cholesky
     # TODO allow passing in chol/cholinv of matrix parameter lmbda
-    # TODO lowmem! memoize!
+    # TODO lowmem! memoize! dchud (eigen?)
     n = lmbda.shape[0]
     chol = np.linalg.cholesky(lmbda)
 
