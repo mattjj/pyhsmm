@@ -10,8 +10,9 @@ import sys, time
 
 # TODO there are probably better progress bar libraries I could use
 
-def progprint_xrange(n,**kwargs):
-    return progprint(xrange(n),total=n,**kwargs)
+def progprint_xrange(*args,**kwargs):
+    xr = xrange(*args)
+    return progprint(xr,total=len(xr),**kwargs)
 
 def progprint(iterator,total=None,perline=25,show_times=True):
     times = []
