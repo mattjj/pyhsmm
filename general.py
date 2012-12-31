@@ -19,7 +19,7 @@ def irle(vals,lens):
     return out
 
 def ibincount(counts):
-    'produces an element in the preimage of np.bincount for counts'
+    'returns an array a such that counts = np.bincount(a)'
     assert counts.ndim == 1
     out = np.empty(counts.sum(),dtype=np.int)
     c = counts.cumsum()
