@@ -18,6 +18,15 @@ def irle(vals,lens):
         out[start:start+l] = v
     return out
 
+def ibincount(counts):
+    'produces an element in the preimage of np.bincount for counts'
+    assert counts.ndim == 1
+    out = np.empty(counts.sum(),dtype=np.int)
+    c = counts.cumsum()
+    for i,(start,end) in enumerate(zip(np.concatenate(((0,),c[:-1])),c)):
+        out[start:end] = i
+    return out
+
 def deepcopy(obj):
     # there's a library function that does the same thing, consider replacing
     # this function with that one
