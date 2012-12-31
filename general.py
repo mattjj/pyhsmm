@@ -98,7 +98,7 @@ def stateseq_hamming_error(sampledstates,truestates):
     return errors if errors.shape[0] > 1 else errors[0]
 
 def _sieve(stream):
-    # totally not scalable, just fun
+    # just for fun; doesn't work over a few hundred
     val = stream.next()
     yield val
     for x in itertools.ifilter(lambda x: x%val != 0, _sieve(stream)):
