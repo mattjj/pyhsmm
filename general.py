@@ -2,6 +2,13 @@ from __future__ import division
 import numpy as np
 import copy, itertools, collections
 
+def interleave(*iterables):
+    return list(itertools.chain.from_iterable(zip(*iterables)))
+
+def joindicts(dicts):
+    # stuff on right clobbers stuff on left
+    return reduce(lambda x,y: dict(x,**y), dicts, {})
+
 def one_vs_all(stuff):
     stuffset = set(stuff)
     for thing in stuff:
