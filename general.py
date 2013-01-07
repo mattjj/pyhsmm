@@ -27,7 +27,7 @@ def irle(vals,lens):
 
 def ibincount(counts):
     'returns an array a such that counts = np.bincount(a)'
-    return np.repeat(np.arange(counts.shape[0]),counts)[np.random.permutation(np.sum(counts))]
+    return np.repeat(np.arange(counts.shape[0]),counts)
 
 def deepcopy(obj):
     return copy.deepcopy(obj)
