@@ -146,3 +146,7 @@ def beta_predictive(priorcounts,newcounts):
         prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
 
+### misc
+
+def cov(d):
+    return np.cov(d,rowvar=0,bias=1)
