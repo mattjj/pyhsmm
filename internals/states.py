@@ -140,7 +140,7 @@ class HSMMStatesPython(object):
         return betal, betastarl
 
     def get_aBl(self,data):
-        aBl = np.zeros((data.shape[0],self.state_dim))
+        aBl = np.empty((data.shape[0],self.state_dim))
         for idx in xrange(self.state_dim):
             aBl[:,idx] = self.obs_distns[idx].log_likelihood(data)
         return aBl
