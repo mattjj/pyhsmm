@@ -157,7 +157,7 @@ class HMM(ModelGibbsSampling):
 
         aBl = s.get_aBl(data)
         betal = s.messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betal[0] + aBl[0])
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
 
 
 class StickyHMM(HMM, ModelGibbsSampling):
