@@ -224,7 +224,7 @@ class HSMMStatesPython(object):
         self.durations = np.array(durations,dtype=np.int32)
         self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
 
-    def plot(self,colors_dict=None):
+    def plot(self,colors_dict=None,**kwargs):
         from matplotlib import pyplot as plt
         X,Y = np.meshgrid(np.hstack((0,self.durations.cumsum())),(0,1))
 
@@ -233,7 +233,7 @@ class HSMMStatesPython(object):
         else:
             C = self.stateseq_norep[na,:]
 
-        plt.pcolor(X,Y,C,vmin=0,vmax=1)
+        plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
         plt.ylim((0,1))
         plt.xlim((0,self.T))
         plt.yticks([])
@@ -375,18 +375,18 @@ class HMMStatesPython(object):
             aBl[:,idx] = obs_distn.log_likelihood(data)
         return aBl
 
-    def plot(self,colors_dict=None):
+    def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
         from matplotlib import pyplot as plt
         states,durations = util.rle(self.stateseq)
-        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
+        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),vertical_extent)
 
         if colors_dict is not None:
             C = np.array([[colors_dict[state] for state in states]])
         else:
             C = states[na,:]
 
-        plt.pcolor(X,Y,C,vmin=0,vmax=1)
-        plt.ylim((0,1))
+        plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
+        plt.ylim(vertical_extent)
         plt.xlim((0,durations.sum()))
         plt.yticks([])
 

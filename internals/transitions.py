@@ -23,9 +23,9 @@ class ConcentrationResampling(object):
         # multiply by state_dim because the trans objects divide by it (since
         # their parameters correspond to the DP parameters, and so they convert
         # into weak limit scaling)
-        self.alpha_obj.resample(self.trans_counts,weighted_cols=self.beta,niter=10)
+        self.alpha_obj.resample(self.trans_counts,weighted_cols=self.beta,niter=5)
         self.alpha = self.alpha_obj.concentration*self.state_dim
-        self.gamma_obj.resample(self.m,niter=10)
+        self.gamma_obj.resample(self.m,niter=5)
         self.gamma = self.gamma_obj.concentration*self.state_dim
 
 
@@ -71,8 +71,9 @@ class HDPHMMTransitions(object):
         m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         if not (0 == trans_counts).all():
             for (rowidx, colidx), val in np.ndenumerate(trans_counts):
-                m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx]\
-                        /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
+                if val > 0:
+                    m[rowidx,colidx] = (np.random.rand(val) < self.alpha * self.beta[colidx] \
+                            /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
         self.m = m
         return m
 
