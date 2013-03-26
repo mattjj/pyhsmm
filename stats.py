@@ -8,11 +8,24 @@ import scipy.linalg
 
 # TODO write cholesky versions
 
+### data abstraction
+
 def getdatasize(data):
     if isinstance(data,np.ndarray):
         return data.shape[0]
     elif isinstance(data,list):
         return sum(getdatasize(d) for d in data)
+    else:
+        assert isinstance(data,int) or isinstance(data,float)
+        return 1
+
+def getdatadimension(data):
+    if isinstance(data,np.ndarray):
+        assert data.ndim > 1
+        return data.shape[1]
+    elif isinstance(data,list):
+        assert len(data) > 0
+        return getdatadimension(data[0])
     else:
         assert isinstance(data,int) or isinstance(data,float)
         return 1
@@ -43,13 +56,13 @@ def flattendata(data):
 ### Sampling functions
 
 def sample_discrete(foo,size=[],dtype=np.int):
-    'samples from a one-dimensional finite pmf'
+    '''samples from a one-dimensional finite pmf'''
     assert (foo >=0).all() and foo.ndim == 1
     cumvals = np.cumsum(foo)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
-    'samples log probability array along specified axis'
+    '''samples log probability array along specified axis'''
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
     thesize = np.array(p_log.shape)
     thesize[axis] = 1
@@ -74,19 +87,9 @@ def sample_niw(mu,lmbda,kappa,nu):
 
     return mu, lmbda
 
-def sample_mn(Sigma,M,K):
-    left = np.linalg.cholesky(Sigma)
-    right = np.linalg.cholesky(K)
-    return M + left.dot(np.random.normal(size=M.shape)).dot(right.T)
-
-def sample_mniw(dof,lmbda,M,K):
-    Sigma = sample_invwishart(lmbda,dof)
-    return sample_mn(Sigma,M,K), Sigma
-
 def sample_invwishart(lmbda,dof):
     # TODO make a version that returns the cholesky
     # TODO allow passing in chol/cholinv of matrix parameter lmbda
-    # TODO lowmem! memoize! dchud (eigen?)
     n = lmbda.shape[0]
     chol = np.linalg.cholesky(lmbda)
 
@@ -129,6 +132,7 @@ def invwishart_log_partitionfunction(sigma,nu):
 
 def multivariate_t_loglik(y,nu,mu,lmbda):
     # returns the log value
+    # TODO check... gelman says lmbda but emily says nulmbda
     d = len(mu)
     yc = np.array(y-mu,ndmin=2)
     return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) \
@@ -146,7 +150,3 @@ def beta_predictive(priorcounts,newcounts):
         prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
 
-### misc
-
-def cov(d):
-    return np.cov(d,rowvar=0,bias=1)
