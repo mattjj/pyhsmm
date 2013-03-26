@@ -262,7 +262,7 @@ class HSMMStatesEigen(HSMMStatesPython):
         scipy.weave.inline(self.sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf'],
                 headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
-                extra_compile_args=['-O3'])#,'-march=native'])
+                extra_compile_args=['-O3','-DNDEBUG'])#,'-march=native'])
 
 
         self.stateseq_norep, self.durations = util.rle(stateseq)
@@ -418,7 +418,9 @@ class HMMStatesEigen(HMMStatesPython):
         AT = self.transition_distn.A.T.copy()
         betal = np.zeros((self.T,self.state_dim))
 
-        scipy.weave.inline(self.messages_backwards_codestr,['AT','betal','aBl','T'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        scipy.weave.inline(self.messages_backwards_codestr,['AT','betal','aBl','T'],
+                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
+                extra_compile_args=['-O3','-DNDEBUG'])
 
         return betal
 
@@ -429,7 +431,9 @@ class HMMStatesEigen(HMMStatesPython):
 
         stateseq = np.zeros(T,dtype=np.int32)
 
-        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],
+                extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq = stateseq
 
