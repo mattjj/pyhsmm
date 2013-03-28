@@ -1,6 +1,25 @@
 from __future__ import division
 import numpy as np
-import cPickle, itertools, collections
+import scipy.linalg
+import copy, itertools, collections
+
+### I pulled out these routines to avoid arg-checking overhead in scipy.linalg
+potrs, potrf, trtrs = scipy.linalg.lapack.get_lapack_funcs(('potrs','potrf','trtrs'),arrays=False) # arrays=false means type=d
+def solve_psd(A,b,overwrite_b=False,overwrite_A=False):
+    return potrs(potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0],b,lower=0,overwrite_b=overwrite_b)[0]
+
+def solve_chofactor_system(A,b,overwrite_b=False,overwrite_A=False):
+    'returns same as (np.linalg.solve(np.linalg.cholesky(A),b),np.linalg.cholesky(A).T)'
+    L = potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
+    return trtrs(L,b,lower=0,trans=1,overwrite_b=overwrite_b)[0], L
+
+
+def interleave(*iterables):
+    return list(itertools.chain.from_iterable(zip(*iterables)))
+
+def joindicts(dicts):
+    # stuff on right clobbers stuff on left
+    return reduce(lambda x,y: dict(x,**y), dicts, {})
 
 def one_vs_all(stuff):
     stuffset = set(stuff)
@@ -18,10 +37,12 @@ def irle(vals,lens):
         out[start:start+l] = v
     return out
 
+def ibincount(counts):
+    'returns an array a such that counts = np.bincount(a)'
+    return np.repeat(np.arange(counts.shape[0]),counts)
+
 def deepcopy(obj):
-    # there's a library function that does the same thing, consider replacing
-    # this function with that one
-    return cPickle.loads(cPickle.dumps(obj))
+    return copy.deepcopy(obj)
 
 def nice_indices(arr):
     '''
@@ -29,6 +50,9 @@ def nice_indices(arr):
     and maps to something like [0,0,1,1,1,2,0,0]
     modifies original in place as well as returns a ref
     '''
+    # surprisingly, this is slower for very small (and very large) inputs:
+    # u,f,i = np.unique(arr,return_index=True,return_inverse=True)
+    # arr[:] = np.arange(u.shape[0])[np.argsort(f)][i]
     ids = collections.defaultdict(itertools.count().next)
     for idx,x in enumerate(arr):
         arr[idx] = ids[x]
@@ -43,7 +67,7 @@ def match_by_overlap(a,b):
     scores = np.zeros((len(ais),len(bjs)))
     for i,ai in enumerate(ais):
         for j,bj in enumerate(bjs):
-            scores[i,j] = np.dot(a==ai,b==bj)
+            scores[i,j] = np.dot(np.array(a==ai,dtype=np.float),b==bj)
 
     flip = len(bjs) > len(ais)
 
@@ -65,10 +89,7 @@ def hamming_error(a,b):
     return (a!=b).sum()
 
 def scoreatpercentile(data,per,axis):
-    '''
-    like the function in scipy.stats but with an axis argument, and works on
-    arrays.
-    '''
+    'like the function in scipy.stats but with an axis argument and works on arrays'
     a = np.sort(data,axis=axis)
     idx = per/100. * (data.shape[axis]-1)
 
@@ -96,6 +117,7 @@ def stateseq_hamming_error(sampledstates,truestates):
     return errors if errors.shape[0] > 1 else errors[0]
 
 def _sieve(stream):
+    # just for fun; doesn't work over a few hundred
     val = stream.next()
     yield val
     for x in itertools.ifilter(lambda x: x%val != 0, _sieve(stream)):

@@ -3,6 +3,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 import itertools
 
+# TODO move pca to stats
+
 def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True):
     '''
     Plots mean and cov ellipsoid into current axes. Must be 2D. lmbda is a covariance matrix.
