@@ -42,10 +42,10 @@ def flattendata(data):
 
 ### Sampling functions
 
-def sample_discrete(foo,size=[],dtype=np.int):
+def sample_discrete(pvals,size=[],dtype=np.int):
     '''samples from a one-dimensional finite pmf'''
-    assert (foo >=0).all() and foo.ndim == 1
-    cumvals = np.cumsum(foo)
+    assert (pvals >=0).all() and pvals.ndim == 1
+    cumvals = np.cumsum(pvals)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
@@ -137,3 +137,5 @@ def beta_predictive(priorcounts,newcounts):
         prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
 
+def cov(a):
+    return np.cov(a,rowvar=0,bias=1)
