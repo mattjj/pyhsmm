@@ -128,12 +128,14 @@ class HMM(ModelGibbsSampling):
         used_states = self._get_used_states(states_objs)
         for state,o in enumerate(self.obs_distns):
             if state in used_states:
-                o.plot(color=cmap(colors[state]),
+                o.plot(
+                        color=cmap(colors[state]),
                         data=[s.data[s.stateseq == state] if s.data is not None else None
-                            for s in states_objs])
+                            for s in states_objs],
+                        label='%d' % state)
         plt.title('Observation Distributions')
 
-    def plot(self,color=None):
+    def plot(self,color=None,legend=True):
         plt.gcf() #.set_size_inches((10,10))
         colors = self._get_colors()
 

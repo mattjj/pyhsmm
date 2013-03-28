@@ -29,13 +29,14 @@ obs_dim = 2
 # covariance matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.15,
+                'kappa_0':0.001,
                 'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
 # Build the true HSMM model
+# TODO make this a sticky HMM
 truemodel = pyhsmm.models.HMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                               obs_distns=true_obs_distns)
 
@@ -69,6 +70,7 @@ plt.figure()
 plot_every = 25
 for idx in progprint_xrange(101):
     if (idx % plot_every) == 0:
+        plt.gcf().clf()
         posteriormodel.plot()
         plt.gcf().suptitle('inferred HMM after %d iterations' % idx)
         if save_images:

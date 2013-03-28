@@ -90,8 +90,9 @@ posteriormodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6
 (The first two arguments set the "new-table" proportionality constant for the
 meta-Chinese Restaurant Process and the other CRPs, respectively, in the HDP
 prior on transition matrices. For this example, they really don't matter at
-all: pretty much any values will work; those parameters only matter in
-very-low-evidence settings.)
+all, but on real data it's much better to infer these parameters as well, as in
+`examples/concentration_resampling.py`.)
+
 
 The `trunc` parameter is an optional argument that can speed up inference: it
 sets a truncation limit on the maximum duration for any state. If you don't

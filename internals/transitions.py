@@ -110,6 +110,70 @@ class LTRHDPHMMTransitions(HDPHMMTransitions):
         self.fullA = self.A
         self.A = np.triu(self.A) / np.triu(self.A).sum(1)[:,na]
 
+
+class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
+    '''
+    All states have the same self-transition probability, i.e. np.diag(A) is a
+    constant LMBDA.  The transition-out probabilities are all the same, set according
+    to a fixed state weighting PI. Note that transitions out are sampled
+    proportional to PI but without the possibility of self-transition.
+    '''
+    def __init__(self,state_dim,lmbda,alpha_0,pi=None):
+        assert 0 < lmbda < 1
+        self.state_dim = state_dim
+        self.lmbda = lmbda
+        self.alpha_0 = alpha_0
+
+        if pi is not None:
+            self.pi = pi
+        else:
+            self.resample()
+
+    def resample(self,states_list=[]):
+        trans_counts = self._count_transitions(states_list)
+        aug_trans_counts = self._augment_transitions(trans_counts)
+        self.pi = np.random.dirichlet(self.alpha_0 + aug_trans_counts.sum(0))
+        self._set_A()
+
+    def _augment_transitions(self,trans):
+        if trans.sum() > 0:
+            trans.flat[::trans.shape[0]+1] = 0
+            for i, tot in enumerate(trans.sum(1)):
+                trans[i] = np.random.geometric(1.-self.pi[i],size=tot).sum() - tot
+        return trans
+
+    def _set_A(self):
+        self.A = np.tile(self.pi,(self.state_dim,1))
+        self.A.flat[::self.state_dim+1] = 0
+        self.A /= self.A.sum(1)[:,na]
+        self.A *= (1.-self.lmbda)
+        self.A.flat[::self.state_dim+1] = self.lmbda
+
+
+class UniformTransitions(UniformTransitionsFixedSelfTrans):
+    '''
+    Like UniformTransitionsFixedSelfTrans except also samples over the
+    self-transition probability LMBDA.
+    '''
+    def __init__(self,state_dim,alpha_0,a_0,b_0,lmbda=None):
+        self.a_0 = a_0
+        self.b_0 = b_0
+
+        if lmbda is not None:
+            self.lmbda = lmbda
+        else:
+            self.resample()
+
+    def resample(self,states_list=[]):
+        trans_counts = self._count_transitions(states_list)
+        self_trans = np.diag(trans_counts).sum()
+        total_out = trans_counts.sum() - self_trans
+        aug_trans_counts = self._augment_transitions(trans_counts)
+        self.pi = np.random.dirichlet(self.alpha_0 + aug_trans_counts.sum(0))
+        self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
+        self._set_A()
+
+
 ######################
 #  HDP-HSMM classes  #
 ######################
