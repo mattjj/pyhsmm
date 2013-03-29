@@ -128,9 +128,19 @@ def sample_mniw(dof,lmbda,M,K):
     return sample_mn(Sigma,M,K), Sigma
 
 ### Entropy
+def wishart_entropy(lmbda,nu):
+    D = lmbda.shape[0]
+    Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) + np.linalg.slogdet(lmbda)[1]
+    return -wishart_log_partitionfunction(lmbda,nu) - (nu-D-1)/2*Elogdetlmbda + nu*D/2
+
+def wishart_log_partitionfunction(lmbda,nu):
+    D = lmbda.shape[0]
+    return -nu/2*np.linalg.slogdet(lmbda)[1] - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) + \
+            special.gammaln((nu-np.arange(D))/2).sum())
+
 def invwishart_entropy(sigma,nu):
     D = sigma.shape[0]
-    Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - np.log(np.linalg.det(sigma))
+    Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - np.linalg.slogdet(sigma)[1]
     return invwishart_log_partitionfunction(sigma,nu)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
 
 def invwishart_log_partitionfunction(sigma,nu):
