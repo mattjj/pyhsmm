@@ -9,7 +9,7 @@ def solve_psd(A,b,overwrite_b=False,overwrite_A=False):
     return potrs(potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0],b,lower=0,overwrite_b=overwrite_b)[0]
 
 def solve_chofactor_system(A,b,overwrite_b=False,overwrite_A=False):
-    'returns same as (np.linalg.solve(np.linalg.cholesky(A),b),np.linalg.cholesky(A).T)'
+    'returns same as (np.linalg.solve(np.linalg.cholesky(A),b), np.linalg.cholesky(A).T)'
     L = potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
     return trtrs(L,b,lower=0,trans=1,overwrite_b=overwrite_b)[0], L
 
