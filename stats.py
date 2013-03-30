@@ -6,6 +6,8 @@ import scipy.stats as stats
 import scipy.special as special
 import scipy.linalg
 
+import general
+
 # TODO write cholesky versions
 
 ### data abstraction
@@ -128,14 +130,16 @@ def sample_mniw(dof,lmbda,M,K):
     return sample_mn(Sigma,M,K), Sigma
 
 ### Entropy
-def invwishart_entropy(sigma,nu):
+def invwishart_entropy(sigma,nu,chol=None):
     D = sigma.shape[0]
-    Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - np.log(np.linalg.det(sigma))
-    return invwishart_log_partitionfunction(sigma,nu)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
+    chol = general.cholesky(sigma) if chol is None else chol
+    Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - 2*np.log(chol.diagonal()).sum()
+    return invwishart_log_partitionfunction(sigma,nu,chol)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
 
-def invwishart_log_partitionfunction(sigma,nu):
+def invwishart_log_partitionfunction(sigma,nu,chol=None):
     D = sigma.shape[0]
-    return -1*(nu/2*np.linalg.slogdet(sigma)[1] - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
+    chol = general.cholesky(sigma) if chol is None else chol
+    return -1*(nu*np.log(chol.diagonal()).sum() - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
             + special.gammaln((nu-np.arange(D))/2).sum()))
 
 ### Predictive
