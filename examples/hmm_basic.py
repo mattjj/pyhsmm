@@ -35,7 +35,7 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 # Construct the true observation and duration distributions
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
-# Build the true HSMM model
+# Build the true HMM model
 # TODO make this a sticky HMM
 truemodel = pyhsmm.models.HMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                               obs_distns=true_obs_distns)
