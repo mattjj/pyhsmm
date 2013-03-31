@@ -1,19 +1,10 @@
 from __future__ import division
 import numpy as np
-np.seterr(divide='ignore') # these warnings are usually harmless for this code
+np.seterr(divide='ignore')
 from matplotlib import pyplot as plt
-import matplotlib
-matplotlib.rcParams['font.size'] = 8
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
-
-print \
-'''
-This demo shows the HDP-HSMM in action. Its iterations are slower than those for
-the (Sticky-)HDP-HMM, but explicit duration modeling can be a big advantage for
-conditioning the prior or for discovering structure in data.
-'''
 
 #####################
 #  data generation  #
@@ -31,37 +22,41 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 dur_hypparams = {'alpha_0':2*30,
                  'beta_0':2}
 
-# Construct the true observation and duration distributions
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(N)]
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
-# Build the true HSMM model
 truemodel = pyhsmm.models.HSMM(alpha=10.,gamma=10.,init_state_concentration=10.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
-# Sample data from the true model
 data, labels = truemodel.generate(T)
 
-# Plot the truth
 plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
+
+
+# !!! get the changepoints !!!
+# NOTE: usually these would be estimated by some external process; here I'm
+# totally cheating and just getting them from the truth
+temp = np.concatenate(((0,),truemodel.states_list[0].durations.cumsum()))
+changepoints = zip(temp[:-1],temp[1:])
+changepoints[-1] = (changepoints[-1][0],T) # because last duration might be censored
+print 'segments:'
+print changepoints
 
 #########################
 #  posterior inference  #
 #########################
 
-# Set the weak limit truncation level
 Nmax = 25
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
-dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
+dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMM(alpha=10.,gamma=10.,init_state_concentration=10.,
-                                    obs_distns=obs_distns,
-                                    dur_distns=dur_distns,trunc=60)
-posteriormodel.add_data(data)
+posteriormodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=6.,gamma=6.,init_state_concentration=6.,
+        obs_distns=obs_distns,dur_distns=dur_distns,trunc=70)
+posteriormodel.add_data(data,changepoints)
 
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()

@@ -52,9 +52,9 @@ class HMM(ModelGibbsSampling, ModelEM):
                     state_dim=self.state_dim,
                     rho=init_state_concentration)
 
-    def add_data(self,data,stateseq=None):
+    def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn,data=data,stateseq=stateseq))
+                self.init_state_distn,data=data,stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
         # TODO avoid this temp states stuff by making messages methods static
@@ -284,7 +284,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
-    def add_data(self,data,stateseq=None,censoring=True):
+    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,
             self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,
             censoring=censoring))
@@ -317,7 +317,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
         ### resample parameters locally
         self.trans_distn.resample([s.stateseq for s in self.states_list])
-        self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
+        self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
         for state, (o,d) in enumerate(zip(self.obs_distns,self.dur_distns)):
             d.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
             o.resample([s.data[s.stateseq == state] for s in self.states_list])
