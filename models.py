@@ -67,7 +67,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                     self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
 
         aBl = s.get_aBl(data)
-        betal = s.messages_backwards(aBl)
+        betal = s._messages_backwards(aBl)
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
 
     ### generation
@@ -402,7 +402,7 @@ class HSMM(HMM, ModelGibbsSampling):
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
 
         s.aBl = s.get_aBl(data)
-        betal, betastarl = s.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
+        betal, betastarl = s._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
 
 

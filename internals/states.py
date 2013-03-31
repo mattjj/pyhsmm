@@ -112,14 +112,14 @@ class HSMMStatesPython(object):
             aDl[:,idx] = dur_distn.log_pmf(possible_durations)
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
         # run backwards message passing
-        betal, betastarl = self.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
+        betal, betastarl = self._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
         self.betal, self.betastarl = betal, betastarl # TODO remove, for debugging
         # sample forwards
         self.sample_forwards(betal,betastarl)
 
         return self
 
-    def messages_backwards(self,Al,aDl,aDsl,trunc):
+    def _messages_backwards(self,Al,aDl,aDsl,trunc):
         T = aDl.shape[0]
         state_dim = Al.shape[0]
         betal = np.zeros((T,state_dim),dtype=np.float64)
@@ -342,7 +342,7 @@ class HMMStatesPython(object):
 
         return alphal
 
-    def messages_backwards(self,aBl):
+    def _messages_backwards(self,aBl):
         betal = np.zeros(aBl.shape)
         Al = np.log(self.transition_distn.A)
         T = aBl.shape[0]
@@ -375,7 +375,7 @@ class HMMStatesPython(object):
             data = self.data
 
         aBl = self.get_aBl(data)
-        betal = self.messages_backwards(aBl)
+        betal = self._messages_backwards(aBl)
         self.sample_forwards(aBl,betal)
 
         return self
@@ -386,7 +386,7 @@ class HMMStatesPython(object):
         aBl = self.aBl = self.get_aBl(self.data) # saving aBl makes transition distn job easier
 
         alphal = self.alphal = self.messages_forwards(aBl)
-        betal = self.betal = self.messages_backwards(aBl)
+        betal = self.betal = self._messages_backwards(aBl)
         expectations = self.expectations = alphal + betal
 
         expectations -= expectations.max(1)[:,na]
@@ -433,7 +433,7 @@ class HMMStatesEigen(HMMStatesPython):
             else:
                 self.generate_states()
 
-    def messages_backwards(self,aBl):
+    def _messages_backwards(self,aBl):
         T = self.T
         AT = self.transition_distn.A.T.copy()
         betal = np.zeros((self.T,self.state_dim))
@@ -487,7 +487,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self.stateseq = stateseq
             self.stateseq_norep, self.durations = map(lambda x: np.array(x,dtype=np.int32),util.rle(stateseq))
 
-    def messages_backwards(self,Al,aDl,aDsl,trunc):
+    def _messages_backwards(self,Al,aDl,aDsl,trunc):
         Tblock = self.Tblock
         state_dim = Al.shape[0]
         betal = np.zeros((Tblock,state_dim),dtype=np.float64)
@@ -641,21 +641,24 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 HSMMStates = HSMMStatesPython
 HMMStates = HMMStatesPython
 
-import os
-eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
-with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
-    hsmm_sample_forwards_codestr = infile.read()
-with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
-    hmm_messages_backwards_codestr = infile.read()
-with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
-    hmm_sample_forwards_codestr = infile.read()
-
 def use_eigen(useit=True):
-    # TODO this method is probably dumb; should get rid of it
-    global HSMMStates, HMMStates
+    # TODO this method is probably dumb; should get rid of it and just make the
+    #class usage explicit
+    global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
+            hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr
+
     if useit:
-        HSMMStates = HSMMStatesEigen
-        HMMStates = HMMStatesEigen
+        import os
+        eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
+        with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
+            hsmm_sample_forwards_codestr = infile.read()
+        with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
+            hmm_messages_backwards_codestr = infile.read()
+        with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
+            hmm_sample_forwards_codestr = infile.read()
+
+            HSMMStates = HSMMStatesEigen
+            HMMStates = HMMStatesEigen
     else:
         HSMMStates = HSMMStatesPython
         HMMStates = HMMStatesPython

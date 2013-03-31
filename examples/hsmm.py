@@ -9,20 +9,25 @@ matplotlib.rcParams['font.size'] = 8
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-save_images = False
+print \
+'''
+This demo shows the HDP-HSMM in action. Its iterations are slower than those for
+the (Sticky-)HDP-HMM, but explicit duration modeling can be a big advantage for
+conditioning the prior or for discovering structure in data.
+'''
 
-#### Data generation
-# Set parameters
+#####################
+#  data generation  #
+#####################
+
 N = 4
-T = 500
+T = 1000
 obs_dim = 2
 
-# Set observation hyperparameters (which control the randomly-sampled mean and
-# covariance matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.15,
-                'nu_0':obs_dim+2}
+                'kappa_0':0.5,
+                'nu_0':obs_dim+5}
 
 dur_hypparams = {'alpha_0':2*30,
                  'beta_0':2}
@@ -32,7 +37,7 @@ true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in r
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
+truemodel = pyhsmm.models.HSMM(alpha=10.,gamma=10.,init_state_concentration=10.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
@@ -43,38 +48,27 @@ data, labels = truemodel.generate(T)
 plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
-if save_images:
-    plt.savefig('truth.png')
 
-#### Posterior inference
-# Set the weak limit truncation level. This is essentially the maximum number of
-# states that can be learned
-Nmax = 10
+#########################
+#  posterior inference  #
+#########################
 
-# Construct the observation and duration distribution objects, which set priors
-# over parameters and then infer parameter values.
+# Set the weak limit truncation level
+Nmax = 25
+
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-# Build the HSMM model that will represent the posterior
-posteriormodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.HSMM(alpha=10.,gamma=10.,init_state_concentration=10.,
                                     obs_distns=obs_distns,
-                                    dur_distns=dur_distns,trunc=70)
+                                    dur_distns=dur_distns,trunc=60)
 posteriormodel.add_data(data)
 
-# Resample the model 100 times, printing a dot at each iteration and plotting
-# every so often
-plot_every = 10
-fig = plt.figure()
-for idx in progprint_xrange(101):
-    if (idx % plot_every) == 0:
-        plt.gcf().clf()
-        posteriormodel.plot()
-        plt.gcf().suptitle('inferred HSMM after %d iterations' % idx)
-        plt.draw()
-        if save_images:
-            plt.savefig('posterior_sample_%d.png' % idx)
-
+for idx in progprint_xrange(100):
     posteriormodel.resample_model()
+
+plt.figure()
+posteriormodel.plot()
+plt.gcf().suptitle('HDP-HSMM sampled after 100 iterations')
 
 plt.show()
