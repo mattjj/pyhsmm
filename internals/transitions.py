@@ -44,6 +44,8 @@ class HDPHMMTransitions(object):
             self.A = A
             self.beta = beta
 
+    ### Gibbs sampling
+
     def resample(self,states_list=[]):
         trans_counts = self._count_transitions(states_list)
         m = self._get_m(trans_counts)
@@ -76,6 +78,33 @@ class HDPHMMTransitions(object):
                             /(np.arange(val) + self.alpha*self.beta[colidx])).sum()
         self.m = m
         return m
+
+    ### max likelihood
+
+    def max_likelihood(self,expectations_list):
+        trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
+
+        errs = np.seterr(invalid='ignore',divide='ignore')
+        self.A = trans_softcounts / trans_softcounts.sum(1)[:,na]
+        np.seterr(**errs)
+
+        self.A[np.isnan(self.A)] = 0.
+
+    # NOTE: only needs aBl because the message computation saves betal and not
+    # betastarl TODO compute betastarl like a civilized gentleman
+    @staticmethod
+    def _count_weighted_transitions(expectations_list,A):
+        trans_softcounts = np.zeros_like(A)
+        Al = np.log(A)
+
+        for alphal, betal, aBl in expectations_list:
+            log_joints = alphal[:-1,:,na] + (betal[1:,na,:] + aBl[1:,na,:]) + Al[na,...]
+            log_joints -= np.logaddexp.reduce(alphal[0] + betal[0]) # p(y)
+            joints = np.exp(log_joints,out=log_joints)
+
+            trans_softcounts += joints.sum(0)
+
+        return trans_softcounts
 
 
 class HDPHMMTransitionsConcResampling(HDPHMMTransitions,ConcentrationResampling):

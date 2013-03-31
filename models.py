@@ -5,10 +5,10 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from warnings import warn
 
-from pyhsmm.basic.abstractions import ModelGibbsSampling
-from pyhsmm.internals import states, initial_state, transitions
+from basic.abstractions import ModelGibbsSampling, ModelEM
+from internals import states, initial_state, transitions
 
-class HMM(ModelGibbsSampling):
+class HMM(ModelGibbsSampling, ModelEM):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
@@ -56,23 +56,22 @@ class HMM(ModelGibbsSampling):
         self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
                 self.init_state_distn,data=data,stateseq=stateseq))
 
-    def resample_model(self):
-        # resample obsparams
-        for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+    def log_likelihood(self,data):
+        warn('untested')
+        # TODO avoid this stuff by making messages functions static
+        if len(self.states_list) > 0:
+            s = self.states_list[0] # any state sequence object will work
+        else:
+            # we have to create a temporary one just for its methods, though the
+            # details of the actual state sequence are never used
+            s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
+                    self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
 
-        # resample transitions
-        self.trans_distn.resample([s.stateseq for s in self.states_list])
+        aBl = s.get_aBl(data)
+        betal = s.messages_backwards(aBl)
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
 
-        # resample pi_0
-        self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
-
-        # resample states
-        for s in self.states_list:
-            s.resample()
-
-    def resample_model_parallel(self):
-        raise NotImplementedError
+    ### generation
 
     def generate(self,T,keep=True):
         '''
@@ -97,11 +96,69 @@ class HMM(ModelGibbsSampling):
         obs,labels = tempstates.generate_obs(), tempstates.stateseq
 
         if keep:
-            tempstates.added_with_generate = True # I love Python
+            tempstates.added_with_generate = True
             tempstates.data = obs
             self.states_list.append(tempstates)
 
         return obs, labels
+
+    ### Gibbs sampling
+
+    def resample_model(self):
+        # resample obsparams
+        for state, distn in enumerate(self.obs_distns):
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+
+        # resample transitions
+        self.trans_distn.resample([s.stateseq for s in self.states_list])
+
+        # resample pi_0
+        self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
+
+        # resample states
+        for s in self.states_list:
+            s.resample()
+
+    def resample_model_parallel(self):
+        raise NotImplementedError
+
+    ### EM
+
+    def EM_step(self):
+        assert len(self.states_list) > 0, 'Must have data to run EM'
+
+        ## E step
+        for s in self.states_list:
+            s.E_step()
+
+        ## M step
+        # observation distribution parameters
+        for state, distn in enumerate(self.obs_distns):
+            distn.max_likelihood([s.data for s in self.states_list],
+                    [s.expectations[:,state] for s in self.states_list])
+
+        # initial distribution parameters
+        self.init_state_distn.max_likelihood(None,[s.expectations[0] for s in self.states_list])
+
+        # transition parameters (requiring more than just the marginal expectations)
+        self.trans_distn.max_likelihood([(s.alphal,s.betal,s.aBl) for s in self.states_list])
+
+        ## for plotting!
+        for s in self.states_list:
+            s.stateseq = s.expectations.argmax(1)
+
+    def num_parameters(self):
+        return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
+
+    def BIC(self):
+        # NOTE: in principle this method computes the BIC only after finding the
+        # maximum likelihood parameters (or, of course, an EM fixed-point as an
+        # approximation!)
+        assert len(self.states_list) > 0, 'Must have data to get BIC'
+        return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
+                    self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+
+    ### plotting
 
     def _get_used_states(self,states_objs=None):
         if states_objs is None:
@@ -146,20 +203,6 @@ class HMM(ModelGibbsSampling):
 
             plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
             s.plot(colors_dict=colors)
-
-    def loglike(self,data):
-        warn('untested')
-        if len(self.states_list) > 0:
-            s = self.states_list[0] # any state sequence object will work
-        else:
-            # we have to create a temporary one just for its methods, though the
-            # details of the actual state sequence are never used
-            s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                    self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
-
-        aBl = s.get_aBl(data)
-        betal = s.messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
 
 
 class StickyHMM(HMM, ModelGibbsSampling):
@@ -343,7 +386,7 @@ class HSMM(HMM, ModelGibbsSampling):
         # alternative plot
         raise NotImplementedError
 
-    def loglike(self,data,trunc=None):
+    def log_likelihood(self,data,trunc=None):
         warn('untested')
         T = len(data)
         if trunc is None:
@@ -391,6 +434,6 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def generate(self,T,changepoints,keep=True):
         raise NotImplementedError
 
-    def loglike(self,data,trunc=None):
+    def log_likelihood(self,data,trunc=None):
         raise NotImplementedError
 

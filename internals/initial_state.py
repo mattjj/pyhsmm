@@ -1,41 +1,18 @@
 from __future__ import division
 import numpy as np
-import scipy.stats as stats
 
-from ..util.stats import sample_discrete
+from ..basic.abstractions import GibbsSampling, MaxLikelihood
+from ..basic.distributions import Multinomial
 
-# TODO this just repeats code from multinomial distribution in distributions.py
+class InitialState(Multinomial):
+    def __init__(self,state_dim,rho,pi_0=None):
+        super(InitialState,self).__init__(alpha_0=rho,K=state_dim,weights=pi_0)
 
-class InitialState(object):
-    '''
-    Initial state distribution class. Not usually of much consequence.
-    '''
-    def __init__(self,state_dim,rho,pi_0=None,**kwargs):
-        self.rho = rho
-        self.state_dim = state_dim
-        self.pi_0 = pi_0
-        if self.pi_0 is None:
-            self.resample()
-        else:
-            self.state_dim = len(pi_0)
+    @property
+    def pi_0(self):
+        return self.weights
 
-    def resample(self,init_states=[]):
-        data = np.zeros(self.state_dim)
-        for init_state in init_states:
-            data[init_state] += 1
-        self.pi_0 = stats.gamma.rvs(self.rho / self.state_dim + data)
-        self.pi_0 /= np.sum(self.pi_0)
-        assert not np.isnan(self.pi_0).any()
-
-    def rvs(self,size=[]):
-        return sample_discrete(self.pi_0,size=size)
-
-
-class StartInZero(object):
-    '''
-    always start in state 0
-    '''
-    deterministic = True # TODO is this needed?
+class StartInZero(GibbsSampling,MaxLikelihood):
     def __init__(self,state_dim,**kwargs):
         self.pi_0 = np.zeros(state_dim)
         self.pi_0[0] = 1.
@@ -45,3 +22,6 @@ class StartInZero(object):
 
     def rvs(self,size=[]):
         return np.zeros(size)
+
+    def max_likelihood(*args,**kwargs):
+        pass

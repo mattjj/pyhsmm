@@ -6,7 +6,6 @@ import scipy.weave
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
-
 class HSMMStatesPython(object):
     '''
     HSMM states distribution class. Connects the whole model.
@@ -295,6 +294,12 @@ class HMMStatesPython(object):
             else:
                 self.generate_states()
 
+    ### generation
+
+    def generate(self):
+        self.generate_states()
+        return self.generate_obs()
+
     def generate_states(self):
         T = self.T
         stateseq = np.zeros(T,dtype=np.int32)
@@ -314,9 +319,14 @@ class HMMStatesPython(object):
             obs.append(self.obs_distns[state].rvs(size=1))
         return np.concatenate(obs)
 
-    def generate(self):
-        self.generate_states()
-        return self.generate_obs()
+    ### message passing
+
+    def get_aBl(self,data):
+        # note: this method never uses self.T
+        aBl = np.zeros((data.shape[0],self.state_dim))
+        for idx, obs_distn in enumerate(self.obs_distns):
+            aBl[:,idx] = obs_distn.log_likelihood(data)
+        return aBl
 
     def messages_forwards(self,aBl):
         # note: this method never uses self.T
@@ -341,6 +351,8 @@ class HMMStatesPython(object):
             np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
 
         return betal
+
+    ### Gibbs sampling
 
     def sample_forwards(self,aBl,betal):
         T = aBl.shape[0]
@@ -368,12 +380,20 @@ class HMMStatesPython(object):
 
         return self
 
-    def get_aBl(self,data):
-        # note: this method never uses self.T
-        aBl = np.zeros((data.shape[0],self.state_dim))
-        for idx, obs_distn in enumerate(self.obs_distns):
-            aBl[:,idx] = obs_distn.log_likelihood(data)
-        return aBl
+    ### EM
+
+    def E_step(self):
+        aBl = self.aBl = self.get_aBl(self.data) # saving aBl makes transition distn job easier
+
+        alphal = self.alphal = self.messages_forwards(aBl)
+        betal = self.betal = self.messages_backwards(aBl)
+        expectations = self.expectations = alphal + betal
+
+        expectations -= expectations.max(1)[:,na]
+        np.exp(expectations,out=expectations)
+        expectations /= expectations.sum(1)[:,na]
+
+    ### plotting
 
     def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
         from matplotlib import pyplot as plt
@@ -612,7 +632,6 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     def generate(self): # TODO
         raise NotImplementedError
-
 
 ################################
 #  use_eigen stuff below here  #

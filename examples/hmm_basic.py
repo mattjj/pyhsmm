@@ -29,7 +29,7 @@ obs_dim = 2
 # covariance matrices for each state)
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.001,
+                'kappa_0':0.2,
                 'nu_0':obs_dim+2}
 
 # Construct the true observation and duration distributions
