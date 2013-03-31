@@ -236,6 +236,9 @@ class StickyHMM(HMM, ModelGibbsSampling):
 
         super(StickyHMM,self).__init__(obs_distns,trans_distn=self.trans_distn,**kwargs)
 
+    def EM_step(self):
+        raise NotImplementedError, "Can't run EM on a StickyHMM"
+
 
 class HSMM(HMM, ModelGibbsSampling):
     '''
@@ -404,6 +407,9 @@ class HSMM(HMM, ModelGibbsSampling):
         s.aBl = s.get_aBl(data)
         betal, betastarl = s._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
+
+    def EM_step(self):
+        raise NotImplementedError # TODO
 
 
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
