@@ -113,7 +113,6 @@ class HSMMStatesPython(object):
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
         # run backwards message passing
         betal, betastarl = self._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
-        self.betal, self.betastarl = betal, betastarl # TODO remove, for debugging
         # sample forwards
         self.sample_forwards(betal,betastarl)
 
@@ -203,7 +202,7 @@ class HSMMStatesPython(object):
                     dur += 1
                 else:
                     if self.censoring:
-                        # TODO instead of 3*T, use log_sf
+                        # TODO 3*T is a hacky approximation, could use log_sf
                         dur += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
                     else:
                         dur += 1
