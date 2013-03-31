@@ -118,9 +118,44 @@ class HMM(ModelGibbsSampling, ModelEM):
         for s in self.states_list:
             s.resample()
 
-    def resample_model_parallel(self):
-        raise NotImplementedError
+    def resample_model_parallel(self,numtoresample='all'):
+        from pyhsmm import parallel
+        if numtoresample == 'all':
+            numtoresample = len(self.states_list)
+        elif numtoresample == 'engines':
+            numtoresample = len(parallel.dv)
 
+        ### resample parameters locally
+        for state, distn in enumerate(self.obs_distns):
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+        self.trans_distn.resample([s.stateseq for s in self.states_list])
+        self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
+
+        ### choose which sequences to resample
+        states_to_resample = random.sample(self.states_list,numtoresample)
+
+        ### resample states in parallel
+        self._push_self_parallel(states_to_resample)
+        self._build_states_parallel(states_to_resample)
+
+        ### purge to prevent memory buildup
+        parallel.c.purge_results('all')
+
+    def _push_self_parallel(self,states_to_resample):
+        from pyhsmm import parallel
+        states_to_restore = [s for s in self.states_list if s not in states_to_resample]
+        self.states_list = []
+        parallel.dv.push({'global_model':self},block=True)
+        self.states_list = states_to_restore
+
+    def _build_states_parallel(self,states_to_resample):
+        from pyhsmm import parallel
+        raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
+        for data_id, stateseq in raw_stateseq_tuples:
+            self.add_data(
+                    data=parallel.alldata[data_id],
+                    stateseq=stateseq)
+            self.states_list[-1].data_id = data_id
     ### EM
 
     def EM_step(self):
@@ -325,7 +360,7 @@ class HSMM(HMM, ModelGibbsSampling):
             d.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
             o.resample([s.data[s.stateseq == state] for s in self.states_list])
 
-        ### choose which data to resample
+        ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
 
         ### resample states in parallel
@@ -334,22 +369,6 @@ class HSMM(HMM, ModelGibbsSampling):
 
         ### purge to prevent memory buildup
         parallel.c.purge_results('all')
-
-    def _push_self_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        states_to_restore = [s for s in self.states_list if s not in states_to_resample]
-        self.states_list = []
-        parallel.dv.push({'global_model':self},block=True)
-        self.states_list = states_to_restore
-
-    def _build_states_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
-        for data_id, stateseq in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    stateseq=stateseq)
-            self.states_list[-1].data_id = data_id
 
     ### plotting
 
