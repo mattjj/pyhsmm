@@ -145,17 +145,6 @@ I generated these data from an HSMM that looked like this:
 
 So the posterior samples look pretty good!
 
-In fact, if you'd like to visualize why this example data isn't so tough for an HSMM to
-decode, you can explore the 3D plot and see the strong time regularity with
-
-```python
-from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-ax = fig.add_subplot(111,projection='3d')
-ax.scatter(np.arange(len(data)),data[:,0],data[:,1])
-plt.show()
-```
-
 ## Speed ##
 
 HSMMs constitute a much more powerful model class than plain-old HMMs, and that
