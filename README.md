@@ -50,7 +50,7 @@ data = np.loadtxt('data.txt')
 plt.plot(data[:,0],data[:,1],'kx')
 ```
 
-![2D data](http://www.mit.edu/~mattjj/github/pyhsmm2/data.png)
+![2D data](http://www.mit.edu/~mattjj/github/pyhsmm/data.png)
 
 We can also make a plot of time versus the first principal component:
 
@@ -59,7 +59,7 @@ from pyhsmm.util.plot import pca_project_data
 plt.plot(pca_project_data(data,1))
 ```
 
-![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm2/data_vs_time.png)
+![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm/data_vs_time.png)
 
 To learn an HSMM, we'll use `pyhsmm` to create an hsmm object using some
 reasonable hyperparameters. We'll ask this model to infer the number of states
@@ -111,24 +111,33 @@ model just by calling `add_data()` for each observation sequence.)
 Now we run a resampling loop. For each iteration of the loop, all the latent
 variables of the model will be resampled by Gibbs sampling steps, including the
 transition matrix, the observation means and covariances, the duration
-parameters, and the hidden state sequence. We'll plot the samples every few
-iterations.
+parameters, and the hidden state sequence. We'll also copy some samples so that
+we can plot them.
 
 ```python
-plot_every = 10
-for idx in progprint_xrange(101):
-    if (idx % plot_every) == 0:
-        posteriormodel.plot()
-        plt.gcf().suptitle('inferred HSMM after %d iterations (arbitrary colors)' % idx)
-
+models = []
+for idx in progprint_xrange(150):
     posteriormodel.resample_model()
+    if (idx+1) % 10 == 0:
+        models.append(copy.deepcopy(posteriormodel))
 ```
 
-![Sampled models](http://www.mit.edu/~mattjj/github/pyhsmm2/posterior_animation.gif)
+Now we can plot our saved samples:
+
+```python
+fig = plt.figure()
+for idx, model in enumerate(models):
+    plt.clf()
+    model.plot()
+    plt.gcf().suptitle('HDP-HSMM sampled after %d iterations' % (10*(idx+1)))
+    plt.savefig('iter_%.3d.png' % (10*(idx+1)))
+```
+
+![Sampled models](http://www.mit.edu/~mattjj/github/pyhsmm/posterior_animation.gif)
 
 I generated these data from an HSMM that looked like this:
 
-![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/pyhsmm2/truth.png)
+![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/pyhsmm/truth.png)
 
 So the posterior samples look pretty good!
 
@@ -178,10 +187,22 @@ Contributions by Chia-ying Lee.
 
 ## References ##
 * Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden
-Semi-Markov Models](http://arxiv.org/abs/1203.1365). arXiv:1203.1365v2
+Semi-Markov Models](http://www.jmlr.org/papers/volume14/johnson13a/johnson13a.pdf). Journal of Machine Learning Research JMLR) 14 (February): p. 673-701, 2013.
 
 * Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process
 Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th
 Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon,
 California, July 2010.
+
+```bibtex
+@article{johnson2013hdphsmm,
+    title={Bayesian Nonparametric Hidden Semi-Markov Models},
+    author={Johnson, Matthew J. and Willsky, Alan S.},
+    journal={Journal of Machine Learning Research},
+    pages={673--701},
+    volume={14},
+    month={February},
+    year={2013},
+}
+```
 

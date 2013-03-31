@@ -16,7 +16,7 @@ obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.5,
+                'kappa_0':0.3,
                 'nu_0':obs_dim+5}
 
 dur_hypparams = {'alpha_0':2*30,
@@ -27,7 +27,7 @@ true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in r
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
 # Build the true HSMM model
-truemodel = pyhsmm.models.HSMM(alpha=10.,gamma=10.,init_state_concentration=10.,
+truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
@@ -61,3 +61,8 @@ posteriormodel.add_data(data)
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()
 
+plt.figure()
+posteriormodel.plot()
+plt.gcf().suptitle('Sampled after 100 iterations')
+
+plt.show()
