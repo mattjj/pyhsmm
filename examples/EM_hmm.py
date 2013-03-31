@@ -46,28 +46,29 @@ if save_images:
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
-# Build the HMM model that will represent the posterior
-posteriormodel = pyhsmm.models.HMM(
+# Build the HMM model that will represent the fitmodel
+fitmodel = pyhsmm.models.HMM(
         alpha=50.,gamma=50.,init_state_concentration=50., # these are only used for initialization
         obs_distns=obs_distns)
-posteriormodel.add_data(data)
+fitmodel.add_data(data)
 
 print 'Gibbs sampling for initialization'
 
 for idx in progprint_xrange(25):
-    posteriormodel.resample_model()
+    fitmodel.resample_model()
 
 plt.figure()
-posteriormodel.plot()
+fitmodel.plot()
 plt.gcf().suptitle('Gibbs-sampled initialization')
 
 print 'EM'
 
-for idx in progprint_xrange(101):
-    posteriormodel.EM_step()
+for idx in progprint_xrange(100):
+    # instead of blindly running iterations, we could also quit on convergence
+    fitmodel.EM_step()
 
 plt.figure()
-posteriormodel.plot()
+fitmodel.plot()
 plt.gcf().suptitle('EM fit')
 plt.show()
 

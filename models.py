@@ -57,8 +57,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                 self.init_state_distn,data=data,stateseq=stateseq))
 
     def log_likelihood(self,data):
-        warn('untested')
-        # TODO avoid this stuff by making messages functions static
+        # TODO avoid this temp states stuff by making messages methods static
         if len(self.states_list) > 0:
             s = self.states_list[0] # any state sequence object will work
         else:
