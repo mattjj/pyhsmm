@@ -71,26 +71,30 @@ import pyhsmm
 import pyhsmm.basic.distributions as distributions
 
 obs_dim = 2
-Nmax = 10
+Nmax = 25
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.2,
-                'nu_0':obs_dim+2}
-dur_hypparams = {'alpha_0':2*20,
-                'beta_0':2}
+                'kappa_0':0.3,
+                'nu_0':obs_dim+5}
+dur_hypparams = {'alpha_0':2*30,
+                 'beta_0':2}
 
 obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
-                                    obs_distns,dur_distns,trunc=75)
+posteriormodel = pyhsmm.models.HSMM(
+        alpha=6.,gamma=6., # better to sample over these; see concentration-resampling.py
+        init_state_concentration=6., # pretty inconsequential
+        obs_distns=obs_distns,
+        dur_distns=dur_distns,
+        trunc=60) # duration truncation speeds things up when it's possible
 ```
 
 (The first two arguments set the "new-table" proportionality constant for the
 meta-Chinese Restaurant Process and the other CRPs, respectively, in the HDP
 prior on transition matrices. For this example, they really don't matter at
-all, but on real data it's much better to infer these parameters as well, as in
+all, but on real data it's much better to infer these parameters, as in
 `examples/concentration_resampling.py`.)
 
 
@@ -169,12 +173,11 @@ Intel's MKL BLAS (which generally outperforms ATLAS for vectorized operations)
 along with the Eigen-backed classes, here's how long the demo iterations took:
 
 ```
-$ python -m pyhsmm.examples.basic
-.........................  [  25/101,    0.05sec avg,    3.95sec ETA ]
-.........................  [  50/101,    0.05sec avg,    2.64sec ETA ]
-.........................  [  75/101,    0.05sec avg,    1.34sec ETA ]
-.........................  [ 100/101,    0.05sec avg,    0.05sec ETA ]
-.
+$ python examples/hsmm.py
+.........................  [  25/100,    0.05sec avg,    3.95sec ETA ]
+.........................  [  50/100,    0.05sec avg,    2.64sec ETA ]
+.........................  [  75/100,    0.05sec avg,    1.34sec ETA ]
+.........................  [ 100/100,    0.05sec avg,    0.05sec ETA ]
    0.05sec avg,    5.21sec total
 ```
 
