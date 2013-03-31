@@ -1,11 +1,14 @@
 # Sampling Inference for Bayesian HSMMs and HMMs #
-`pyhsmm` is a Python library for approximate unsupervised sampling inference in
+This is a Python library for approximate unsupervised sampling inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
-and HDP-HSMM, via the weak-limit approximation. See also the [plugin for
-collapsed HDP sampling
-inference](https://github.com/mattjj/pyhsmm-collapsedinfinite) and the [plugin
-for factorial models](https://github.com/mattjj/pyhsmm-factorial).
+and HDP-HSMM, via the weak-limit approximation.
+
+There are also some plugins to extend the functionality:
+
+* [factorial models](https://github.com/mattjj/pyhsmm-factorial)
+* [autoregressive models](https://github.com/mattjj/pyhsmm-autoregressive)
+* [collapsed HDP sampling inference](https://github.com/mattjj/pyhsmm-collapsedinfinite).
 
 The inference can be run in parallel over multiple cores and/or multiple
 machines (even on EC2!) using [ipython](https://github.com/ipython/ipython)'s
@@ -61,7 +64,7 @@ plt.plot(pca_project_data(data,1))
 
 ![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm/data_vs_time.png)
 
-To learn an HSMM, we'll use `pyhsmm` to create an hsmm object using some
+To learn an HSMM, we'll use `pyhsmm` to create an `HSMM` instance using some
 reasonable hyperparameters. We'll ask this model to infer the number of states
 as well (since an HDP-HSMM is instantiated by default), so we'll give it an
 `Nmax` parameter:
@@ -172,7 +175,8 @@ $ python examples/hsmm.py
 
 ## Extending the Code ##
 To add your own observation or duration distributions, implement the interfaces
-defined in `abstractions.py`.
+defined in `basic/abstractions.py`. Also see the plugins. To get a flavor of
+the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
 
 ## Contributors ##
 Contributions by Chia-ying Lee.
