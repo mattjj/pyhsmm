@@ -8,14 +8,15 @@ import operator
 from ..basic.distributions import DirGamma
 from ..util.general import rle
 
-# TODO could reuse parts of basic.distributions.Multinomial
+##########
+#  misc  #
+##########
+
 # TODO scaling by self.state_dim in concresampling is the confusing result of
 # having a DirGamma object and not a WLDPGamma object! make one
-# TODO should kappa be scaled by state dim?
 
 class ConcentrationResampling(object):
-    def __init__(self,state_dim,
-            alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
+    def __init__(self,state_dim,alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
         self.gamma_obj = DirGamma(state_dim,gamma_a_0,gamma_b_0)
         self.alpha_obj = DirGamma(state_dim,alpha_a_0,alpha_b_0)
 
@@ -27,7 +28,6 @@ class ConcentrationResampling(object):
         self.alpha = self.alpha_obj.concentration*self.state_dim
         self.gamma_obj.resample(self.m,niter=5)
         self.gamma = self.gamma_obj.concentration*self.state_dim
-
 
 ######################
 #  HDP-HMM classes  #
@@ -147,34 +147,31 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
     to a fixed state weighting PI. Note that transitions out are sampled
     proportional to PI but without the possibility of self-transition.
     '''
-    def __init__(self,state_dim,lmbda,alpha_0,pi=None):
+    def __init__(self,lmbda,pi):
         assert 0 < lmbda < 1
-        self.state_dim = state_dim
-        self.lmbda = lmbda
-        self.alpha_0 = alpha_0
 
-        if pi is not None:
-            self.pi = pi
-        else:
-            self.resample()
+        self.lmbda = lmbda
+        self.pi = pi
+        self.state_dim = pi.K
+        self._set_A()
 
     ### Gibbs sampling
 
     def resample(self,states_list=[]):
         trans_counts = self._count_transitions(states_list)
         aug_trans_counts = self._augment_transitions(trans_counts)
-        self.pi = np.random.dirichlet(self.alpha_0 + aug_trans_counts.sum(0))
+        self.pi.resample(count_data=aug_trans_counts.sum(0))
         self._set_A()
 
     def _augment_transitions(self,trans):
         if trans.sum() > 0:
             trans.flat[::trans.shape[0]+1] = 0
             for i, tot in enumerate(trans.sum(1)):
-                trans[i] = np.random.geometric(1.-self.pi[i],size=tot).sum() - tot
+                trans[i] = np.random.geometric(1.-self.pi.weights[i],size=tot).sum() - tot
         return trans
 
     def _set_A(self):
-        self.A = np.tile(self.pi,(self.state_dim,1))
+        self.A = np.tile(self.pi.weights,(self.state_dim,1))
         self.A.flat[::self.state_dim+1] = 0
         self.A /= self.A.sum(1)[:,na]
         self.A *= (1.-self.lmbda)
@@ -185,8 +182,7 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
     def max_likelihood(self,expectations_list):
         trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
         trans_softcounts = self._E_augment_transitions(trans_softcounts)
-        self.pi = trans_softcounts.sum(0)
-        self.pi /= self.pi.sum()
+        self.pi.max_likelihood_countdata(trans_softcounts)
         self._set_A()
 
     def _E_augment_transitions(self,trans_softcounts):
@@ -199,10 +195,10 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
     Like UniformTransitionsFixedSelfTrans except also samples over the
     self-transition probability LMBDA.
     '''
-    # TODO sample over alpha_0 as well (make another class)
-    def __init__(self,state_dim,alpha_0,a_0,b_0,lmbda=None):
-        self.a_0 = a_0
-        self.b_0 = b_0
+    def __init__(self,lmbda_a_0,lmbda_b_0,pi,lmbda=None):
+        self.a_0 = lmbda_a_0
+        self.b_0 = lmbda_b_0
+        self.pi = pi
 
         if lmbda is not None:
             self.lmbda = lmbda
@@ -210,16 +206,17 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
             self.resample()
 
     def resample(self,states_list=[]):
+        # resample lmbda
         trans_counts = self._count_transitions(states_list)
         self_trans = trans_counts.diagonal().sum()
         total_out = trans_counts.sum() - self_trans
         self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
-        aug_trans_counts = self._augment_transitions(trans_counts)
-        self.pi = np.random.dirichlet(self.alpha_0 + aug_trans_counts.sum(0))
-        self._set_A()
+
+        # resample everything else as usual
+        super(UniformTransitions,self).resample(states_list)
 
     def max_likelihood(self,expectations_list):
-        raise NotImplementedError
+        raise NotImplementedError, "max_likelihood doesn't make sense on this class"
 
 
 ######################
