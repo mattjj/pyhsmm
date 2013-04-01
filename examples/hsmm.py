@@ -8,6 +8,8 @@ import pyhsmm
 pyhsmm.internals.states.use_eigen()
 from pyhsmm.util.text import progprint_xrange
 
+SAVE_FIGURES = False
+
 print \
 '''
 This demo shows the HDP-HSMM in action. Its iterations are slower than those for
@@ -45,13 +47,10 @@ truemodel = pyhsmm.models.HSMM(
 # Sample data from the true model
 data, labels = truemodel.generate(T)
 
-np.savetxt('data.txt',data)
-
 # Plot the truth
 plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
-plt.savefig('truth.png')
 
 #########################
 #  posterior inference  #
@@ -82,6 +81,7 @@ for idx, model in enumerate(models):
     plt.clf()
     model.plot()
     plt.gcf().suptitle('HDP-HSMM sampled after %d iterations' % (10*(idx+1)))
-    plt.savefig('iter_%.3d.png' % (10*(idx+1)))
+    if SAVE_FIGURES:
+        plt.savefig('iter_%.3d.png' % (10*(idx+1)))
 
 plt.show()
