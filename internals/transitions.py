@@ -158,6 +158,8 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
         else:
             self.resample()
 
+    ### Gibbs sampling
+
     def resample(self,states_list=[]):
         trans_counts = self._count_transitions(states_list)
         aug_trans_counts = self._augment_transitions(trans_counts)
@@ -178,12 +180,26 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
         self.A *= (1.-self.lmbda)
         self.A.flat[::self.state_dim+1] = self.lmbda
 
+    ### max likelihood
+
+    def max_likelihood(self,expectations_list):
+        trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
+        trans_softcounts = self._E_augment_transitions(trans_softcounts)
+        self.pi = trans_softcounts.sum(0)
+        self.pi /= self.pi.sum()
+        self._set_A()
+
+    def _E_augment_transitions(self,trans_softcounts):
+        trans_softcounts.flat[::self.state_dim+1] = trans_softcounts.sum(1) * 1./(1.-self.lmbda)
+        return trans_softcounts
+
 
 class UniformTransitions(UniformTransitionsFixedSelfTrans):
     '''
     Like UniformTransitionsFixedSelfTrans except also samples over the
     self-transition probability LMBDA.
     '''
+    # TODO sample over alpha_0 as well (make another class)
     def __init__(self,state_dim,alpha_0,a_0,b_0,lmbda=None):
         self.a_0 = a_0
         self.b_0 = b_0
@@ -195,12 +211,15 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
 
     def resample(self,states_list=[]):
         trans_counts = self._count_transitions(states_list)
-        self_trans = np.diag(trans_counts).sum()
+        self_trans = trans_counts.diagonal().sum()
         total_out = trans_counts.sum() - self_trans
+        self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
         aug_trans_counts = self._augment_transitions(trans_counts)
         self.pi = np.random.dirichlet(self.alpha_0 + aug_trans_counts.sum(0))
-        self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
         self._set_A()
+
+    def max_likelihood(self,expectations_list):
+        raise NotImplementedError
 
 
 ######################
