@@ -182,13 +182,14 @@ the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
 Contributions by Chia-ying Lee.
 
 ## References ##
-* Matthew J. Johnson and Alan S. Willsky, [Bayesian Nonparametric Hidden
-Semi-Markov Models](http://www.jmlr.org/papers/volume14/johnson13a/johnson13a.pdf). Journal of Machine Learning Research JMLR) 14 (February): p. 673-701, 2013.
+* Matthew J. Johnson and Alan S. Willsky. [Bayesian Nonparametric Hidden
+  Semi-Markov Models](http://www.jmlr.org/papers/volume14/johnson13a/johnson13a.pdf).
+  Journal of Machine Learning Research (JMLR), 14:673–701, February 2013.
 
 * Matthew J. Johnson and Alan S. Willsky, [The Hierarchical Dirichlet Process
-Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th
-Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon,
-California, July 2010.
+  Hidden Semi-Markov Model](http://www.mit.edu/~mattjj/papers/uai2010.pdf). 26th
+  Conference on Uncertainty in Artificial Intelligence (UAI 2010), Avalon,
+  California, July 2010.
 
 ```bibtex
 @article{johnson2013hdphsmm,
