@@ -56,6 +56,11 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
                 self.init_state_distn,data=data,stateseq=stateseq,**kwargs))
 
+    def add_data_parallel(self,data_id):
+        from pyhsmm import parallel
+        self.add_data(parallel.alldata[data_id])
+        self.states_list[-1].data_id = data_id
+
     def log_likelihood(self,data):
         # TODO avoid this temp states stuff by making messages methods static
         if len(self.states_list) > 0:
