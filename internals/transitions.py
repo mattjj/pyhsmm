@@ -164,10 +164,11 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
         self._set_A()
 
     def _augment_transitions(self,trans):
+        trans = trans.copy()
         if trans.sum() > 0:
             trans.flat[::trans.shape[0]+1] = 0
             for i, tot in enumerate(trans.sum(1)):
-                trans[i] = np.random.geometric(1.-self.pi.weights[i],size=tot).sum() - tot
+                trans[i,i] = np.random.geometric(1.-self.pi.weights[i],size=tot).sum() - tot
         return trans
 
     def _set_A(self):
