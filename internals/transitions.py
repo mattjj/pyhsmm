@@ -69,6 +69,7 @@ class HDPHMMTransitions(object):
         self.trans_counts = trans_counts
         return trans_counts
 
+    # TODO push this into eigen
     def _get_m(self,trans_counts):
         m = np.zeros((self.state_dim,self.state_dim),dtype=np.int32)
         if not (0 == trans_counts).all():
@@ -157,10 +158,15 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
 
     ### Gibbs sampling
 
-    def resample(self,states_list=[]):
-        trans_counts = self._count_transitions(states_list)
-        aug_trans_counts = self._augment_transitions(trans_counts)
-        self.pi.resample(count_data=aug_trans_counts.sum(0))
+    def resample(self,states_list=[],niter=5,trans_counts=None):
+        # trans_counts arg is for convenient testing
+        if trans_counts is None:
+            trans_counts = self._count_transitions(states_list)
+
+        for itr in range(niter):
+            aug_trans_counts = self._augment_transitions(trans_counts)
+            self.pi.resample(count_data=aug_trans_counts.sum(0))
+
         self._set_A()
 
     def _augment_transitions(self,trans):
@@ -177,6 +183,26 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
         self.A /= self.A.sum(1)[:,na]
         self.A *= (1.-self.lmbda)
         self.A.flat[::self.state_dim+1] = self.lmbda
+
+    @classmethod
+    def test_sampling(cls,N=50,K=10,alpha_0=4.,lmbda=0.95):
+        from ..basic.distributions import Multinomial
+        from matplotlib import pyplot as plt
+
+        true_pi = np.random.dirichlet(np.repeat(alpha_0/K,K))
+        counts = np.array([np.random.multinomial(N,true_pi) for i in range(K)]) # diagional ignored
+
+        pi = Multinomial(alpha_0=alpha_0,K=K)
+        trans = cls(lmbda,pi)
+
+        plt.figure()
+        plt.plot(true_pi,'r')
+        cmap = plt.cm.get_cmap('Blues')
+        for i in range(5):
+            trans.resample(trans_counts=counts)
+            plt.plot(trans.pi.weights,'--',label=str(i),color=cmap((i+2)/(5+2)))
+        plt.legend()
+        plt.show()
 
     ### max likelihood
 
