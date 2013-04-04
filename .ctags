@@ -1,1 +1,3 @@
 --exclude=deps
+--exclude=basic/pybasicbayes
+--exclude=util
