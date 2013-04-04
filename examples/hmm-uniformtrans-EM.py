@@ -40,9 +40,10 @@ truemodel.plot()
 plt.gcf().suptitle('True model')
 
 
-#########################
-#  posterior inference  #
-#########################
+###################
+#  model fitting  #
+###################
+
 
 lmbda = 0.9 # timescale
 Ns = [3,4,5]
