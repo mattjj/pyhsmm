@@ -2,8 +2,7 @@ from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
-import matplotlib
-matplotlib.rcParams['font.size'] = 8
+import copy
 
 import pyhsmm
 import pyhsmm.internals.transitions as transitions
@@ -45,34 +44,55 @@ plt.gcf().suptitle('True model')
 #  posterior inference  #
 #########################
 
-Nfit = 4
+lmbda = 0.9 # timescale
+Ns = [3,4,5]
+num_EM_attempts = 5
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nfit)]
-trans_distn = transitions.UniformTransitionsFixedSelfTrans(
-        pi=pyhsmm.distributions.Multinomial(alpha_0=10.*Nfit,K=Nfit),
-        lmbda=0.9)
+BICs = []
+examplemodels = []
+for Nfit in Ns:
+    print ''
+    print '### Fitting with %d states ###' % Nfit
+    print ''
 
-fitmodel = pyhsmm.models.HMM(
-        init_state_concentration=6.,
-        obs_distns=obs_distns,
-        trans_distn=trans_distn)
+    obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nfit)]
+    trans_distn = transitions.UniformTransitionsFixedSelfTrans(
+            pi=pyhsmm.distributions.Multinomial(alpha_0=10.*Nfit,K=Nfit),
+            lmbda=lmbda)
 
-fitmodel.add_data(data)
+    fitmodel = pyhsmm.models.HMM(
+            init_state_concentration=6.,
+            obs_distns=obs_distns,
+            trans_distn=trans_distn)
 
-print 'Gibbs initialization'
-for idx in progprint_xrange(10):
-    fitmodel.resample_model()
+    fitmodel.add_data(data)
 
-print 'EM'
-for idx in progprint_xrange(100):
-    fitmodel.EM_step()
+    theseBICs = []
+    for i in range(num_EM_attempts):
+        print 'Gibbs sampling initialization'
+        for itr in progprint_xrange(50):
+            fitmodel.resample_model()
+
+        print 'EM fit'
+        for itr in progprint_xrange(50):
+            fitmodel.EM_step()
+
+        theseBICs.append(fitmodel.BIC())
+    examplemodels.append(copy.deepcopy(fitmodel))
+    BICs.append(theseBICs)
 
 plt.figure()
-fitmodel.plot()
-plt.gcf().suptitle('EM fit')
+plt.errorbar(
+        x=Ns,
+        y=[np.mean(x) for x in BICs],
+        yerr=[np.std(x) for x in BICs],
+        )
+plt.xlabel('num states')
+plt.ylabel('BIC')
 
 plt.figure()
-plt.plot(trans_distn.pi.weights)
+examplemodels[np.argmin([np.min(x) for x in BICs])].plot()
+plt.title('a decent model')
 
 plt.show()
 
