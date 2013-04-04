@@ -158,7 +158,7 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
 
     ### Gibbs sampling
 
-    def resample(self,states_list=[],niter=5,trans_counts=None):
+    def resample(self,states_list=[],niter=100,trans_counts=None):
         # trans_counts arg is for convenient testing
         if trans_counts is None:
             trans_counts = self._count_transitions(states_list)
@@ -226,25 +226,54 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
         self.a_0 = lmbda_a_0
         self.b_0 = lmbda_b_0
         self.pi = pi
+        self.state_dim = pi.K
 
         if lmbda is not None:
             self.lmbda = lmbda
+            self._set_A()
         else:
             self.resample()
 
-    def resample(self,states_list=[]):
-        # resample lmbda
-        trans_counts = self._count_transitions(states_list)
-        self_trans = trans_counts.diagonal().sum()
-        total_out = trans_counts.sum() - self_trans
-        self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
+    def resample(self,states_list=[],niter=100,trans_counts=None):
+        if trans_counts is None:
+            trans_counts = self._count_transitions(states_list)
 
-        # resample everything else as usual
-        super(UniformTransitions,self).resample(states_list)
+        for itr in range(niter):
+            # resample lmbda
+            self_trans = trans_counts.diagonal().sum()
+            total_out = trans_counts.sum() - self_trans
+            self.lmbda = np.random.beta(self.a_0 + self_trans, self.b_0 + total_out)
+
+            # resample everything else as usual
+            super(UniformTransitions,self).resample(states_list,trans_counts=trans_counts,niter=1)
 
     def max_likelihood(self,expectations_list):
         raise NotImplementedError, "max_likelihood doesn't make sense on this class"
 
+    @classmethod
+    def test_sampling(cls,N=50,K=10,alpha_0=4.,lmbda_a_0=20.,lmbda_b_0=1.,true_lmbda=0.95):
+        from ..basic.distributions import Multinomial
+        from matplotlib import pyplot as plt
+
+        true_pi = np.random.dirichlet(np.repeat(alpha_0/K,K))
+        counts = np.array([np.random.multinomial(N,true_pi) for i in range(K)])
+        counts.flat[::K+1] = 0
+        for i,tot in enumerate(counts.sum(1)):
+            counts[i,i] = np.random.geometric(1-true_lmbda,size=tot).sum()
+
+        pi = Multinomial(alpha_0=alpha_0,K=K)
+        trans = cls(lmbda_a_0=lmbda_a_0,lmbda_b_0=lmbda_b_0,pi=pi)
+
+        plt.figure()
+        plt.plot(true_pi,'r')
+        cmap = plt.cm.get_cmap('Blues')
+        print 'True lmbda: %0.5f' % true_lmbda
+        for i in range(5):
+            trans.resample(trans_counts=counts)
+            print 'Sampled lmbda: %0.5f' % trans.lmbda
+            plt.plot(trans.pi.weights,'--',label=str(i),color=cmap((i+2)/(5+2)))
+        plt.legend()
+        plt.show()
 
 ######################
 #  HDP-HSMM classes  #
