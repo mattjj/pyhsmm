@@ -6,6 +6,190 @@ import scipy.weave
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
+
+class HMMStatesPython(object):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,
+            initialize_from_prior=True,**kwargs):
+        self.state_dim = state_dim
+        self.obs_distns = obs_distns
+        self.transition_distn = transition_distn
+        self.initial_distn = initial_distn
+
+        self.T = T
+        self.data = data
+
+        if stateseq is not None:
+            self.stateseq = stateseq
+        else:
+            if data is not None and not initialize_from_prior:
+                self.resample()
+            else:
+                self.generate_states()
+
+    ### generation
+
+    def generate(self):
+        self.generate_states()
+        return self.generate_obs()
+
+    def generate_states(self):
+        T = self.T
+        stateseq = np.zeros(T,dtype=np.int32)
+        nextstate_distn = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        for idx in xrange(T):
+            stateseq[idx] = sample_discrete(nextstate_distn)
+            nextstate_distn = A[stateseq[idx]]
+
+        self.stateseq = stateseq
+        return stateseq
+
+    def generate_obs(self):
+        obs = []
+        for state in self.stateseq:
+            obs.append(self.obs_distns[state].rvs(size=1))
+        return np.concatenate(obs)
+
+    ### message passing
+
+    def get_aBl(self,data):
+        # note: this method never uses self.T
+        aBl = np.zeros((data.shape[0],self.state_dim))
+        for idx, obs_distn in enumerate(self.obs_distns):
+            aBl[:,idx] = obs_distn.log_likelihood(data)
+        return aBl
+
+    def messages_forwards(self,aBl):
+        # note: this method never uses self.T
+        # or self.data
+        T = aBl.shape[0]
+        alphal = np.zeros((T,self.state_dim))
+        Al = np.log(self.transition_distn.A)
+
+        alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
+
+        for t in xrange(T-1):
+            alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
+
+        return alphal
+
+    def _messages_backwards(self,aBl):
+        betal = np.zeros(aBl.shape)
+        Al = np.log(self.transition_distn.A)
+        T = aBl.shape[0]
+
+        for t in xrange(T-2,-1,-1):
+            np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
+
+        return betal
+
+    ### Gibbs sampling
+
+    def sample_forwards(self,aBl,betal):
+        T = aBl.shape[0]
+        stateseq = np.zeros(T,dtype=np.int32)
+        nextstate_unsmoothed = self.initial_distn.pi_0
+        A = self.transition_distn.A
+
+        for idx in xrange(T):
+            logdomain = betal[idx] + aBl[idx]
+            logdomain[nextstate_unsmoothed == 0] = -np.inf # to enforce constraints in the trans matrix
+            stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
+            nextstate_unsmoothed = A[stateseq[idx]]
+
+        self.stateseq = stateseq
+
+    def resample(self):
+        if self.data is None:
+            print 'ERROR: can only call resample on %s instances with data' % type(self)
+        else:
+            data = self.data
+
+        aBl = self.get_aBl(data)
+        betal = self._messages_backwards(aBl)
+        self.sample_forwards(aBl,betal)
+
+        return self
+
+    ### EM
+
+    def E_step(self):
+        aBl = self.aBl = self.get_aBl(self.data) # saving aBl makes transition distn job easier
+
+        alphal = self.alphal = self.messages_forwards(aBl)
+        betal = self.betal = self._messages_backwards(aBl)
+        expectations = self.expectations = alphal + betal
+
+        expectations -= expectations.max(1)[:,na]
+        np.exp(expectations,out=expectations)
+        expectations /= expectations.sum(1)[:,na]
+
+    ### plotting
+
+    def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
+        from matplotlib import pyplot as plt
+        states,durations = util.rle(self.stateseq)
+        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),vertical_extent)
+
+        if colors_dict is not None:
+            C = np.array([[colors_dict[state] for state in states]])
+        else:
+            C = states[na,:]
+
+        plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
+        plt.ylim(vertical_extent)
+        plt.xlim((0,durations.sum()))
+        plt.yticks([])
+
+class HMMStatesEigen(HMMStatesPython):
+    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,
+            stateseq=None,data=None,censoring=True,
+            initialize_from_prior=True,**kwargs):
+        # TODO shouldn't this use parent's init?
+        self.state_dim = state_dim
+        self.obs_distns = obs_distns
+        self.transition_distn = transition_distn
+        self.initial_distn = initial_distn
+        self.T = T
+        self.data = data
+
+        self.messages_backwards_codestr = hmm_messages_backwards_codestr % {'M':state_dim}
+        self.sample_forwards_codestr = hmm_sample_forwards_codestr % {'M':state_dim}
+
+        if stateseq is not None:
+            self.stateseq = stateseq
+        else:
+            if data is not None and not initialize_from_prior:
+                self.resample()
+            else:
+                self.generate_states()
+
+    def _messages_backwards(self,aBl):
+        T = self.T
+        AT = self.transition_distn.A.T.copy()
+        betal = np.zeros((self.T,self.state_dim))
+
+        scipy.weave.inline(self.messages_backwards_codestr,['AT','betal','aBl','T'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return betal
+
+    def sample_forwards(self,aBl,betal):
+        T = self.T
+        A = self.transition_distn.A
+        pi0 = self.initial_distn.pi_0
+
+        stateseq = np.zeros(T,dtype=np.int32)
+
+        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq = stateseq
+
+
 class HSMMStatesPython(object):
     '''
     HSMM states distribution class. Connects the whole model.
@@ -270,189 +454,6 @@ class HSMMStatesEigen(HSMMStatesPython):
             # TODO instead of 3*T, use log_sf
             self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
 
-
-class HMMStatesPython(object):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,stateseq=None,data=None,
-            initialize_from_prior=True,**kwargs):
-        self.state_dim = state_dim
-        self.obs_distns = obs_distns
-        self.transition_distn = transition_distn
-        self.initial_distn = initial_distn
-
-        self.T = T
-        self.data = data
-
-        if stateseq is not None:
-            self.stateseq = stateseq
-        else:
-            if data is not None and not initialize_from_prior:
-                self.resample()
-            else:
-                self.generate_states()
-
-    ### generation
-
-    def generate(self):
-        self.generate_states()
-        return self.generate_obs()
-
-    def generate_states(self):
-        T = self.T
-        stateseq = np.zeros(T,dtype=np.int32)
-        nextstate_distn = self.initial_distn.pi_0
-        A = self.transition_distn.A
-
-        for idx in xrange(T):
-            stateseq[idx] = sample_discrete(nextstate_distn)
-            nextstate_distn = A[stateseq[idx]]
-
-        self.stateseq = stateseq
-        return stateseq
-
-    def generate_obs(self):
-        obs = []
-        for state in self.stateseq:
-            obs.append(self.obs_distns[state].rvs(size=1))
-        return np.concatenate(obs)
-
-    ### message passing
-
-    def get_aBl(self,data):
-        # note: this method never uses self.T
-        aBl = np.zeros((data.shape[0],self.state_dim))
-        for idx, obs_distn in enumerate(self.obs_distns):
-            aBl[:,idx] = obs_distn.log_likelihood(data)
-        return aBl
-
-    def messages_forwards(self,aBl):
-        # note: this method never uses self.T
-        # or self.data
-        T = aBl.shape[0]
-        alphal = np.zeros((T,self.state_dim))
-        Al = np.log(self.transition_distn.A)
-
-        alphal[0] = np.log(self.initial_distn.pi_0) + aBl[0]
-
-        for t in xrange(T-1):
-            alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
-
-        return alphal
-
-    def _messages_backwards(self,aBl):
-        betal = np.zeros(aBl.shape)
-        Al = np.log(self.transition_distn.A)
-        T = aBl.shape[0]
-
-        for t in xrange(T-2,-1,-1):
-            np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
-
-        return betal
-
-    ### Gibbs sampling
-
-    def sample_forwards(self,aBl,betal):
-        T = aBl.shape[0]
-        stateseq = np.zeros(T,dtype=np.int32)
-        nextstate_unsmoothed = self.initial_distn.pi_0
-        A = self.transition_distn.A
-
-        for idx in xrange(T):
-            logdomain = betal[idx] + aBl[idx]
-            logdomain[nextstate_unsmoothed == 0] = -np.inf # to enforce constraints in the trans matrix
-            stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
-            nextstate_unsmoothed = A[stateseq[idx]]
-
-        self.stateseq = stateseq
-
-    def resample(self):
-        if self.data is None:
-            print 'ERROR: can only call resample on %s instances with data' % type(self)
-        else:
-            data = self.data
-
-        aBl = self.get_aBl(data)
-        betal = self._messages_backwards(aBl)
-        self.sample_forwards(aBl,betal)
-
-        return self
-
-    ### EM
-
-    def E_step(self):
-        aBl = self.aBl = self.get_aBl(self.data) # saving aBl makes transition distn job easier
-
-        alphal = self.alphal = self.messages_forwards(aBl)
-        betal = self.betal = self._messages_backwards(aBl)
-        expectations = self.expectations = alphal + betal
-
-        expectations -= expectations.max(1)[:,na]
-        np.exp(expectations,out=expectations)
-        expectations /= expectations.sum(1)[:,na]
-
-    ### plotting
-
-    def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
-        from matplotlib import pyplot as plt
-        states,durations = util.rle(self.stateseq)
-        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),vertical_extent)
-
-        if colors_dict is not None:
-            C = np.array([[colors_dict[state] for state in states]])
-        else:
-            C = states[na,:]
-
-        plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
-        plt.ylim(vertical_extent)
-        plt.xlim((0,durations.sum()))
-        plt.yticks([])
-
-class HMMStatesEigen(HMMStatesPython):
-    def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,
-            stateseq=None,data=None,censoring=True,
-            initialize_from_prior=True,**kwargs):
-        # TODO shouldn't this use parent's init?
-        self.state_dim = state_dim
-        self.obs_distns = obs_distns
-        self.transition_distn = transition_distn
-        self.initial_distn = initial_distn
-        self.T = T
-        self.data = data
-
-        self.messages_backwards_codestr = hmm_messages_backwards_codestr % {'M':state_dim}
-        self.sample_forwards_codestr = hmm_sample_forwards_codestr % {'M':state_dim}
-
-        if stateseq is not None:
-            self.stateseq = stateseq
-        else:
-            if data is not None and not initialize_from_prior:
-                self.resample()
-            else:
-                self.generate_states()
-
-    def _messages_backwards(self,aBl):
-        T = self.T
-        AT = self.transition_distn.A.T.copy()
-        betal = np.zeros((self.T,self.state_dim))
-
-        scipy.weave.inline(self.messages_backwards_codestr,['AT','betal','aBl','T'],
-                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return betal
-
-    def sample_forwards(self,aBl,betal):
-        T = self.T
-        A = self.transition_distn.A
-        pi0 = self.initial_distn.pi_0
-
-        stateseq = np.zeros(T,dtype=np.int32)
-
-        scipy.weave.inline(self.sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal'],
-                headers=['<Eigen/Core>','<limits>'],include_dirs=['/usr/local/include/eigen3'],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        self.stateseq = stateseq
-
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,changepoints,T,state_dim,obs_distns,dur_distns,transition_distn,initial_distn,
             trunc=None,data=None,stateseq=None,
@@ -641,10 +642,12 @@ def use_eigen(useit=True):
     # TODO this method is probably dumb; should get rid of it and just make the
     #class usage explicit
     global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
-            hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr
+            hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr, \
+            eigen_path
 
     if useit:
         import os
+        eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
         eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
         with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
             hsmm_sample_forwards_codestr = infile.read()
