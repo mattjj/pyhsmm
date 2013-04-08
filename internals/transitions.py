@@ -14,6 +14,7 @@ from ..util.general import rle
 
 # TODO scaling by self.state_dim in concresampling is the confusing result of
 # having a DirGamma object and not a WLDPGamma object! make one
+# TODO reuse Multinomial/Categorical code
 
 class ConcentrationResampling(object):
     def __init__(self,state_dim,alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
