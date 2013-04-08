@@ -21,12 +21,12 @@ obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.1, # NOTE: smaller kappa_0 spreads out clusters, makes things easier
+                'kappa_0':0.05,
                 'nu_0':obs_dim+5}
 
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 true_trans_distn = transitions.UniformTransitionsFixedSelfTrans(
-        pi=pyhsmm.distributions.Multinomial(alpha_0=10.*N,K=N), # big alpha_0 means uniform transitions
+        pi=pyhsmm.distributions.Multinomial(alpha_0=10.*N,K=N),
         lmbda=0.9)
 
 truemodel = pyhsmm.models.HMM(
@@ -50,8 +50,8 @@ Nmax = 25
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 trans_distn = transitions.UniformTransitions(
-        pi=pyhsmm.distributions.Multinomial(alpha_0=6.,K=Nmax), # NOTE: alpha_0=4 is informative!!!
-        lmbda_a_0=9.,lmbda_b_0=1.) # beta prior over self-trans prob lmbda, seen 9 heads and 1 tails from 10 flips
+        pi=pyhsmm.distributions.MultinomialConcentration(1.,2.,K=Nmax),
+        lmbda_a_0=9.,lmbda_b_0=1.)
 
 posteriormodel = pyhsmm.models.HMM(
         init_state_concentration=Nmax, # doesn't matter with one observation sequence
@@ -61,7 +61,7 @@ posteriormodel = pyhsmm.models.HMM(
 posteriormodel.add_data(data)
 
 savedstuff = []
-for idx in progprint_xrange(100):
+for idx in progprint_xrange(50):
     posteriormodel.resample_model()
     savedstuff.append(
             (
@@ -71,8 +71,8 @@ for idx in progprint_xrange(100):
             ))
 
 plt.figure()
-savedstuff = savedstuff[10:] # cut off first few samples as 'burn-in'
-cluster_numbers = [(np.bincount(s[2]) > T*0.05).sum() for s in savedstuff] # stated used more than 5% of time
+savedstuff = savedstuff[10:]
+cluster_numbers = [(np.bincount(s[2]) > T*0.05).sum() for s in savedstuff]
 lmbda_values = [s[1] for s in savedstuff]
 plt.plot(cluster_numbers,lmbda_values,'bx')
 plt.xlim(np.min(cluster_numbers)-1,np.max(cluster_numbers)+1)
