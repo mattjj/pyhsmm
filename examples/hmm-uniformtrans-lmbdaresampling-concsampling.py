@@ -2,8 +2,7 @@ from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
-import matplotlib
-matplotlib.rcParams['font.size'] = 8
+import scipy.stats as stats
 
 import pyhsmm
 import pyhsmm.internals.transitions as transitions
@@ -50,8 +49,13 @@ Nmax = 25
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 trans_distn = transitions.UniformTransitions(
+        # NOTE: a_0 is a shape parameter; setting it less than 1 puts the mode
+        # at zero, and making it closer to 0 makes higher concentrations really
+        # costly. b_0 is a scale parameter. prior is plotted below.
         pi=pyhsmm.distributions.MultinomialConcentration(a_0=0.5,b_0=1./4,K=Nmax),
         lmbda_a_0=9.,lmbda_b_0=1.)
+
+
 
 posteriormodel = pyhsmm.models.HMM(
         init_state_concentration=Nmax, # doesn't matter with one observation sequence
@@ -73,6 +77,11 @@ for idx in progprint_xrange(50):
 plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('Sampled after 100 iterations')
+
+plt.figure()
+t = np.linspace(0.01,30,1000)
+plt.plot(t,stats.gamma.pdf(t,0.5,scale=4.)) # NOTE: numpy/scipy scale is inverted compared to my scale
+plt.title('Prior on concentration parameter')
 
 plt.figure()
 savedstuff = savedstuff[10:]
