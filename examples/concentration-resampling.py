@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
+import scipy.stats as stats
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
@@ -64,5 +65,10 @@ for idx in progprint_xrange(100):
 plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('Sampled after 100 iterations')
+
+plt.figure()
+t = np.linspace(0.01,30,1000)
+plt.plot(t,stats.gamma.pdf(t,1.,scale=4.)) # NOTE: numpy/scipy scale is inverted compared to my scale
+plt.title('Prior on concentration parameters')
 
 plt.show()
