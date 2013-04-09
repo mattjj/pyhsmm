@@ -51,8 +51,8 @@ dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in
 posteriormodel = pyhsmm.models.HSMM(
         # NOTE: instead of passing in alpha_0 and gamma_0, we pass in parameters
         # for priors over those concentration parameters
-        alpha_a_0=0.5,alpha_b_0=3.,
-        gamma_a_0=0.5,gamma_b_0=3.,
+        alpha_a_0=1.,alpha_b_0=1./4,
+        gamma_a_0=1.,gamma_b_0=1./4,
         init_state_concentration=6.,
         obs_distns=obs_distns,
         dur_distns=dur_distns,trunc=70)
