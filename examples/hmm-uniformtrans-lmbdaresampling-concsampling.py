@@ -50,7 +50,7 @@ Nmax = 25
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 trans_distn = transitions.UniformTransitions(
-        pi=pyhsmm.distributions.MultinomialConcentration(1.,2.,K=Nmax),
+        pi=pyhsmm.distributions.MultinomialConcentration(a_0=0.5,b_0=1./4,K=Nmax),
         lmbda_a_0=9.,lmbda_b_0=1.)
 
 posteriormodel = pyhsmm.models.HMM(
@@ -69,6 +69,10 @@ for idx in progprint_xrange(50):
                 trans_distn.lmbda,
                 posteriormodel.states_list[0].stateseq.copy()
             ))
+
+plt.figure()
+posteriormodel.plot()
+plt.gcf().suptitle('Sampled after 100 iterations')
 
 plt.figure()
 savedstuff = savedstuff[10:]
