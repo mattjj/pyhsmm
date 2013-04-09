@@ -15,6 +15,9 @@ This demo shows how HDP-HMMs can fail when the underlying data has state
 persistence without some kind of temporal regularization (in the form of a
 sticky bias or duration modeling): without setting the number of states to be
 the correct number a priori, lots of extra states can be intsantiated.
+
+BUT the effect is much more relevant on real data (when the data doesn't exactly
+fit the model). Maybe this demo should use multinomial emissions...
 '''
 
 #####################
