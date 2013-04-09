@@ -25,10 +25,10 @@ class ConcentrationResampling(object):
         # multiply by state_dim because the trans objects divide by it (since
         # their parameters correspond to the DP parameters, and so they convert
         # into weak limit scaling)
-        self.alpha_obj.resample(self.trans_counts,weighted_cols=self.beta,niter=5)
-        self.alpha = self.alpha_obj.concentration*self.state_dim
-        self.gamma_obj.resample(self.m,niter=5)
-        self.gamma = self.gamma_obj.concentration*self.state_dim
+        self.alpha_obj.resample(self.trans_counts,weighted_cols=self.beta)
+        self.alpha = self.alpha_obj.concentration
+        self.gamma_obj.resample(self.m)
+        self.gamma = self.gamma_obj.concentration
 
 ######################
 #  HDP-HMM classes  #
