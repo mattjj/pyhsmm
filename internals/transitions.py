@@ -187,13 +187,13 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
 
     @classmethod
     def test_sampling(cls,N=50,K=10,alpha_0=4.,lmbda=0.95):
-        from ..basic.distributions import Multinomial
+        from ..basic.distributions import Categorical
         from matplotlib import pyplot as plt
 
         true_pi = np.random.dirichlet(np.repeat(alpha_0/K,K))
         counts = np.array([np.random.multinomial(N,true_pi) for i in range(K)]) # diagional ignored
 
-        pi = Multinomial(alpha_0=alpha_0,K=K)
+        pi = Categorical(alpha_0=alpha_0,K=K)
         trans = cls(lmbda,pi)
 
         plt.figure()
@@ -253,7 +253,7 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
 
     @classmethod
     def test_sampling(cls,N=50,K=10,alpha_0=4.,lmbda_a_0=20.,lmbda_b_0=1.,true_lmbda=0.95):
-        from ..basic.distributions import Multinomial
+        from ..basic.distributions import Categorical
         from matplotlib import pyplot as plt
 
         true_pi = np.random.dirichlet(np.repeat(alpha_0/K,K))
@@ -262,7 +262,7 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
         for i,tot in enumerate(counts.sum(1)):
             counts[i,i] = np.random.geometric(1-true_lmbda,size=tot).sum()
 
-        pi = Multinomial(alpha_0=alpha_0,K=K)
+        pi = Categorical(alpha_0=alpha_0,K=K)
         trans = cls(lmbda_a_0=lmbda_a_0,lmbda_b_0=lmbda_b_0,pi=pi)
 
         plt.figure()
