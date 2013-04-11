@@ -210,7 +210,7 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
     def max_likelihood(self,expectations_list):
         trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
         trans_softcounts = self._E_augment_transitions(trans_softcounts)
-        self.pi.max_likelihood_countdata(trans_softcounts.sum(0))
+        self.pi.max_likelihood(trans_softcounts.sum(0))
         self._set_A()
 
     def _E_augment_transitions(self,trans_softcounts):
