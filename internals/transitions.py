@@ -166,7 +166,7 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
 
         for itr in range(niter):
             aug_trans_counts = self._augment_transitions(trans_counts)
-            self.pi.resample(count_data=aug_trans_counts.sum(0))
+            self.pi.resample(aug_trans_counts.sum(0))
 
         self._set_A()
 
