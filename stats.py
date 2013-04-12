@@ -50,7 +50,7 @@ def flattendata(data):
         return data
     elif isinstance(data,list):
         if any(isinstance(d,np.ma.MaskedArray) for d in data):
-            return np.ma.concatenate(data)
+            return np.ma.concatenate(data).compressed()
         else:
             return np.concatenate(data)
     else:
