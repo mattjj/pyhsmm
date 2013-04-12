@@ -164,4 +164,6 @@ def beta_predictive(priorcounts,newcounts):
     return numer - denom
 
 def cov(a):
-    return np.cov(a,rowvar=0,bias=1)
+    # return np.cov(a,rowvar=0,bias=1)
+    mu = a.mean(0)
+    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
