@@ -49,7 +49,10 @@ def flattendata(data):
     if isinstance(data,np.ndarray):
         return data
     elif isinstance(data,list):
-        return np.ma.concatenate(data)
+        if any(isinstance(d,np.ma.MaskedArray) for d in data):
+            return np.ma.concatenate(data)
+        else:
+            return np.concatenate(data)
     else:
         assert isinstance(data,int) or isinstance(data,float)
         return np.array(data,ndmin=1)
