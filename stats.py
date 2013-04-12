@@ -50,7 +50,7 @@ def flattendata(data):
         return data
     elif isinstance(data,list):
         if any(isinstance(d,np.ma.MaskedArray) for d in data):
-            return np.ma.concatenate(data)
+            return np.ma.concatenate(data).compressed()
         else:
             return np.concatenate(data)
     else:
@@ -167,4 +167,6 @@ def beta_predictive(priorcounts,newcounts):
     return numer - denom
 
 def cov(a):
-    return np.cov(a,rowvar=0,bias=1)
+    # return np.cov(a,rowvar=0,bias=1)
+    mu = a.mean(0)
+    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
