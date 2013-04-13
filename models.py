@@ -181,7 +181,9 @@ class HMM(ModelGibbsSampling, ModelEM):
                     [s.expectations[:,state] for s in self.states_list])
 
         # initial distribution parameters
-        self.init_state_distn.max_likelihood(None,[s.expectations[0] for s in self.states_list])
+        self.init_state_distn.max_likelihood(
+                np.arange(self.state_dim), # just a placeholder
+                [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood([(s.alphal,s.betal,s.aBl) for s in self.states_list])
@@ -282,7 +284,7 @@ class StickyHMM(HMM, ModelGibbsSampling):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
 
-class HSMM(HMM, ModelGibbsSampling):
+class HSMM(HMM, ModelGibbsSampling, ModelEM):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
         * HSMM internals, including distribution objects for
@@ -370,7 +372,13 @@ class HSMM(HMM, ModelGibbsSampling):
     ### EM
 
     def EM_step(self):
-        raise NotImplementedError # TODO
+        super(HSMM,self).EM_step()
+
+        # M step for duration distributions
+        for state, distn in enumerate(self.dur_distns):
+            distn.max_likelihood(
+                    [np.arange(s.T) for s in self.states_list], # just a placeholder
+                    [s.expectations[:,state] for s in self.states_list])
 
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) \
