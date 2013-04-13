@@ -7,7 +7,6 @@ from matplotlib import cm
 from basic.abstractions import ModelGibbsSampling, ModelEM
 from internals import states, initial_state, transitions
 
-
 class HMM(ModelGibbsSampling, ModelEM):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
@@ -56,12 +55,8 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.states_list.append(states.HMMStates(model=self,data=data,stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
-        if len(self.states_list) > 0:
-            s = self.states_list[0] # any state sequence object will work
-        else:
-            s = states.HMMStates(
-                    model=self,data=data,stateseq=np.zeros(len(data),dtype=np.uint8)) # placeholders
-
+        s = states.HMMStates(model=self,data=data,
+                stateseq=np.zeros(len(data))) # placeholder
         betal = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
@@ -251,7 +246,6 @@ class HMM(ModelGibbsSampling, ModelEM):
             plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
             s.plot(colors_dict=colors)
 
-
 class StickyHMM(HMM, ModelGibbsSampling):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
@@ -340,7 +334,10 @@ class HSMM(HMM, ModelGibbsSampling):
             data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        raise NotImplementedError # TODO
+        s = states.HSMMStates(model=self,data=data,trunc=trunc,
+                stateseq=np.zeros(len(data)),**kwargs)
+        betal, betastarl = s.messages_backwards()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
     ### generation
 
@@ -374,6 +371,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def EM_step(self):
         raise NotImplementedError # TODO
+
+    def num_parameters(self):
+        return sum(o.num_parameters() for o in self.obs_distns) \
+                + sum(d.num_parameters() for d in self.dur_distns) \
+                + self.state_dim**2 - self.state_dim
 
     ### plotting
 
@@ -412,7 +414,6 @@ class HSMM(HMM, ModelGibbsSampling):
         # alternative plot that isn't so big
         raise NotImplementedError # TODO
 
-
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
@@ -439,9 +440,12 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def log_likelihood(self,data,trunc=None):
         raise NotImplementedError
 
-
 class HSMMGeoApproximation(HSMM):
-    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStatesGeoApproximation(
-            self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+    def add_data(self,data,dynamic_approximation=False,stateseq=None,censoring=True,**kwargs):
+        if not dynamic_approximation:
+            self.states_list.append(states.HSMMStatesGeoApproximation(
+                self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+        else:
+            self.states_list.append(states.HSMMStatesGeoDynamicApproximation(
+                self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
 

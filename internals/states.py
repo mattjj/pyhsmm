@@ -53,8 +53,6 @@ class HMMStatesPython(object):
     # this stuff depends on model parameters, so it must be cleared when the
     # model changes
 
-    # TODO improve names
-
     def clear_caches(self):
         self._aBl = None
 
@@ -155,7 +153,6 @@ class HMMStatesPython(object):
         plt.ylim(vertical_extent)
         plt.xlim((0,durations.sum()))
         plt.yticks([])
-
 
 class HMMStatesEigen(HMMStatesPython):
     def __init__(self,model,*args,**kwargs):
@@ -264,8 +261,6 @@ class HSMMStatesPython(HMMStatesPython):
         self.durations = np.array(durations,dtype=np.int32) # sum(self.durations) >= self.T
 
     ### caching
-
-    # TODO improve names
 
     def clear_caches(self):
         self._aDl = None
@@ -411,7 +406,6 @@ class HSMMStatesPython(HMMStatesPython):
         plt.xlim((0,self.T))
         plt.yticks([])
         plt.title('State Sequence')
-
 
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
@@ -597,47 +591,48 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self.stateseq[start:stop] = state
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
+# NOTE: these only work with iid emissions
+
 class HSMMStatesGeoApproximation(HSMMStatesPython):
-    def __init__(self,*args,**kwargs):
-        super(HSMMStatesGeoApproximation,self).__init__(*args,**kwargs)
-        self._hmm_states = HMMStates(model=self.model,data=self.data,stateseq=self.stateseq)
-
-    def messages_backwards(self):
-        'approximates duration tails at indices > trunc with geometric tails'
-        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.model.trans_distn.A)
-        trunc = self.trunc if self.trunc is not None else T
-
-        assert trunc > 0
-        assert trunc > 1 # if trunc == 1, aDsl won't work, just need sf(trunc-1) == 1
-
-        ### run HMM message passing for tail approximation
-
+    def _get_hmm_transition_matrix(self):
+        trunc = self.trunc if self.trunc is not None else self.T
         hmm_A = self.model.trans_distn.A.copy()
         hmm_A.flat[::self.state_dim+1] = 0
         thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.model.dur_distns])
         hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
         hmm_A.flat[::self.state_dim+1] = thediag
-        self._hmm_states.transition_distn.A = hmm_A
-        hmm_betal = self._hmm_states.messages_backwards(self.aBl)
+        return hmm_A
 
-        ### run HSMM message passing almost as before
+    def messages_backwards(self):
+        'approximates duration tails at indices > trunc with geometric tails'
+        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.model.trans_distn.A)
+        trunc = self.trunc if self.trunc is not None else self.T
+        T,state_dim = aDl.shape
 
-        T = aDl.shape[0]
-        state_dim = Al.shape[0]
+        assert trunc > 1
+
+        hmm_betal = HMMStates._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
+
         betal = np.zeros((T,state_dim),dtype=np.float64)
-        betastarl = np.zeros((T,state_dim),dtype=np.float64)
+        betastarl = np.zeros_like(betal)
 
         for t in xrange(T-1,-1,-1):
-            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            # geometric approximation term using HMM messages
+            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc)
+                    + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
             if t+trunc < T:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1] + hmm_betal[t+trunc], out=betastarl[t])
+                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
+                        + hmm_betal[t+trunc], out=betastarl[t])
             if T-t < trunc and self.censoring:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
 
         return betal, betastarl
+
+class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
+    def messages_backwards(self):
+        raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
+        super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
 
 ################################
 #  use_eigen stuff below here  #
