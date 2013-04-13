@@ -182,7 +182,7 @@ class HMM(ModelGibbsSampling, ModelEM):
 
         # initial distribution parameters
         self.init_state_distn.max_likelihood(
-                np.arange(self.state_dim), # just a placeholder
+                None, # placeholder, "should" be np.arange(self.state_dim)
                 [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
@@ -377,7 +377,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
-                    [np.arange(s.T) for s in self.states_list], # just a placeholder
+                    None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
                     [s.expectations[:,state] for s in self.states_list])
 
     def num_parameters(self):
