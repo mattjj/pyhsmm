@@ -319,7 +319,8 @@ class HSMM(HMM, ModelGibbsSampling):
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStates(self,data=data,stateseq=stateseq,censoring=censoring))
+        self.states_list.append(states.HSMMStates(self,
+            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc))
 
     def resample_model(self):
         # resample durparams
@@ -425,7 +426,7 @@ class HSMM(HMM, ModelGibbsSampling):
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                states.HSMMStatesPossibleChangepoints(self,changepoints,data=data,**kwargs))
+                states.HSMMStatesPossibleChangepoints(self,changepoints,data=data,trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -451,5 +452,5 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 class HSMMGeoApproximation(HSMM):
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(states.HSMMStatesGeoApproximation(
-            self,data=data,stateseq=stateseq,censoring=censoring,**kwargs))
+            self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
