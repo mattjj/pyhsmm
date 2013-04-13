@@ -322,7 +322,7 @@ class HSMMStatesPython(HMMStatesPython):
             prob_so_far = 0.0
             while durprob > 0:
                 assert dur < 2*T # hacky infinite loop check
-                #assert self.dur_distns[state].pmf(dur+1) == apmf[state,dur]
+                #assert self.model.dur_distns[state].pmf(dur+1) == apmf[state,dur]
                 # NOTE: funny indexing: dur variable is 1 less than actual dur we're considering
                 p_d_marg = apmf[state,dur] if dur < T else 1.
                 assert not np.isnan(p_d_marg)
@@ -403,7 +403,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 
         if self.censoring:
             dur = self.durations[-1]
-            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
+            dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
             # TODO instead of 3*T, use log_sf
             self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
 
