@@ -64,8 +64,8 @@ class HMM(ModelGibbsSampling, ModelEM):
         if len(self.states_list) > 0:
             s = self.states_list[0] # any state sequence object will work
         else:
-            s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                    self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
+            s = states.HMMStates(
+                    model=self,data=data,stateseq=np.zeros(len(data),dtype=np.uint8)) # placeholders
 
         aBl = s.get_aBl(data)
         betal = s.messages_backwards(aBl)
@@ -87,9 +87,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         from the posterior (as long as the Gibbs sampling has converged). In
         these cases, the keep argument should be False.
         '''
-        tempstates = states.HMMStates(T,self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn)
-
+        tempstates = states.HMMStates(self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -331,9 +329,8 @@ class HSMM(HMM, ModelGibbsSampling):
         # resample everything else an hmm does
         super(HSMM,self).resample_model()
 
-    def generate(self,T,keep=True):
-        tempstates = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
-                self.trans_distn,self.init_state_distn,trunc=self.trunc)
+    def generate(self,T,keep=True,**kwargs):
+        tempstates = states.HSMMStates(self,T=T,initialize_from_prior=True,trunc=self.trunc,**kwargs)
         return self._generate(tempstates,keep)
 
     ### parallel sampling
@@ -403,15 +400,13 @@ class HSMM(HMM, ModelGibbsSampling):
         # alternative plot
         raise NotImplementedError
 
-    def log_likelihood(self,data,trunc=None):
+    def log_likelihood(self,data,trunc=None,**kwargs):
         warn('untested')
         T = len(data)
         if trunc is None:
             trunc = T
         # make a temporary states object to make sure no data gets clobbered
-        s = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
-                self.trans_distn,self.init_state_distn,trunc=trunc)
-        s.obs = data
+        s = states.HSMMStates(self,data=data,trunc=trunc,**kwargs)
         possible_durations = np.arange(1,trunc + 1,dtype=np.float64)
         aDl = np.zeros((T,self.state_dim))
         aDsl = np.zeros((T,self.state_dim))

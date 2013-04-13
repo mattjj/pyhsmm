@@ -45,7 +45,7 @@ class HMMStatesPython(object):
     def generate_obs(self):
         obs = []
         for state,dur in zip(*util.rle(self.stateseq)):
-            obs.append(self.obs_distns[state].rvs(size=int(dur)))
+            obs.append(self.model.obs_distns[state].rvs(size=int(dur)))
         return np.concatenate(obs)
 
     ### message passing
@@ -378,9 +378,6 @@ class HSMMStatesPython(HMMStatesPython):
 
 
 class HSMMStatesEigen(HSMMStatesPython):
-    def __init__(self,T,state_dim,*args,**kwargs):
-        super(HSMMStatesEigen,self).__init__(T,state_dim,*args,**kwargs)
-
     def sample_forwards(self,betal,betastarl):
         global hsmm_sample_forwards_codestr, eigen_path
 
