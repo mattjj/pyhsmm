@@ -53,12 +53,11 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn,data=data,stateseq=stateseq,**kwargs))
+        self.states_list.append(states.HMMStates(model=self,data=data,stateseq=stateseq,**kwargs))
 
-    def add_data_parallel(self,data_id):
+    def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id])
+        self.add_data(parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def log_likelihood(self,data):
@@ -69,7 +68,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                     self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
 
         aBl = s.get_aBl(data)
-        betal = s._messages_backwards(aBl)
+        betal = s.messages_backwards(aBl)
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
 
     ### generation
@@ -154,9 +153,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         from pyhsmm import parallel
         raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
         for data_id, stateseq in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    stateseq=stateseq)
+            self.add_data(data=parallel.alldata[data_id],stateseq=stateseq)
             self.states_list[-1].data_id = data_id
     ### EM
 
@@ -324,9 +321,7 @@ class HSMM(HMM, ModelGibbsSampling):
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,
-            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,
-            censoring=censoring))
+        self.states_list.append(states.HSMMStates(self,data=data,stateseq=stateseq,censoring=censoring))
 
     def resample_model(self):
         # resample durparams
@@ -342,9 +337,9 @@ class HSMM(HMM, ModelGibbsSampling):
         return self._generate(tempstates,keep)
 
     ### parallel sampling
-    def add_data_parallel(self,data_id):
+    def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id])
+        self.add_data(parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def resample_model_parallel(self,numtoresample='all'):
@@ -425,7 +420,7 @@ class HSMM(HMM, ModelGibbsSampling):
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
 
         s.aBl = s.get_aBl(data)
-        betal, betastarl = s._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
+        betal, betastarl = s.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
         return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
 
     def EM_step(self):
@@ -435,11 +430,7 @@ class HSMM(HMM, ModelGibbsSampling):
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                states.HSMMStatesPossibleChangepoints(
-                    changepoints, len(data), self.state_dim, self.obs_distns,
-                    self.dur_distns, self.trans_distn, self.init_state_distn,
-                    trunc=self.trunc, data=data,
-                    **kwargs))
+                states.HSMMStatesPossibleChangepoints(self,changepoints,data=data,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -464,4 +455,6 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
 class HSMMGeoApproximation(HSMM):
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStatesGeoApproximation(len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,censoring=censoring))
+        self.states_list.append(states.HSMMStatesGeoApproximation(
+            self,data=data,stateseq=stateseq,censoring=censoring,**kwargs))
+
