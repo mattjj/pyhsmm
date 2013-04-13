@@ -1,10 +1,10 @@
 using namespace Eigen;
 
 // inputs
-Map<MatrixXd> eA(A,%(M)d,%(M)d);
-Map<MatrixXd> eaBl(aBl,%(M)d,T);
-Map<MatrixXd> ebetal(betal,%(M)d,T);
-Map<VectorXd> epi0(pi0,%(M)d);
+Map<MatrixXd> eA(A,M,M);
+Map<MatrixXd> eaBl(aBl,M,T);
+Map<MatrixXd> ebetal(betal,M,T);
+Map<VectorXd> epi0(pi0,M);
 
 // outputs
 Map<VectorXi> estateseq(stateseq,T);
@@ -12,9 +12,9 @@ Map<VectorXi> estateseq(stateseq,T);
 // locals
 int idx, state;
 double total;
-VectorXd nextstate_unsmoothed(%(M)d);
-VectorXd logdomain(%(M)d);
-VectorXd nextstate_distr(%(M)d);
+VectorXd nextstate_unsmoothed(M);
+VectorXd logdomain(M);
+VectorXd nextstate_distr(M);
 
 // code!
 idx = 0;

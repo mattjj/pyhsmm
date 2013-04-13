@@ -1,27 +1,26 @@
 using namespace Eigen;
 
-Map<MatrixXd> ebetal(betal,%(M)d,%(T)d);
-Map<MatrixXd> ebetastarl(betastarl,%(M)d,%(T)d);
-Map<MatrixXd> eaBl(aBl,%(M)d,%(T)d);
-Map<MatrixXd> eA(A,%(M)d,%(M)d);
-Map<VectorXd> epi0(pi0,%(M)d);
-Map<MatrixXd> eapmf(apmf,%(T)d,%(M)d);
+// inputs
 
-//MatrixXd ebetal(%(M)d,%(T)d), ebetastarl(%(M)d,%(T)d), eaBl(%(M)d,%(T)d), eA(%(M)d,%(M)d), eapmf(%(T)d,%(M)d);
-//VectorXd epi0(%(M)d);
+Map<MatrixXd> ebetal(betal,M,T);
+Map<MatrixXd> ebetastarl(betastarl,M,T);
+Map<MatrixXd> eaBl(aBl,M,T);
+Map<MatrixXd> eA(A,M,M);
+Map<VectorXd> epi0(pi0,M);
+Map<MatrixXd> eapmf(apmf,M,T);
 
 // outputs
 
-Map<VectorXi> estateseq(stateseq,%(T)d);
-//VectorXi estateseq(%(T)d);
+Map<VectorXi> estateseq(stateseq,T);
+//VectorXi estateseq(T);
 estateseq.setZero();
 
 // locals
 int idx, state, dur;
 double durprob, p_d_marg, p_d, total;
-VectorXd nextstate_unsmoothed(%(M)d);
-VectorXd logdomain(%(M)d);
-VectorXd nextstate_distr(%(M)d);
+VectorXd nextstate_unsmoothed(M);
+VectorXd logdomain(M);
+VectorXd nextstate_distr(M);
 
 // code!
 // don't think i need to seed... should include sys/time.h for this
@@ -32,7 +31,7 @@ VectorXd nextstate_distr(%(M)d);
 idx = 0;
 nextstate_unsmoothed = epi0;
 
-while (idx < %(T)d) {
+while (idx < T) {
     logdomain = ebetastarl.col(idx).array() - ebetastarl.col(idx).maxCoeff();
     nextstate_distr = logdomain.array().exp() * nextstate_unsmoothed.array();
     if ((nextstate_distr.array() == 0.0).all()) {
@@ -48,16 +47,16 @@ while (idx < %(T)d) {
     durprob = ((double)random())/((double)RAND_MAX);
     dur = 0;
     while (durprob > 0.0) {
-        if (dur > 2*%(T)d) {
+        if (dur > 2*T) {
             std::cout << "FAIL" << std::endl;
         }
 
-        p_d_marg = (dur < %(T)d) ? eapmf(dur,state) : 1.0;
+        p_d_marg = (dur < T) ? eapmf(state,dur) : 1.0;
         if (0.0 == p_d_marg) {
                 dur += 1;
                 continue;
         }
-        if (idx+dur < %(T)d) {
+        if (idx+dur < T) {
                 p_d = p_d_marg * (exp(eaBl.row(state).segment(idx,dur+1).sum()
                             + ebetal(state,idx+dur) - ebetastarl(state,idx)));
         } else {

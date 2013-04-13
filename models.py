@@ -3,10 +3,10 @@ import numpy as np
 import itertools, collections, operator, random
 from matplotlib import pyplot as plt
 from matplotlib import cm
-from warnings import warn
 
 from basic.abstractions import ModelGibbsSampling, ModelEM
 from internals import states, initial_state, transitions
+
 
 class HMM(ModelGibbsSampling, ModelEM):
     '''
@@ -53,24 +53,17 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn,data=data,stateseq=stateseq,**kwargs))
-
-    def add_data_parallel(self,data_id):
-        from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id])
-        self.states_list[-1].data_id = data_id
+        self.states_list.append(states.HMMStates(model=self,data=data,stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
         if len(self.states_list) > 0:
             s = self.states_list[0] # any state sequence object will work
         else:
-            s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
-                    self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
+            s = states.HMMStates(
+                    model=self,data=data,stateseq=np.zeros(len(data),dtype=np.uint8)) # placeholders
 
-        aBl = s.get_aBl(data)
-        betal = s._messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
+        betal = s.messages_backwards()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
     ### generation
 
@@ -88,9 +81,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         from the posterior (as long as the Gibbs sampling has converged). In
         these cases, the keep argument should be False.
         '''
-        tempstates = states.HMMStates(T,self.state_dim,self.obs_distns,self.trans_distn,
-                self.init_state_distn)
-
+        tempstates = states.HMMStates(self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -103,22 +94,44 @@ class HMM(ModelGibbsSampling, ModelEM):
 
         return obs, labels
 
+    ### caching
+
+    def _clear_caches(self):
+        for s in self.states_list:
+            s.clear_caches()
+
     ### Gibbs sampling
 
     def resample_model(self):
-        # resample obsparams
+        self.resample_obs_distns()
+        self.resample_trans_distn()
+        self.resample_init_state_distn()
+        self.resample_states()
+
+    def resample_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+        self._clear_caches()
 
-        # resample transitions
+    def resample_trans_distn(self):
         self.trans_distn.resample([s.stateseq for s in self.states_list])
+        self._clear_caches()
 
-        # resample pi_0
+    def resample_init_state_distn(self):
         self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
+        self._clear_caches()
 
-        # resample states
+    def resample_states(self):
         for s in self.states_list:
             s.resample()
+
+    ### parallel
+
+    def add_data_parallel(self,data_id,**kwargs):
+        from pyhsmm import parallel
+        self.add_data(parallel.alldata[data_id],**kwargs)
+        self.states_list[-1].data_id = data_id
+
 
     def resample_model_parallel(self,numtoresample='all'):
         from pyhsmm import parallel
@@ -128,10 +141,9 @@ class HMM(ModelGibbsSampling, ModelEM):
             numtoresample = len(parallel.dv)
 
         ### resample parameters locally
-        for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
-        self.trans_distn.resample([s.stateseq for s in self.states_list])
-        self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
+        self.resample_obs_distns()
+        self.resample_trans_distn()
+        self.resample_init_state_distn()
 
         ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
@@ -154,14 +166,14 @@ class HMM(ModelGibbsSampling, ModelEM):
         from pyhsmm import parallel
         raw_stateseq_tuples = parallel.build_states.map([s.data_id for s in states_to_resample])
         for data_id, stateseq in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    stateseq=stateseq)
+            self.add_data(data=parallel.alldata[data_id],stateseq=stateseq)
             self.states_list[-1].data_id = data_id
+
     ### EM
 
     def EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run EM'
+        self._clear_caches()
 
         ## E step
         for s in self.states_list:
@@ -324,52 +336,44 @@ class HSMM(HMM, ModelGibbsSampling):
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStates(len(data),self.state_dim,self.obs_distns,self.dur_distns,
-            self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,
-            censoring=censoring))
+        self.states_list.append(states.HSMMStates(self,
+            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
-    def resample_model(self):
-        # resample durparams
-        for state, distn in enumerate(self.dur_distns):
-            distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
+    def log_likelihood(self,data,trunc=None,**kwargs):
+        raise NotImplementedError # TODO
 
-        # resample everything else an hmm does
-        super(HSMM,self).resample_model()
+    ### generation
 
-    def generate(self,T,keep=True):
-        tempstates = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
-                self.trans_distn,self.init_state_distn,trunc=self.trunc)
+    def generate(self,T,keep=True,**kwargs):
+        tempstates = states.HSMMStates(self,T=T,initialize_from_prior=True,trunc=self.trunc,**kwargs)
         return self._generate(tempstates,keep)
 
-    ### parallel sampling
-    def add_data_parallel(self,data_id):
+    ### Gibbs sampling
+
+    def resample_model(self):
+        self.resample_dur_distns()
+        super(HSMM,self).resample_model()
+
+    def resample_dur_distns(self):
+        for state, distn in enumerate(self.dur_distns):
+            distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
+        self._clear_caches()
+
+    ### parallel
+
+    def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id])
+        self.add_data(parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def resample_model_parallel(self,numtoresample='all'):
-        from pyhsmm import parallel
-        if numtoresample == 'all':
-            numtoresample = len(self.states_list)
-        elif numtoresample == 'engines':
-            numtoresample = len(parallel.dv)
+        self.resample_dur_distns()
+        super(HSMM,self).resample_model_parallel(self,numtoresample)
 
-        ### resample parameters locally
-        self.trans_distn.resample([s.stateseq for s in self.states_list])
-        self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
-        for state, (o,d) in enumerate(zip(self.obs_distns,self.dur_distns)):
-            d.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
-            o.resample([s.data[s.stateseq == state] for s in self.states_list])
+    ### EM
 
-        ### choose which sequences to resample
-        states_to_resample = random.sample(self.states_list,numtoresample)
-
-        ### resample states in parallel
-        self._push_self_parallel(states_to_resample)
-        self._build_states_parallel(states_to_resample)
-
-        ### purge to prevent memory buildup
-        parallel.c.purge_results('all')
+    def EM_step(self):
+        raise NotImplementedError # TODO
 
     ### plotting
 
@@ -405,41 +409,14 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def plot_summary(self,color=None):
         # if there are too many state sequences in states_list, make an
-        # alternative plot
-        raise NotImplementedError
-
-    def log_likelihood(self,data,trunc=None):
-        warn('untested')
-        T = len(data)
-        if trunc is None:
-            trunc = T
-        # make a temporary states object to make sure no data gets clobbered
-        s = states.HSMMStates(T,self.state_dim,self.obs_distns,self.dur_distns,
-                self.trans_distn,self.init_state_distn,trunc=trunc)
-        s.obs = data
-        possible_durations = np.arange(1,trunc + 1,dtype=np.float64)
-        aDl = np.zeros((T,self.state_dim))
-        aDsl = np.zeros((T,self.state_dim))
-        for idx, dur_distn in enumerate(self.dur_distns):
-            aDl[:,idx] = dur_distn.log_pmf(possible_durations)
-            aDsl[:,idx] = dur_distn.log_sf(possible_durations)
-
-        s.aBl = s.get_aBl(data)
-        betal, betastarl = s._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
-
-    def EM_step(self):
+        # alternative plot that isn't so big
         raise NotImplementedError # TODO
 
 
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                states.HSMMStatesPossibleChangepoints(
-                    changepoints, len(data), self.state_dim, self.obs_distns,
-                    self.dur_distns, self.trans_distn, self.init_state_distn,
-                    trunc=self.trunc, data=data,
-                    **kwargs))
+                states.HSMMStatesPossibleChangepoints(self,changepoints,data=data,trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -462,6 +439,9 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def log_likelihood(self,data,trunc=None):
         raise NotImplementedError
 
+
 class HSMMGeoApproximation(HSMM):
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStatesGeoApproximation(len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,censoring=censoring))
+        self.states_list.append(states.HSMMStatesGeoApproximation(
+            self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+
