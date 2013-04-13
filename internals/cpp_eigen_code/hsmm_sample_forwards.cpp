@@ -7,7 +7,7 @@ Map<MatrixXd> ebetastarl(betastarl,M,T);
 Map<MatrixXd> eaBl(aBl,M,T);
 Map<MatrixXd> eA(A,M,M);
 Map<VectorXd> epi0(pi0,M);
-Map<MatrixXd> eapmf(apmf,T,M);
+Map<MatrixXd> eapmf(apmf,M,T);
 
 // outputs
 
@@ -51,7 +51,7 @@ while (idx < T) {
             std::cout << "FAIL" << std::endl;
         }
 
-        p_d_marg = (dur < T) ? eapmf(dur,state) : 1.0;
+        p_d_marg = (dur < T) ? eapmf(state,dur) : 1.0;
         if (0.0 == p_d_marg) {
                 dur += 1;
                 continue;

@@ -3,7 +3,6 @@ import numpy as np
 import itertools, collections, operator, random
 from matplotlib import pyplot as plt
 from matplotlib import cm
-from warnings import warn
 
 from basic.abstractions import ModelGibbsSampling, ModelEM
 from internals import states, initial_state, transitions
@@ -63,9 +62,8 @@ class HMM(ModelGibbsSampling, ModelEM):
             s = states.HMMStates(
                     model=self,data=data,stateseq=np.zeros(len(data),dtype=np.uint8)) # placeholders
 
-        aBl = s.get_aBl(data)
-        betal = s.messages_backwards(aBl)
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + aBl[0])
+        betal = s.messages_backwards()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
     ### generation
 
@@ -96,6 +94,12 @@ class HMM(ModelGibbsSampling, ModelEM):
 
         return obs, labels
 
+    ### caching
+
+    def _clear_caches(self):
+        for s in self.states_list:
+            s.clear_caches()
+
     ### Gibbs sampling
 
     def resample_model(self):
@@ -107,12 +111,15 @@ class HMM(ModelGibbsSampling, ModelEM):
     def resample_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+        self._clear_caches()
 
     def resample_trans_distn(self):
         self.trans_distn.resample([s.stateseq for s in self.states_list])
+        self._clear_caches()
 
     def resample_init_state_distn(self):
         self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
+        self._clear_caches()
 
     def resample_states(self):
         for s in self.states_list:
@@ -166,6 +173,7 @@ class HMM(ModelGibbsSampling, ModelEM):
 
     def EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run EM'
+        self._clear_caches()
 
         ## E step
         for s in self.states_list:
@@ -332,22 +340,7 @@ class HSMM(HMM, ModelGibbsSampling):
             data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        warn('untested') # TODO
-        T = len(data)
-        if trunc is None:
-            trunc = T
-        # make a temporary states object to make sure no data gets clobbered
-        s = states.HSMMStates(self,data=data,trunc=trunc,**kwargs)
-        possible_durations = np.arange(1,trunc + 1,dtype=np.float64)
-        aDl = np.zeros((T,self.state_dim))
-        aDsl = np.zeros((T,self.state_dim))
-        for idx, dur_distn in enumerate(self.dur_distns):
-            aDl[:,idx] = dur_distn.log_pmf(possible_durations)
-            aDsl[:,idx] = dur_distn.log_sf(possible_durations)
-
-        s.aBl = s.get_aBl(data)
-        betal, betastarl = s.messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,trunc)
-        return np.logaddexp.reduce(np.log(self.initial_distn.pi_0) + betastarl[0])
+        raise NotImplementedError # TODO
 
     ### generation
 
@@ -364,6 +357,7 @@ class HSMM(HMM, ModelGibbsSampling):
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
+        self._clear_caches()
 
     ### parallel
 

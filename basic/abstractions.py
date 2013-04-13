@@ -29,12 +29,15 @@ class DurationDistribution(Distribution):
         try:
             tmax = np.where(np.exp(self.log_sf(np.arange(1,1000))) < 1e-3)[0][0]
         except IndexError:
-            tmax = self.rvs(1000).max()
+            tmax = self.rvs(1000).mean()
         tmax = max(tmax,data.max()) if data is not None else tmax
 
         t = np.arange(1,tmax)
         plt.plot(t,self.pmf(t),color=color)
 
         if data is not None:
-            plt.hist(data,bins=t-0.5,color=color,normed=True)
+            if len(data) > 1:
+                plt.hist(data,bins=t-0.5,color=color,normed=True)
+            else:
+                plt.hist(data,bins=t-0.5,color=color)
 
