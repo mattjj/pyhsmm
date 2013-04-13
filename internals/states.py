@@ -144,8 +144,7 @@ class HMMStatesPython(object):
 
 class HMMStatesEigen(HMMStatesPython):
     def __init__(self,T,state_dim,obs_distns,transition_distn,initial_distn,
-            stateseq=None,data=None,censoring=True,
-            initialize_from_prior=True,**kwargs):
+            stateseq=None,data=None,initialize_from_prior=True,**kwargs):
         # TODO shouldn't this use parent's init?
         self.state_dim = state_dim
         self.obs_distns = obs_distns
@@ -289,6 +288,7 @@ class HSMMStatesPython(object):
         # generate duration pmf and sf values
         # generate and cache iid likelihood values, used in cumulative_likelihood functions
         possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
+        Al = np.log(self.transition_distn.A)
         aDl = np.zeros((self.T,self.state_dim))
         aDsl = np.zeros((self.T,self.state_dim))
         self.aBl = self.get_aBl(data)
@@ -296,7 +296,7 @@ class HSMMStatesPython(object):
             aDl[:,idx] = dur_distn.log_pmf(possible_durations)
             aDsl[:,idx] = dur_distn.log_sf(possible_durations)
         # run backwards message passing
-        betal, betastarl = self._messages_backwards(np.log(self.transition_distn.A),aDl,aDsl,self.trunc)
+        betal, betastarl = self._messages_backwards(Al,aDl,aDsl,self.trunc)
         # sample forwards
         self.sample_forwards(betal,betastarl)
 
@@ -312,7 +312,7 @@ class HSMMStatesPython(object):
         for t in xrange(T-1,-1,-1):
             np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
             if T-t < trunc and self.censoring:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t-1], betastarl[t])
+                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
 
@@ -629,6 +629,47 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     def generate(self): # TODO
         raise NotImplementedError
+
+class HSMMStatesGeoApproximation(HSMMStatesPython):
+    def __init__(self,*args,**kwargs):
+        super(HSMMStatesGeoApproximation,self).__init__(*args,**kwargs)
+        self._hmm_states = HMMStates(self.T,self.state_dim,self.obs_distns,self.transition_distn,self.initial_distn,data=self.data,stateseq=self.stateseq)
+
+    def _messages_backwards(self,Al,aDl,aDsl,trunc):
+        'approximates duration tails at indices > trunc with geometric tails'
+        assert trunc > 0
+        assert trunc > 1 # if trunc == 1, aDsl won't work, just need sf(trunc-1) == 1
+
+        ### run HMM message passing for tail approximation
+
+        hmm_A = self.transition_distn.A.copy()
+        hmm_A.flat[::self.state_dim+1] = 0
+        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.dur_distns])
+        hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
+        hmm_A.flat[::self.state_dim+1] = thediag
+        self._hmm_states.transition_distn.A = hmm_A
+        hmm_betal = self._hmm_states._messages_backwards(self.aBl)
+
+        ### run HSMM message passing almost as before
+
+        T = aDl.shape[0]
+        state_dim = Al.shape[0]
+        betal = np.zeros((T,state_dim),dtype=np.float64)
+        betastarl = np.zeros((T,state_dim),dtype=np.float64)
+
+        for t in xrange(T-1,-1,-1):
+            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
+            if t+trunc < T:
+                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1] + hmm_betal[t+trunc], out=betastarl[t])
+            if T-t < trunc and self.censoring:
+                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
+            np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
+        betal[-1] = 0.
+
+        return betal, betastarl
+
+class HSMMStatesDynamicGeoApproximation(HSMMStatesGeoApproximation):
+    pass # TODO
 
 ################################
 #  use_eigen stuff below here  #

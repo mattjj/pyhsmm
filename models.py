@@ -62,12 +62,9 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.states_list[-1].data_id = data_id
 
     def log_likelihood(self,data):
-        # TODO avoid this temp states stuff by making messages methods static
         if len(self.states_list) > 0:
             s = self.states_list[0] # any state sequence object will work
         else:
-            # we have to create a temporary one just for its methods, though the
-            # details of the actual state sequence are never used
             s = states.HMMStates(len(data),self.state_dim,self.obs_distns,self.trans_distn,
                     self.init_state_distn,stateseq=np.zeros(len(data),dtype=np.uint8))
 
@@ -465,3 +462,6 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
     def log_likelihood(self,data,trunc=None):
         raise NotImplementedError
 
+class HSMMGeoApproximation(HSMM):
+    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
+        self.states_list.append(states.HSMMStatesGeoApproximation(len(data),self.state_dim,self.obs_distns,self.dur_distns,self.trans_distn,self.init_state_distn,trunc=self.trunc,data=data,stateseq=stateseq,censoring=censoring))
