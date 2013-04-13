@@ -71,7 +71,7 @@ posteriormodel = pyhsmm.models.HSMM(
 posteriormodel.add_data(data)
 
 models = []
-for idx in progprint_xrange(25): # TODO change back
+for idx in progprint_xrange(150):
     posteriormodel.resample_model()
     if (idx+1) % 10 == 0:
         models.append(copy.deepcopy(posteriormodel))
