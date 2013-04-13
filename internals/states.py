@@ -104,7 +104,6 @@ class HMMStatesPython(object):
     ### Gibbs sampling
 
     def resample(self):
-        assert self.data is not None
         betal = self.messages_backwards()
         self.sample_forwards(betal)
 
@@ -329,7 +328,6 @@ class HSMMStatesPython(HMMStatesPython):
     ### Gibbs sampling
 
     def resample(self):
-        assert self.data is not None
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
@@ -499,15 +497,14 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     ### caching
 
     def clear_caches(self):
-        self._aDl = None
-        self._aDsl = None
         self._aBBl = None
+        super(HSMMStatesPossibleChangepoints,self).clear_caches()
 
     @property
     def aBBl(self):
-        if self._aBBl is None:
+        if (not hasattr(self,'_aBBl')) or (self._aBBl is None):
+            aBl = self.aBl
             aBBl = self._aBBl = np.empty((self.Tblock,self.model.state_dim))
-            aBl = super(HSMMStatesPossibleChangepoints,self).get_aBl(self.data)
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
         return self._aBBl
