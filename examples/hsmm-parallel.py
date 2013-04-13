@@ -20,7 +20,7 @@ obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.3,
+                'kappa_0':0.1,
                 'nu_0':obs_dim+5}
 
 dur_hypparams = {'alpha_0':2*30,

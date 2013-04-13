@@ -153,6 +153,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         for data_id, stateseq in raw_stateseq_tuples:
             self.add_data(data=parallel.alldata[data_id],stateseq=stateseq)
             self.states_list[-1].data_id = data_id
+
     ### EM
 
     def EM_step(self):
@@ -320,7 +321,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(states.HSMMStates(self,
-            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc))
+            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
     def resample_model(self):
         # resample durparams
@@ -335,6 +336,7 @@ class HSMM(HMM, ModelGibbsSampling):
         return self._generate(tempstates,keep)
 
     ### parallel sampling
+
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
         self.add_data(parallel.alldata[data_id],**kwargs)

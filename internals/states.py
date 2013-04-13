@@ -16,7 +16,7 @@ class HMMStatesPython(object):
         self.data = data
 
         if stateseq is not None:
-            self.stateseq = stateseq
+            self.stateseq = np.array(stateseq,dtype=np.int32)
         else:
             if data is not None and not initialize_from_prior:
                 self.resample()
@@ -194,6 +194,7 @@ class HSMMStatesPython(HMMStatesPython):
         self.censoring = censoring
         self.trunc = trunc
         super(HSMMStatesPython,self).__init__(model,*args,**kwargs)
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
     ### generation
 
@@ -203,7 +204,6 @@ class HSMMStatesPython(HMMStatesPython):
         A = self.model.trans_distn.A
 
         stateseq = np.empty(self.T,dtype=np.int32)
-        stateseq_norep = []
         durations = []
 
         while idx < self.T:
@@ -212,7 +212,6 @@ class HSMMStatesPython(HMMStatesPython):
             # sample a duration for that state
             duration = self.model.dur_distns[state].rvs()
             # save everything
-            stateseq_norep.append(state)
             durations.append(duration)
             stateseq[idx:idx+duration] = state # this can run off the end, that's okay
             # set up next state distribution
@@ -220,15 +219,9 @@ class HSMMStatesPython(HMMStatesPython):
             # update index
             idx += duration
 
-        self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
-        self.durations = np.array(durations,dtype=np.int32)
         self.stateseq = stateseq
-
-        # NOTE self.durations.sum() >= self.T since self.T is the censored
-        # length
-
-        assert len(self.stateseq_norep) == len(self.durations)
-        assert (self.stateseq >= 0).all()
+        self.stateseq_norep, _ = util.rle(stateseq)
+        self.durations = np.array(durations,dtype=np.int32) # sum(self.durations) >= self.T
 
     ### message passing
 
