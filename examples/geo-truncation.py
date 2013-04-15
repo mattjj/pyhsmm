@@ -1,88 +1,56 @@
 from __future__ import division
 import numpy as np
-np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
-import time
 
 import pyhsmm
+from pyhsmm.util.stats import cov
+from pyhsmm.util.text import progprint_xrange
 pyhsmm.internals.states.use_eigen()
 
-###################
-#  generate data  #
-###################
+###############
+#  load data  #
+###############
 
-N = 4
-T = 5000
-obs_dim = 2
+data = np.loadtxt('example-data.txt')
+T, obs_dim = data.shape
+
+##################
+#  set up model  #
+##################
+
+Nmax = 20
 
 obs_distns = \
         [pyhsmm.distributions.Gaussian(
-            mu_0=np.zeros(obs_dim), sigma_0=np.eye(obs_dim),kappa_0=0.2, nu_0=obs_dim+2)
-                for state in range(N)]
+            mu_0=data.mean(0),
+            sigma_0=0.5*cov(data),
+            kappa_0=0.5,
+            nu_0=obs_dim+3) for state in range(Nmax)]
 
 dur_distns = \
-        [pyhsmm.distributions.NegativeBinomialDuration(3*100,1./100,50*30,50*1)
-                for state in range(N)]
+        [pyhsmm.distributions.NegativeBinomialDuration(7*100,1./100,50*10,50*1)
+                for state in range(Nmax)]
 
-truemodel = pyhsmm.models.HSMM(
+model = pyhsmm.models.HSMMGeoApproximation(
+        init_state_concentration=Nmax, # doesn't matter for one chain
         alpha=6.,gamma=6.,
-        init_state_concentration=10.,
-        obs_distns=obs_distns,
-        dur_distns=dur_distns)
-
-data, labels = truemodel.generate(T)
-
-#########################
-#  test message pasing  #
-#########################
-
-untrunc = pyhsmm.models.HSMM(
-        init_state_concentration=10.,
         obs_distns=obs_distns,
         dur_distns=dur_distns,
-        trans_distn=truemodel.trans_distn)
-untrunc.add_data(data)
+        trunc=150) # NOTE: blows up this isn't long enough wrt the NegativeBinomial parameters
+model.add_data(data)
 
-hardtrunc = pyhsmm.models.HSMM(
-        init_state_concentration=10.,
-        obs_distns=obs_distns,
-        dur_distns=dur_distns,
-        trans_distn=truemodel.trans_distn,
-        trunc=200)
-hardtrunc.add_data(data)
+##############
+#  resample  #
+##############
 
-geotrunc = pyhsmm.models.HSMMGeoApproximation(
-        init_state_concentration=10.,
-        obs_distns=obs_distns,
-        dur_distns=dur_distns,
-        trans_distn=truemodel.trans_distn,
-        trunc=200)
-geotrunc.add_data(data)
-
-tic = time.time()
-betal_hardtrunc, _ = hardtrunc.states_list[0].messages_backwards()
-elapsed = time.time() - tic
-print '%f seconds for hard truncation' % elapsed
-
-tic = time.time()
-betal_geotrunc, _ = geotrunc.states_list[0].messages_backwards()
-elapsed = time.time() - tic
-print '%f seconds for geo truncation' % elapsed
-
-tic = time.time()
-betal_untrunc, _ = untrunc.states_list[0].messages_backwards()
-elapsed = time.time() - tic
-print '%f seconds for no truncation' % elapsed
+for itr in progprint_xrange(25):
+    model.resample_model()
 
 ##########
 #  plot  #
 ##########
 
 plt.figure()
-plt.plot(betal_untrunc[:,0],label='untruncated')
-plt.plot(betal_hardtrunc[:,0],'x--',label='hard truncation')
-plt.plot(betal_geotrunc[:,0],'+--',label='geo truncation')
-plt.legend(loc='best')
+model.plot()
 
 plt.show()
-
