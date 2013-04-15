@@ -54,6 +54,8 @@ class NegativeBinomialDuration(NegativeBinomial, DurationDistribution):
             return super(NegativeBinomialDuration,self).resample([d-1 for d in data],*args,**kwargs)
 
 
+# TODO need to get variants too... probably rewrite to use surgery
+
 class Delay(DurationDistribution):
     def __init__(self,dur_distn,delay):
         self.dur_distn = dur_distn
@@ -74,6 +76,6 @@ class Delay(DurationDistribution):
         else:
             return self.dur_distn.resample([d-self.delay for d in data],*args,**kwargs)
 
-    def max_likelihood(*args,**kwargs):
+    def max_likelihood(self,*args,**kwargs):
         raise NotImplementedError
 
