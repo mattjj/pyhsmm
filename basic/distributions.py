@@ -54,7 +54,7 @@ class NegativeBinomialDuration(NegativeBinomial, DurationDistribution):
             return super(NegativeBinomialDuration,self).resample([d-1 for d in data],*args,**kwargs)
 
 
-class Delay(object):
+class Delay(DurationDistribution):
     def __init__(self,dur_distn,delay):
         self.dur_distn = dur_distn
         self.delay = delay
