@@ -3,6 +3,8 @@ from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
 
+np.seterr(invalid='raise')
+
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
@@ -596,11 +598,13 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
         trunc = self.trunc if self.trunc is not None else self.T
+        state_dim = self.model.state_dim
         hmm_A = self.model.trans_distn.A.copy()
-        hmm_A.flat[::self.state_dim+1] = 0
+        hmm_A.flat[::state_dim+1] = 0
         thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.model.dur_distns])
+        assert (thediag < 1).all(), 'truncation is too small!'
         hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
-        hmm_A.flat[::self.state_dim+1] = thediag
+        hmm_A.flat[::state_dim+1] = thediag
         return hmm_A
 
     def messages_backwards(self):
@@ -612,6 +616,7 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
         assert trunc > 1
 
         hmm_betal = HMMStates._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
+        assert not np.isnan(hmm_betal).any()
 
         betal = np.zeros((T,state_dim),dtype=np.float64)
         betastarl = np.zeros_like(betal)
