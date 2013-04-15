@@ -18,14 +18,21 @@ it!
 ## Installing ##
 You can clone this library and its dependencies with
 
-```
+```bash
 git clone --recursive git://github.com/mattjj/pyhsmm.git
+```
+
+To pull updates, you can do this
+
+```bash
+git pull
+git submodule update --init --recursive
 ```
 
 The library depends on `numpy`, `scipy`, and, for visualization, `matplotlib`.
 
-Disabling assertions may speed things up; to disable assertions, run your
-CPython interpreter with the `-O` flag.
+Disabling assertions may speed things up; to disable assertions in CPython,
+call it with the `-O` flag.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
