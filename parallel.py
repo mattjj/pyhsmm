@@ -4,6 +4,20 @@ from IPython.parallel.util import interactive
 
 # NOTE: the ipcluster should be set up before this file is imported
 
+
+class dummy_directview(object):
+    map_sync = map
+    __len__ = lambda self: 1
+    purge_results = lambda x,y: None
+dv = dummy_directview()
+
+def go_parallel():
+    global dv, c, lbv
+    from IPython.parallel import Client
+    c = Client()
+    dv = c[:]
+    lbv = c.load_balanced_view()
+
 c = Client()
 dv = c.direct_view()
 dv.execute('import pyhsmm')
