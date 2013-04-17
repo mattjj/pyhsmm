@@ -51,4 +51,11 @@ def resample_obs_distns(state):
     global_model.obs_distns[state].resample( ([s.data[s.stateseq == state] for s in global_model.states_list]) )
     return global_model.obs_distns[ state ]
 
-
+@lbv.parallel(block=True)
+@interactive
+def rss(s):
+    global global_model
+    global_model.states_list[0].resample()
+    #s.resample()
+    return global_model.states_list[0]
+  

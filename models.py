@@ -144,8 +144,17 @@ class HMM(ModelGibbsSampling, ModelEM):
         ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
         ### resample states in parallel
-        self._push_self_parallel(states_to_resample)
-        self._build_states_parallel(states_to_resample)
+        #self.resample_states()
+	import time
+	t1 = time.time()
+
+	self.states_list = parallel.rss.map([s for s in self.states_list])
+
+        #self._push_self_parallel(states_to_resample)
+        print "pushing",time.time() - t1
+	t1 = time.time()
+        #self._build_states_parallel(states_to_resample)
+        print "building",time.time() - t1
 	### purge to prevent memory buildup
         parallel.c.purge_results('all')
         
