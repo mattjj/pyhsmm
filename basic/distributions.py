@@ -6,56 +6,59 @@ import scipy.special as special
 from pybasicbayes.distributions import *
 from abstractions import DurationDistribution
 
+# If you're not comfortable with metaprogramming, here be dragons
 
-class PoissonDuration(Poisson, DurationDistribution):
-    def __repr__(self):
-        return 'PoissonDuration(lmbda=%0.2f,mean=%0.2f)' % (self.lmbda,self.lmbda+1)
+##########################
+#  Metaprogramming util  #
+##########################
 
-    def log_sf(self,x):
-        return stats.poisson.logsf(x-1,self.lmbda)
+# this method is for generating new classes, shifting their support from
+# {0,1,2,...} to {1,2,3,...}
+def _start_at_one(cls):
+    class Wrapper(cls, DurationDistribution):
+        def log_likelihood(self,x):
+            return super(Wrapper,self).log_likelihood(x-1)
 
-    def log_likelihood(self,x):
-        return super(PoissonDuration,self).log_likelihood(x-1)
+        def log_sf(self,x):
+            return super(Wrapper,self).log_sf(x-1)
 
-    def rvs(self,size=None):
-        return super(PoissonDuration,self).rvs(size=size) + 1
+        def rvs(self,size=None):
+            return super(Wrapper,self).rvs(size)+1
 
-    def _get_statistics(self,data):
-        n, tot = super(PoissonDuration,self)._get_statistics(data)
-        tot -= n
-        return n, tot
+        def resample(self,data=[],*args,**kwargs):
+            if isinstance(data,np.ndarray):
+                return super(Wrapper,self).resample(data-1,*args,**kwargs)
+            else:
+                return super(Wrapper,self).resample([d-1 for d in data],*args,**kwargs)
 
+        def max_likelihood(self,*args,**kwargs):
+            raise NotImplementedError
+
+    Wrapper.__name__ = cls.__name__ + 'Duration'
+    Wrapper.__doc__ = cls.__doc__
+    return Wrapper
+
+##########################
+#  Distribution classes  #
+##########################
 
 class GeometricDuration(Geometric, DurationDistribution):
-    def __repr__(self):
-        return 'GeometricDuration(p=%0.2f)' % self.p
+    pass # mixin style!
 
-    def log_sf(self,x):
-        return stats.geom.logsf(x,self.p)
+PoissonDuration = _start_at_one(Poisson)
 
+NegativeBinomialDuration = _start_at_one(NegativeBinomial)
+NegativeBinomialFixedRDuration = _start_at_one(NegativeBinomialFixedR)
+NegativeBinomialIntegerRDuration = _start_at_one(NegativeBinomialIntegerR)
+NegativeBinomialVariantDuration = _start_at_one(NegativeBinomialVariant)
+NegativeBinomialFixedRVariantDuration = _start_at_one(NegativeBinomialFixedRVariant)
+NegativeBinomialIntegerRVariantDuration = _start_at_one(NegativeBinomialIntegerRVariant)
 
-class NegativeBinomialDuration(NegativeBinomial, DurationDistribution):
-    def __repr__(self):
-        return 'NegativeBinomialDuration(r=%0.2f,p=%0.2f)' % (self.r,self.p)
+##########
+#  Meta  #
+##########
 
-    def log_sf(self,x):
-        return np.log(special.betainc(x,self.r,self.p))
-
-    def log_likelihood(self,x):
-        return super(NegativeBinomialDuration,self).log_likelihood(x-1)
-
-    def rvs(self,size=None):
-        return super(NegativeBinomialDuration,self).rvs(size=size) + 1
-
-    def resample(self,data=[],*args,**kwargs):
-        if isinstance(data,np.ndarray):
-            return super(NegativeBinomialDuration,self).resample(data-1,*args,**kwargs)
-        else:
-            return super(NegativeBinomialDuration,self).resample([d-1 for d in data],*args,**kwargs)
-
-
-# TODO need to get variants too... probably rewrite to use surgery
-
+# this class is for delaying instances of duration distributions
 class Delay(DurationDistribution):
     def __init__(self,dur_distn,delay):
         self.dur_distn = dur_distn
