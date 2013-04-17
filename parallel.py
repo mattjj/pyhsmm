@@ -4,20 +4,6 @@ from IPython.parallel.util import interactive
 
 # NOTE: the ipcluster should be set up before this file is imported
 
-
-class dummy_directview(object):
-    map_sync = map
-    __len__ = lambda self: 1
-    purge_results = lambda x,y: None
-dv = dummy_directview()
-
-def go_parallel():
-    global dv, c, lbv
-    from IPython.parallel import Client
-    c = Client()
-    dv = c[:]
-    lbv = c.load_balanced_view()
-
 c = Client()
 dv = c.direct_view()
 dv.execute('import pyhsmm')
@@ -57,3 +43,12 @@ def build_states_changepoints(data_id):
     global_model.states_list = []
 
     return (data_id, stateseq)
+  
+@lbv.parallel(block=True)
+@interactive
+def resample_obs_distns(state):
+    global global_model
+    global_model.obs_distns[state].resample( ([s.data[s.stateseq == state] for s in global_model.states_list]) )
+    return global_model.obs_distns[ state ]
+
+
