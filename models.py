@@ -103,6 +103,24 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.resample_init_state_distn()
         self.resample_states()
 
+    def resample_obs_distns_parallel(self):
+        #for state, distn in enumerate(self.obs_distns):
+            #distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+        def local_resample_obs_distn(tup):
+            obs_distn, data = tup
+            obs_distn.resample(data)
+            return obs_distn
+	import pyhsmm.parallel as parallel
+	parallel_direct_view = parallel.dv
+	self.obs_distns = parallel_direct_view.map_sync(
+				local_resample_obs_distn,[(o,[s.data[s.stateseq == state]
+				  for s in self.states_list]) 
+				    for state,o in enumerate(self.obs_distns)]
+			  )
+
+        self._clear_caches()
+
+
     def resample_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
@@ -127,6 +145,41 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.add_data(parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
+
+    def resample_model_parallel2(self,numtoresample='all'):
+        from pyhsmm import parallel
+        if numtoresample == 'all':
+            numtoresample = len(self.states_list)
+        elif numtoresample == 'engines':
+            numtoresample = len(parallel.dv)
+
+        ### resample parameters locally
+        import time
+        t1 = time.time()
+        self.resample_obs_distns()
+        print "obs_distn:", time.time() - t1
+        t1 = time.time()
+        
+        self.resample_trans_distn()
+        print "trans_distn:", time.time() - t1
+        t1 = time.time()
+        
+        self.resample_init_state_distn()
+	
+	print "init_state_distn:", time.time() - t1
+        t1 = time.time()
+        
+        ### choose which sequences to resample
+        states_to_resample = random.sample(self.states_list,numtoresample)
+
+        ### resample states in parallel
+        self._push_self_parallel(states_to_resample)
+        self._build_states_parallel(states_to_resample)
+	print "states:", time.time() - t1
+        t1 = time.time()
+
+        ### purge to prevent memory buildup
+        parallel.c.purge_results('all')
 
     def resample_model_parallel(self,numtoresample='all'):
         from pyhsmm import parallel
