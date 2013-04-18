@@ -11,11 +11,12 @@ Map<ArrayXXd> eaBl(aBl,M,T);
 
 // outputs
 Map<ArrayXXd> ebetal(betal,rtot,T);
+Map<ArrayXXd> esuperbetal(superbetal,M,T);
 
 // locals
 ArrayXd incoming(M);
 ArrayXd thesum(M);
-double cmax;
+double cmax, temp;
 
 /*****************
  *  Computation  *
@@ -23,10 +24,7 @@ double cmax;
 
 for (int t=T-2; t>=0; t--) {
     // across-state transition part (sparse part)
-    for (int i=0; i<M; i++) {
-        thesum(i) = ebetal(start_indices[i],t+1);
-    }
-    thesum += eaBl.col(t+1);
+    thesum = esuperbetal.col(t+1) + eaBl.col(t+1);
     cmax = thesum.maxCoeff();
     incoming = (eA * (thesum - cmax).exp().matrix()).array().log() + cmax;
 
@@ -35,14 +33,19 @@ for (int t=T-2; t>=0; t--) {
         int start = start_indices[idx];
         int end = end_indices[idx];
         double pi = ps[idx];
-        for (int i=start; i<end; i++) {
+
+        ebetal(start,t) = esuperbetal(idx,t) =
+            log(pi*exp(ebetal(start,t+1)-cmax)+(1.0-pi)*exp(ebetal(start+1,t+1)-cmax))
+            + cmax + eaBl(idx,t+1);
+
+        for (int i=start+1; i<end; i++) {
             cmax = max(ebetal(i,t+1),ebetal(i+1,t+1));
             ebetal(i,t) = log(pi*exp(ebetal(i,t+1)-cmax)+(1.0-pi)*exp(ebetal(i+1,t+1)-cmax))
                             + cmax + eaBl(idx,t+1);
         }
-        double thing = ebetal(end,t+1) + eaBl(idx,t+1);
-        cmax = max(thing,incoming(idx));
-        ebetal(end,t) = log(pi*exp(thing-cmax)+exp(incoming(idx)-cmax)) + cmax;
+        temp = ebetal(end,t+1) + eaBl(idx,t+1);
+        cmax = max(temp,incoming(idx));
+        ebetal(end,t) = log(pi*exp(temp-cmax)+exp(incoming(idx)-cmax)) + cmax;
     }
 }
 
