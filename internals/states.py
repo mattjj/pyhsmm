@@ -8,6 +8,7 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
+# TODO using log(A) can hurt stability a bit, -1000 turns into -inf
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,initialize_from_prior=True):
@@ -656,7 +657,7 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         assert np.allclose(trans_matrix.sum(1),1.)
 
         return HMMStates._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1)), \
-                HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
+                None #HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
 
     def messages_backwards(self):
         global hsmm_intnegbin_messages_backwards_codestr, eigen_path
@@ -712,6 +713,10 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
             dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
             # TODO instead of 3*T, use log_sf
             self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
+
+    def sample_forwards_python(self,betal,_):
+        # TODO construct big A, use generic HMM sampling
+        raise NotImplementedError
 
 ################################
 #  use_eigen stuff below here  #
