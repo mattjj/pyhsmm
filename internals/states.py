@@ -8,6 +8,7 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
+# TODO TODO add codestring refs to instances
 # TODO using log(A) can hurt stability a bit, -1000 turns into -inf
 
 class HMMStatesPython(object):
@@ -729,23 +730,21 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
 HSMMStates = HSMMStatesPython
 HMMStates = HMMStatesPython
 
+import os
+eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
+eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
 def use_eigen(useit=True):
     global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
             hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr, \
-            hsmm_intnegbin_sample_forwards_codestr, hsmm_intnegbin_messages_backwards_codestr, \
-            eigen_path
+            hsmm_intnegbin_sample_forwards_codestr, hsmm_intnegbin_messages_backwards_codestr
 
     if useit:
-        import os
-        eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
-        eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
         with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
             hsmm_sample_forwards_codestr = infile.read()
         with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
             hmm_messages_backwards_codestr = infile.read()
         with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
             hmm_sample_forwards_codestr = infile.read()
-        # TODO below here
         with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_messages_backwards.cpp')) as infile:
             hsmm_intnegbin_messages_backwards_codestr = infile.read()
         with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_sample_forwards.cpp')) as infile:
