@@ -25,7 +25,7 @@ double cmax, temp;
 for (int t=T-2; t>=0; t--) {
     // across-state transition part (sparse part)
     thesum = esuperbetal.col(t+1) + eaBl.col(t+1);
-    cmax = thesum.maxCoeff();
+    cmax = thesum.matrix().maxCoeff();
     incoming = (eA * (thesum - cmax).exp().matrix()).array().log() + cmax;
 
     // within-state transition part (block-diagonal part)

@@ -680,7 +680,6 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
 
         return betal, superbetal
 
-    # TODO TODO
     def sample_forwards(self,betal,superbetal):
         global hsmm_intnegbin_sample_forwards_codestr, eigen_path
 
@@ -688,11 +687,17 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         aBl = self.aBl
         A = self.model.trans_distn.A
         pi0 = self.model.init_state_distn.pi_0
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.model.dur_distns])
 
         stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
-                ['betal','aBl','stateseq','A','pi0','M','T'],
+                ['betal','superbetal','aBl','stateseq','A','pi0','M','T','ps','rtot','start_indices','end_indices'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 

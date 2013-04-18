@@ -6,7 +6,7 @@ import pyhsmm
 pyhsmm.internals.states.use_eigen()
 
 N = 4
-T = 500
+T = 50
 obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
@@ -53,6 +53,8 @@ plt.plot(specialbetalslow[:,0],'bx-',label='slow 1')
 plt.plot(specialbetalslow2[:,0],'r+-',label='slow 2')
 plt.plot(specialbetal[:,0],'g--',label='good guys')
 plt.legend(loc='best')
+
+specialmodel.states_list[0].sample_forwards(specialbetal,specialsuperbetal)
 
 plt.show()
 
