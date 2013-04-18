@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 
 from basic.abstractions import ModelGibbsSampling, ModelEM
+import basic.distributions
 from internals import states, initial_state, transitions
 
 class HMM(ModelGibbsSampling, ModelEM):
@@ -458,7 +459,11 @@ class HSMMGeoApproximation(HSMM):
                 self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
 
 class HSMMIntNegBin(HSMM):
-    # TODO add isinstance assertion
+    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
+        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerR) for d in dur_distns), \
+                'duration distributions must be instances of NegativeBinomialIntegerR'
+        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(states.HSMMStatesIntegerNegativeBinomial(
             self,data=data,stateseq=stateseq,censoring=censoring,**kwargs))

@@ -1,10 +1,6 @@
 using namespace Eigen;
 using namespace std;
 
-/***********
- *  Setup  *
- ***********/
-
 // inputs
 Map<MatrixXd> eA(AT,M,M);
 Map<ArrayXXd> eaBl(aBl,M,T);
@@ -18,14 +14,12 @@ ArrayXd incoming(M);
 ArrayXd thesum(M);
 double cmax, temp;
 
-/*****************
- *  Computation  *
- *****************/
+// code!
 
 for (int t=T-2; t>=0; t--) {
     // across-state transition part (sparse part)
     thesum = esuperbetal.col(t+1) + eaBl.col(t+1);
-    cmax = thesum.matrix().maxCoeff();
+    cmax = thesum.maxCoeff();
     incoming = (eA * (thesum - cmax).exp().matrix()).array().log() + cmax;
 
     // within-state transition part (block-diagonal part)
@@ -34,11 +28,7 @@ for (int t=T-2; t>=0; t--) {
         int end = end_indices[idx];
         double pi = ps[idx];
 
-        ebetal(start,t) = esuperbetal(idx,t) =
-            log(pi*exp(ebetal(start,t+1)-cmax)+(1.0-pi)*exp(ebetal(start+1,t+1)-cmax))
-            + cmax + eaBl(idx,t+1);
-
-        for (int i=start+1; i<end; i++) {
+        for (int i=start; i<end; i++) {
             cmax = max(ebetal(i,t+1),ebetal(i+1,t+1));
             ebetal(i,t) = log(pi*exp(ebetal(i,t+1)-cmax)+(1.0-pi)*exp(ebetal(i+1,t+1)-cmax))
                             + cmax + eaBl(idx,t+1);
@@ -46,6 +36,8 @@ for (int t=T-2; t>=0; t--) {
         temp = ebetal(end,t+1) + eaBl(idx,t+1);
         cmax = max(temp,incoming(idx));
         ebetal(end,t) = log(pi*exp(temp-cmax)+exp(incoming(idx)-cmax)) + cmax;
+
+        esuperbetal(idx,t) = ebetal(start,t);
     }
 }
 

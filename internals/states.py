@@ -653,6 +653,8 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
             if i != j:
                 trans_matrix[ends[i]-1,starts[j]] = v
 
+        assert np.allclose(trans_matrix.sum(1),1.)
+
         return HMMStates._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1)), \
                 HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
 
@@ -685,7 +687,6 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
 
         aBl = self.aBl
         T,M = aBl.shape
-        A = self.model.trans_distn.A
         pi0 = self.model.init_state_distn.pi_0
         rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
         crs = rs.cumsum()
@@ -693,6 +694,8 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         end_indices = crs-1
         rtot = int(crs[-1])
         ps = np.array([d.p for d in self.model.dur_distns])
+        A = self.model.trans_distn.A * (1-ps[:,na])
+        A.flat[::A.shape[0]+1] = ps
 
         stateseq = np.zeros(T,dtype=np.int32)
 
