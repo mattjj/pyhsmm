@@ -161,7 +161,8 @@ class HMMStatesPython(object):
 class HMMStatesEigen(HMMStatesPython):
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
-        global hmm_messages_backwards_codestr, eigen_path
+        global eigen_path
+        hmm_messages_backwards_codestr = _get_codestr('hmm_messages_backwards')
 
         T,M = log_likelihoods.shape
         AT = trans_matrix.T.copy() # because Eigen is fortran/col-major, numpy default C/row-major
@@ -177,7 +178,9 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
-        # TODO test
+        global eigen_path
+        hmm_messages_forwards_codestr = _get_codestr('hmm_messages_forwards')
+
         T,M = log_likelihoods.shape
         A = trans_matrix
         aBl = log_likelihoods
@@ -193,7 +196,8 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
-        global hmm_sample_forwards_codestr, eigen_path
+        global eigen_path
+        hmm_sample_forwards_codestr = _get_codestr('hmm_sample_forwards')
 
         T,M = betal.shape
         A = trans_matrix
@@ -410,7 +414,8 @@ class HSMMStatesPython(HMMStatesPython):
 
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
-        global hsmm_sample_forwards_codestr, eigen_path
+        global eigen_path
+        hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
 
         A = self.model.trans_distn.A
         apmf = self.aD
@@ -661,7 +666,8 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
                 None #HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
 
     def messages_backwards(self):
-        global hsmm_intnegbin_messages_backwards_codestr, eigen_path
+        global eigen_path
+        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_messages_backwards')
 
         aBl = self.aBl
         T,M = aBl.shape
@@ -685,7 +691,8 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         return betal, superbetal
 
     def sample_forwards(self,betal,superbetal):
-        global hsmm_intnegbin_sample_forwards_codestr, eigen_path
+        global eigen_path
+        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbin_sample_forwards')
 
         aBl = self.aBl
         T,M = aBl.shape
@@ -719,40 +726,21 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         # TODO construct big A, use generic HMM sampling
         raise NotImplementedError
 
-################################
-#  use_eigen stuff below here  #
-################################
+#################
+#  eigen stuff  #
+#################
 
-# TODO TODO move away from weave and this ugliness. numba? ctypes? cffi? cython?
-# probably cython or ctypes.
-
-# default is python
-HSMMStates = HSMMStatesPython
-HMMStates = HMMStatesPython
+# TODO move away from weave, which is not maintained. numba? ctypes? cffi?
+# cython? probably cython or ctypes.
 
 import os
 eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
 eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
-def use_eigen(useit=True):
-    global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
-            hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr, \
-            hsmm_intnegbin_sample_forwards_codestr, hsmm_intnegbin_messages_backwards_codestr
 
-    if useit:
-        with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
-            hsmm_sample_forwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
-            hmm_messages_backwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
-            hmm_sample_forwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_messages_backwards.cpp')) as infile:
-            hsmm_intnegbin_messages_backwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_sample_forwards.cpp')) as infile:
-            hsmm_intnegbin_sample_forwards_codestr = infile.read()
-
-            HSMMStates = HSMMStatesEigen
-            HMMStates = HMMStatesEigen
-    else:
-        HSMMStates = HSMMStatesPython
-        HMMStates = HMMStatesPython
+codestrs = {}
+def _get_codestr(name):
+    if name not in codestrs:
+        with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
+            codestrs[name] = infile.read()
+    return codestrs[name]
 

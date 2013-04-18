@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import pyhsmm
 from pyhsmm.util.stats import cov
 from pyhsmm.util.text import progprint_xrange
-pyhsmm.internals.states.use_eigen() # required!
 
 ###############
 #  load data  #

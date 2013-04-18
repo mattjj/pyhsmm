@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import time
 
 import pyhsmm
-pyhsmm.internals.states.use_eigen()
 
 ###################
 #  generate data  #

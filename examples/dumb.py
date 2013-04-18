@@ -4,7 +4,6 @@ from matplotlib import pyplot as plt
 import copy
 
 import pyhsmm
-pyhsmm.internals.states.use_eigen()
 
 N = 50
 T = 10000

@@ -14,6 +14,8 @@ class HMM(ModelGibbsSampling, ModelEM):
     packages all the components.
     '''
 
+    _states_class = states.HMMStatesPython
+
     def __init__(self,
             obs_distns,
             trans_distn=None,
@@ -53,7 +55,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(states.HMMStates(model=self,data=data,stateseq=stateseq,**kwargs))
+        self.states_list.append(self._states_class(model=self,data=data,stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
         s = states.HMMStates(model=self,data=data,
@@ -249,6 +251,9 @@ class HMM(ModelGibbsSampling, ModelEM):
             plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
             s.plot(colors_dict=colors)
 
+class HMMEigen(HMM):
+    _states_class = states.HMMStatesEigen
+
 class StickyHMM(HMM, ModelGibbsSampling):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
@@ -284,8 +289,11 @@ class StickyHMM(HMM, ModelGibbsSampling):
     def EM_step(self):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
+class StickyHMMEigen(StickyHMM):
+    _states_class = states.HMMStatesEigen
 
-class HSMM(HMM, ModelGibbsSampling, ModelEM):
+
+class HSMM(HMM, ModelGibbsSampling):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
         * HSMM internals, including distribution objects for
@@ -301,6 +309,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
     state sequences and parameters) can be resampled by calling the resample()
     method.
     '''
+
+    _states_class = states.HSMMStatesPython
 
     def __init__(self,
             obs_distns,dur_distns,
@@ -333,11 +343,11 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStates(self,
+        self.states_list.append(self._states_class(self,
             data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        s = states.HSMMStates(model=self,data=data,trunc=trunc,
+        s = self._states_class(model=self,data=data,trunc=trunc,
                 stateseq=np.zeros(len(data)),**kwargs)
         betal, _ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -345,7 +355,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
     ### generation
 
     def generate(self,T,keep=True,**kwargs):
-        tempstates = states.HSMMStates(self,T=T,initialize_from_prior=True,trunc=self.trunc,**kwargs)
+        tempstates = self._states_class(self,T=T,initialize_from_prior=True,trunc=self.trunc,**kwargs)
         return self._generate(tempstates,keep)
 
     ### Gibbs sampling
@@ -423,10 +433,15 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
         # alternative plot that isn't so big
         raise NotImplementedError # TODO
 
+class HSMMEigen(HSMM):
+    _states_class = states.HSMMStatesEigen
+
 class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
+    _states_class = states.HSMMStatesPossibleChangepoints
+
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                states.HSMMStatesPossibleChangepoints(self,changepoints,data=data,trunc=self.trunc,**kwargs))
+                self._states_class(self,changepoints,data=data,trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -459,12 +474,11 @@ class HSMMGeoApproximation(HSMM):
                 self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
 
 class HSMMIntNegBin(HSMM):
+    _states_class = states.HSMMStatesIntegerNegativeBinomial
+
     def __init__(self,obs_distns,dur_distns,*args,**kwargs):
         assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerR) for d in dur_distns), \
                 'duration distributions must be instances of NegativeBinomialIntegerR'
         super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
 
-    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(states.HSMMStatesIntegerNegativeBinomial(
-            self,data=data,stateseq=stateseq,censoring=censoring,**kwargs))
 
