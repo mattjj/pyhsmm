@@ -338,7 +338,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM):
     def log_likelihood(self,data,trunc=None,**kwargs):
         s = states.HSMMStates(model=self,data=data,trunc=trunc,
                 stateseq=np.zeros(len(data)),**kwargs)
-        betal, betastarl = s.messages_backwards()
+        betal, _ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
     ### generation
@@ -456,4 +456,10 @@ class HSMMGeoApproximation(HSMM):
         else:
             self.states_list.append(states.HSMMStatesGeoDynamicApproximation(
                 self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
+
+class HSMMIntNegBin(HSMM):
+    # TODO add isinstance assertion
+    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
+        self.states_list.append(states.HSMMStatesIntegerNegativeBinomial(
+            self,data=data,stateseq=stateseq,censoring=censoring,**kwargs))
 

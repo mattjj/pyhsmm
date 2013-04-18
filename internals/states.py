@@ -157,9 +157,6 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-    def __init__(self,model,*args,**kwargs):
-        super(HMMStatesEigen,self).__init__(model,*args,**kwargs)
-
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
         global hmm_messages_backwards_codestr, eigen_path
@@ -423,7 +420,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
-                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq_norep, self.durations = util.rle(stateseq)
@@ -639,11 +636,80 @@ class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
         raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
         super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
 
+class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
+    def messages_backwards_python(self):
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        ps = np.array([d.p for d in self.model.dur_distns])
+
+        trans_matrix = self.trans_matrix = np.zeros((rs.sum(),rs.sum()))
+        trans_matrix += np.diag(np.repeat(ps,rs))
+        trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
+        for z in rs[:-1].cumsum():
+            trans_matrix[z-1,z] = 0
+
+        ends = rs.cumsum()
+        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+        for (i,j), v in np.ndenumerate(self.model.trans_distn.A * (1-ps)[:,None]):
+            if i != j:
+                trans_matrix[ends[i]-1,starts[j]] = v
+
+        return HMMStates._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1)), \
+                HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
+
+    def messages_backwards(self):
+        global hsmm_intnegbin_messages_backwards_codestr, eigen_path
+
+        aBl = self.aBl
+        T,M = aBl.shape
+
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.model.dur_distns])
+        AT = self.model.trans_distn.A.T.copy() * (1-ps)
+
+        betal = np.zeros((T,rtot))
+
+        scipy.weave.inline(hsmm_intnegbin_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','AT','ps','betal','aBl','T','M'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return betal, None
+
+    # TODO TODO
+    def sample_forwards(self,betal,_):
+        global hsmm_intnegbin_sample_forwards_codestr, eigen_path
+
+        T,M = betal.shape
+        aBl = self.aBl
+        A = self.model.trans_distn.A
+        pi0 = self.model.init_state_distn.pi_0
+
+        stateseq = np.zeros(T,dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
+                ['betal','aBl','stateseq','A','pi0','M','T'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq_norep, self.durations = util.rle(stateseq)
+        self.stateseq = stateseq
+
+        if self.censoring:
+            dur = self.durations[-1]
+            dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
+            # TODO instead of 3*T, use log_sf
+            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
+
 ################################
 #  use_eigen stuff below here  #
 ################################
 
-# TODO TODO move away from weave and this ugliness
+# TODO TODO move away from weave and this ugliness. numba? ctypes? cffi? cython?
+# probably cython or ctypes.
 
 # default is python
 HSMMStates = HSMMStatesPython
@@ -652,6 +718,7 @@ HMMStates = HMMStatesPython
 def use_eigen(useit=True):
     global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
             hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr, \
+            hsmm_intnegbin_sample_forwards_codestr, hsmm_intnegbin_messages_backwards_codestr, \
             eigen_path
 
     if useit:
@@ -664,6 +731,11 @@ def use_eigen(useit=True):
             hmm_messages_backwards_codestr = infile.read()
         with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
             hmm_sample_forwards_codestr = infile.read()
+        # TODO below here
+        with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_messages_backwards.cpp')) as infile:
+            hsmm_intnegbin_messages_backwards_codestr = infile.read()
+        with open(os.path.join(eigen_code_dir,'hsmm_intnegbin_sample_forwards.cpp')) as infile:
+            hsmm_intnegbin_sample_forwards_codestr = infile.read()
 
             HSMMStates = HSMMStatesEigen
             HMMStates = HMMStatesEigen

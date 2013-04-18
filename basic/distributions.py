@@ -12,15 +12,23 @@ from abstractions import DurationDistribution
 #  Metaprogramming util  #
 ##########################
 
+def _make_duration_distribution(cls):
+    class Wrapper(cls, DurationDistribution):
+        pass
+
+    Wrapper.__name__ = cls.__name__ + 'Duration'
+    Wrapper.__doc__ = cls.__doc__
+    return Wrapper
+
 # this method is for generating new classes, shifting their support from
 # {0,1,2,...} to {1,2,3,...}
 def _start_at_one(cls):
     class Wrapper(cls, DurationDistribution):
-        def log_likelihood(self,x):
-            return super(Wrapper,self).log_likelihood(x-1)
+        def log_likelihood(self,x,*args,**kwargs):
+            return super(Wrapper,self).log_likelihood(x-1,*args,**kwargs)
 
-        def log_sf(self,x):
-            return super(Wrapper,self).log_sf(x-1)
+        def log_sf(self,x,*args,**kwargs):
+            return super(Wrapper,self).log_sf(x-1,*args,**kwargs)
 
         def rvs(self,size=None):
             return super(Wrapper,self).rvs(size)+1
@@ -50,9 +58,9 @@ PoissonDuration = _start_at_one(Poisson)
 NegativeBinomialDuration = _start_at_one(NegativeBinomial)
 NegativeBinomialFixedRDuration = _start_at_one(NegativeBinomialFixedR)
 NegativeBinomialIntegerRDuration = _start_at_one(NegativeBinomialIntegerR)
-NegativeBinomialVariantDuration = _start_at_one(NegativeBinomialVariant)
-NegativeBinomialFixedRVariantDuration = _start_at_one(NegativeBinomialFixedRVariant)
-NegativeBinomialIntegerRVariantDuration = _start_at_one(NegativeBinomialIntegerRVariant)
+NegativeBinomialVariantDuration = _make_duration_distribution(NegativeBinomialVariant)
+NegativeBinomialFixedRVariantDuration = _make_duration_distribution(NegativeBinomialFixedRVariant)
+NegativeBinomialIntegerRVariantDuration = _make_duration_distribution(NegativeBinomialIntegerRVariant)
 
 ##########
 #  Meta  #
