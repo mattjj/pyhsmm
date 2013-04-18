@@ -21,16 +21,9 @@ t=0;
 while (t < T) {
     // sample a new superstate
     logdomain = esuperbetal.col(t) + eaBl.col(t);
-    cout << logdomain << endl << endl;
-    cout << (logdomain.array() - logdomain.maxCoeff()).exp() << endl << endl;
-    cout << nextstate_unsmoothed << endl << endl;
     nextstate_distr = (logdomain.array() - logdomain.maxCoeff()).exp() * nextstate_unsmoothed.array();
-    cout << nextstate_distr << endl << endl;
     total = nextstate_distr.sum() * (((double)random())/((double)RAND_MAX));
-    cout << total << endl << endl;
-    cout << nextstate_distr << endl << endl;
     for (state=0; (total -= nextstate_distr(state)) > 0; state++) ;
-    cout << state << endl << endl;
 
     // loop in the substates
     substate = start_indices[state];

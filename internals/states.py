@@ -683,8 +683,8 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
     def sample_forwards(self,betal,superbetal):
         global hsmm_intnegbin_sample_forwards_codestr, eigen_path
 
-        T,M = betal.shape
         aBl = self.aBl
+        T,M = aBl.shape
         A = self.model.trans_distn.A
         pi0 = self.model.init_state_distn.pi_0
         rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)

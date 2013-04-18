@@ -6,7 +6,7 @@ import pyhsmm
 pyhsmm.internals.states.use_eigen()
 
 N = 4
-T = 50
+T = 500
 obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
