@@ -3,9 +3,13 @@ from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
 
+np.seterr(invalid='raise')
+
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
+# TODO TODO add codestring refs to instances
+# TODO using log(A) can hurt stability a bit, -1000 turns into -inf
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,initialize_from_prior=True):
@@ -155,12 +159,10 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-    def __init__(self,model,*args,**kwargs):
-        super(HMMStatesEigen,self).__init__(model,*args,**kwargs)
-
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
-        global hmm_messages_backwards_codestr, eigen_path
+        global eigen_path
+        hmm_messages_backwards_codestr = _get_codestr('hmm_messages_backwards')
 
         T,M = log_likelihoods.shape
         AT = trans_matrix.T.copy() # because Eigen is fortran/col-major, numpy default C/row-major
@@ -176,7 +178,9 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
-        # TODO test
+        global eigen_path
+        hmm_messages_forwards_codestr = _get_codestr('hmm_messages_forwards')
+
         T,M = log_likelihoods.shape
         A = trans_matrix
         aBl = log_likelihoods
@@ -192,7 +196,8 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
-        global hmm_sample_forwards_codestr, eigen_path
+        global eigen_path
+        hmm_sample_forwards_codestr = _get_codestr('hmm_sample_forwards')
 
         T,M = betal.shape
         A = trans_matrix
@@ -409,7 +414,8 @@ class HSMMStatesPython(HMMStatesPython):
 
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
-        global hsmm_sample_forwards_codestr, eigen_path
+        global eigen_path
+        hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
 
         A = self.model.trans_distn.A
         apmf = self.aD
@@ -421,7 +427,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
-                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq_norep, self.durations = util.rle(stateseq)
@@ -596,11 +602,13 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
         trunc = self.trunc if self.trunc is not None else self.T
+        state_dim = self.model.state_dim
         hmm_A = self.model.trans_distn.A.copy()
-        hmm_A.flat[::self.state_dim+1] = 0
+        hmm_A.flat[::state_dim+1] = 0
         thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.model.dur_distns])
+        assert (thediag < 1).all(), 'truncation is too small!'
         hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
-        hmm_A.flat[::self.state_dim+1] = thediag
+        hmm_A.flat[::state_dim+1] = thediag
         return hmm_A
 
     def messages_backwards(self):
@@ -612,6 +620,7 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
         assert trunc > 1
 
         hmm_betal = HMMStates._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
+        assert not np.isnan(hmm_betal).any()
 
         betal = np.zeros((T,state_dim),dtype=np.float64)
         betastarl = np.zeros_like(betal)
@@ -634,35 +643,104 @@ class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
         raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
         super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
 
-################################
-#  use_eigen stuff below here  #
-################################
+class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
+    def messages_backwards_python(self):
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        ps = np.array([d.p for d in self.model.dur_distns])
 
-# TODO TODO move away from weave and this ugliness
+        trans_matrix = self.trans_matrix = np.zeros((rs.sum(),rs.sum()))
+        trans_matrix += np.diag(np.repeat(ps,rs))
+        trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
+        for z in rs[:-1].cumsum():
+            trans_matrix[z-1,z] = 0
 
-# default is python
-HSMMStates = HSMMStatesPython
-HMMStates = HMMStatesPython
+        ends = rs.cumsum()
+        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+        for (i,j), v in np.ndenumerate(self.model.trans_distn.A * (1-ps)[:,None]):
+            if i != j:
+                trans_matrix[ends[i]-1,starts[j]] = v
 
-def use_eigen(useit=True):
-    global HSMMStates, HMMStates, hmm_sample_forwards_codestr, \
-            hsmm_sample_forwards_codestr, hmm_messages_backwards_codestr, \
-            eigen_path
+        assert np.allclose(trans_matrix.sum(1),1.)
 
-    if useit:
-        import os
-        eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
-        eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
-        with open(os.path.join(eigen_code_dir,'hsmm_sample_forwards.cpp')) as infile:
-            hsmm_sample_forwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hmm_messages_backwards.cpp')) as infile:
-            hmm_messages_backwards_codestr = infile.read()
-        with open(os.path.join(eigen_code_dir,'hmm_sample_forwards.cpp')) as infile:
-            hmm_sample_forwards_codestr = infile.read()
+        return HMMStates._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1)), \
+                None #HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
 
-            HSMMStates = HSMMStatesEigen
-            HMMStates = HMMStatesEigen
-    else:
-        HSMMStates = HSMMStatesPython
-        HMMStates = HMMStatesPython
+    def messages_backwards(self):
+        global eigen_path
+        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_messages_backwards')
+
+        aBl = self.aBl
+        T,M = aBl.shape
+
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.model.dur_distns])
+        AT = self.model.trans_distn.A.T.copy() * (1-ps)
+
+        superbetal = np.zeros((T,M))
+        betal = np.zeros((T,rtot))
+
+        scipy.weave.inline(hsmm_intnegbin_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','AT','ps','superbetal','betal','aBl','T','M'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return betal, superbetal
+
+    def sample_forwards(self,betal,superbetal):
+        global eigen_path
+        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbin_sample_forwards')
+
+        aBl = self.aBl
+        T,M = aBl.shape
+        pi0 = self.model.init_state_distn.pi_0
+        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.model.dur_distns])
+        A = self.model.trans_distn.A * (1-ps[:,na])
+        A.flat[::A.shape[0]+1] = ps
+
+        stateseq = np.zeros(T,dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
+                ['betal','superbetal','aBl','stateseq','A','pi0','M','T','ps','rtot','start_indices','end_indices'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq_norep, self.durations = util.rle(stateseq)
+        self.stateseq = stateseq
+
+        if self.censoring:
+            dur = self.durations[-1]
+            dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
+            # TODO instead of 3*T, use log_sf
+            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
+
+    def sample_forwards_python(self,betal,_):
+        # TODO construct big A, use generic HMM sampling
+        raise NotImplementedError
+
+#################
+#  eigen stuff  #
+#################
+
+# TODO move away from weave, which is not maintained. numba? ctypes? cffi?
+# cython? probably cython or ctypes.
+
+import os
+eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
+eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
+
+codestrs = {}
+def _get_codestr(name):
+    if name not in codestrs:
+        with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
+            codestrs[name] = infile.read()
+    return codestrs[name]
 
