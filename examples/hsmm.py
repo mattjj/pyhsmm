@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import copy
 
 import pyhsmm
-pyhsmm.internals.states.use_eigen()
 from pyhsmm.util.text import progprint_xrange
 
 SAVE_FIGURES = False

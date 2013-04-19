@@ -6,7 +6,6 @@ import matplotlib
 matplotlib.rcParams['font.size'] = 8
 
 import pyhsmm
-pyhsmm.internals.states.use_eigen() # makes HMMs faster, message passing done in C++ with Eigen
 from pyhsmm.util.text import progprint_xrange
 
 print \
@@ -61,7 +60,7 @@ Nmax = 25
 ### HDP-HMM without the sticky bias
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
-posteriormodel = pyhsmm.models.HMM(alpha=6.,gamma=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.HMMEigen(alpha=6.,gamma=6.,init_state_concentration=6.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
@@ -75,7 +74,7 @@ plt.gcf().suptitle('HDP-HMM sampled model after 100 iterations')
 ### Sticky-HDP-HMM
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
-posteriormodel = pyhsmm.models.StickyHMM(kappa=50.,alpha=6.,gamma=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.StickyHMMEigen(kappa=50.,alpha=6.,gamma=6.,init_state_concentration=6.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
