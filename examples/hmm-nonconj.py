@@ -8,17 +8,6 @@ matplotlib.rcParams['font.size'] = 8
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-print \
-'''
-This demo shows how HDP-HMMs can fail when the underlying data has state
-persistence without some kind of temporal regularization (in the form of a
-sticky bias or duration modeling): without setting the number of states to be
-the correct number a priori, lots of extra states can be intsantiated.
-
-BUT the effect is much more relevant on real data (when the data doesn't exactly
-fit the model). Maybe this demo should use multinomial emissions...
-'''
-
 #####################
 #  data generation  #
 #####################
@@ -59,7 +48,12 @@ Nmax = 25
 
 ### Sticky-HDP-HMM
 
-obs_distns = [pyhsmm.distributions.GaussianNonConj(np.zeros(2),3*np.eye(2),7,np.eye(2)) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.GaussianNonConj(
+            np.zeros(2), # mean hyperparameter for mus
+            3*np.eye(2), # covariance hyperparameter for mus
+            7,           # pseudocounts hyperparameter for sigmas
+            np.eye(2),   # mean hyperparameter for sigmas
+            ) for state in xrange(Nmax)]
 posteriormodel = pyhsmm.models.StickyHMMEigen(kappa=50.,alpha=6.,gamma=6.,init_state_concentration=6.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
