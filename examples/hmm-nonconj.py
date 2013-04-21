@@ -51,7 +51,7 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.GaussianNonConj(
             np.zeros(2), # mean hyperparameter for mus
             3*np.eye(2), # covariance hyperparameter for mus
-            7,           # pseudocounts hyperparameter for sigmas
+            obs_dim+5,   # pseudocounts hyperparameter for sigmas
             np.eye(2),   # mean hyperparameter for sigmas
             ) for state in xrange(Nmax)]
 posteriormodel = pyhsmm.models.StickyHMMEigen(kappa=50.,alpha=6.,gamma=6.,init_state_concentration=6.,
