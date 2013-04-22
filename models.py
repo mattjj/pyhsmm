@@ -55,10 +55,11 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(self._states_class(model=self,data=data,stateseq=stateseq,**kwargs))
+        self.states_list.append(self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+            stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
-        s = self._states_class(model=self,data=data,
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
                 stateseq=np.zeros(len(data))) # placeholder
         betal = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -344,10 +345,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(self._states_class(self,
-            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+            data=np.asarray(data,dtype=np.float64),stateseq=stateseq,censoring=censoring,
+            trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        s = self._states_class(model=self,data=data,trunc=trunc,
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),trunc=trunc,
                 stateseq=np.zeros(len(data)),**kwargs)
         betal, _ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -441,7 +443,8 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                self._states_class(self,changepoints,data=data,trunc=self.trunc,**kwargs))
+                self._states_class(self,changepoints,data=np.asarray(data,dtype=np.float64),
+                    trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -468,10 +471,12 @@ class HSMMGeoApproximation(HSMM):
     def add_data(self,data,dynamic_approximation=False,stateseq=None,censoring=True,**kwargs):
         if not dynamic_approximation:
             self.states_list.append(states.HSMMStatesGeoApproximation(
-                self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+                self,data=np.asarray(data,dtype=np.float64),
+                stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
         else:
             self.states_list.append(states.HSMMStatesGeoDynamicApproximation(
-                self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
+                self,data=np.asarray(data,dtype=np.float64),
+                stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
 
 class HSMMIntNegBin(HSMM):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
