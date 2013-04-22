@@ -5,6 +5,7 @@ na = np.newaxis
 import scipy.stats as stats
 import scipy.special as special
 import scipy.linalg
+from numpy.core.umath_tests import inner1d
 
 import general
 
@@ -151,10 +152,10 @@ def multivariate_t_loglik(y,nu,mu,lmbda):
     # returns the log value
     d = len(mu)
     yc = np.array(y-mu,ndmin=2)
+    ys, LT = general.solve_chofactor_system(lmbda,yc.T,overwrite_b=True)
     return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) \
-            - (d/2.)*np.log(nu*np.pi) - (1./2.)*np.log(np.linalg.det(lmbda)) \
-            - (nu+d)/2.*np.log1p(1./nu*np.dot(yc,
-                np.linalg.solve(lmbda,yc.T)).diagonal()) # TODO get rid of diagonal business
+            - (d/2.)*np.log(nu*np.pi) - np.log(LT.diagonal()).sum() \
+            - (nu+d)/2.*np.log1p(1./nu*inner1d(ys.T,ys.T))
 
 def beta_predictive(priorcounts,newcounts):
     prior_nsuc, prior_nfail = priorcounts
