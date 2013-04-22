@@ -58,7 +58,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.states_list.append(self._states_class(model=self,data=data,stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
-        s = states.HMMStates(model=self,data=data,
+        s = self._states_class(model=self,data=data,
                 stateseq=np.zeros(len(data))) # placeholder
         betal = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
