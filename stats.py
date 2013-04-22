@@ -58,6 +58,12 @@ def flattendata(data):
         assert isinstance(data,int) or isinstance(data,float)
         return np.array(data,ndmin=1)
 
+### misc
+
+def cov(a):
+    # return np.cov(a,rowvar=0,bias=1)
+    mu = a.mean(0)
+    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
 
 ### Sampling functions
 
@@ -166,8 +172,3 @@ def beta_predictive(priorcounts,newcounts):
     denom = scipy.special.gammaln(np.array([prior_nsuc, prior_nfail,
         prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
-
-def cov(a):
-    # return np.cov(a,rowvar=0,bias=1)
-    mu = a.mean(0)
-    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
