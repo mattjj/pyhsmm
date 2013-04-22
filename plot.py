@@ -48,4 +48,4 @@ def project_ellipsoid(ellipsoid,vecs):
 
 
 def subplot_gridsize(num):
-    return sorted(max([(x,int(np.ceil(num/x))) for x in range(1,int(np.floor(np.sqrt(num)))+1)],key=sum))
+    return sorted(min([(x,int(np.ceil(num/x))) for x in range(1,int(np.floor(np.sqrt(num)))+1)],key=sum))
