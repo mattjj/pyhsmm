@@ -215,9 +215,10 @@ class HMM(ModelGibbsSampling, ModelEM):
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
-        self.init_state_distn.max_likelihood([s.stateseq[0] for s in self.states_list])
+        self.init_state_distn.max_likelihood(
+                np.array([s.stateseq[0] for s in self.states_list]))
 
-        self.trans_matrix.max_likelihood([s.stateseq for s in self.states_list])
+        self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
     ### plotting
 

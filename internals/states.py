@@ -148,7 +148,8 @@ class HMMStatesPython(object):
         self.maximize_forwards(betal)
 
     def maximize_forwards(self,betal):
-        self._maximize_forwards(betal,self.model.trans_distn.A,self.model.init_state_distn.pi_0,self.aBl)
+        self.stateseq = self._maximize_forwards(
+                betal,self.model.trans_distn.A,self.model.init_state_distn.pi_0,self.aBl)
 
     @staticmethod
     def _maximize_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
