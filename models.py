@@ -190,11 +190,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                 [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
-        self.trans_distn.max_likelihood([(s.alphal,s.betal,s.aBl) for s in self.states_list])
-
-        ## for plotting!
-        for s in self.states_list:
-            s.stateseq = s.expectations.argmax(1)
+        self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
 
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
@@ -206,6 +202,22 @@ class HMM(ModelGibbsSampling, ModelEM):
         assert len(self.states_list) > 0, 'Must have data to get BIC'
         return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
                     self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+
+    def Viterbi_EM_step(self):
+        assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
+        self._clear_caches()
+
+        ## Viterbi step
+        for s in self.states_list:
+            s.Viterbi()
+
+        ## M step
+        for state, distn in enumerate(self.obs_distns):
+            distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
+
+        self.init_state_distn.max_likelihood([s.stateseq[0] for s in self.states_list])
+
+        self.trans_matrix.max_likelihood([s.stateseq for s in self.states_list])
 
     ### plotting
 

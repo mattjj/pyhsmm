@@ -141,6 +141,32 @@ class HMMStatesPython(object):
         np.exp(expectations,out=expectations)
         expectations /= expectations.sum(1)[:,na]
 
+        self.stateseq = expectations.argmax(1)
+
+    def Viterbi(self):
+        betal = self.messages_backwards()
+        self.maximize_forwards(betal)
+
+    def maximize_forwards(self,betal):
+        self._maximize_forwards(betal,self.model.trans_distn.A,self.model.init_state_distn.pi_0,self.aBl)
+
+    @staticmethod
+    def _maximize_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
+        A = trans_matrix
+        aBl = log_likelihoods
+        T = aBl.shape[0]
+
+        stateseq = np.empty(T,dtype=np.int32)
+
+        nextstate_unsmoothed = init_state_distn
+        for idx in xrange(T):
+            logdomain = betal[idx] + aBl[idx]
+            logdomain[nextstate_unsmoothed == 0] = -np.inf
+            stateseq[idx] = (nextstate_unsmoothed * np.exp(logdomain - logdomain.max())).argmax()
+            nextstate_unsmoothed = A[stateseq[idx]]
+
+        return stateseq
+
     ### plotting
 
     def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
