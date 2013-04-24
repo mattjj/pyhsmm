@@ -55,10 +55,11 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(self._states_class(model=self,data=data,stateseq=stateseq,**kwargs))
+        self.states_list.append(self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+            stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
-        s = states.HMMStates(model=self,data=data,
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
                 stateseq=np.zeros(len(data))) # placeholder
         betal = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -189,11 +190,7 @@ class HMM(ModelGibbsSampling, ModelEM):
                 [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
-        self.trans_distn.max_likelihood([(s.alphal,s.betal,s.aBl) for s in self.states_list])
-
-        ## for plotting!
-        for s in self.states_list:
-            s.stateseq = s.expectations.argmax(1)
+        self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
 
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
@@ -205,6 +202,23 @@ class HMM(ModelGibbsSampling, ModelEM):
         assert len(self.states_list) > 0, 'Must have data to get BIC'
         return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
                     self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+
+    def Viterbi_EM_step(self):
+        assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
+        self._clear_caches()
+
+        ## Viterbi step
+        for s in self.states_list:
+            s.Viterbi()
+
+        ## M step
+        for state, distn in enumerate(self.obs_distns):
+            distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
+
+        self.init_state_distn.max_likelihood(
+                np.array([s.stateseq[0] for s in self.states_list]))
+
+        self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
     ### plotting
 
@@ -292,7 +306,6 @@ class StickyHMM(HMM, ModelGibbsSampling):
 class StickyHMMEigen(StickyHMM):
     _states_class = states.HMMStatesEigen
 
-
 class HSMM(HMM, ModelGibbsSampling):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
@@ -344,10 +357,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(self._states_class(self,
-            data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+            data=np.asarray(data,dtype=np.float64),stateseq=stateseq,censoring=censoring,
+            trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        s = self._states_class(model=self,data=data,trunc=trunc,
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),trunc=trunc,
                 stateseq=np.zeros(len(data)),**kwargs)
         betal, _ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -441,7 +455,8 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                self._states_class(self,changepoints,data=data,trunc=self.trunc,**kwargs))
+                self._states_class(self,changepoints,data=np.asarray(data,dtype=np.float64),
+                    trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -468,10 +483,21 @@ class HSMMGeoApproximation(HSMM):
     def add_data(self,data,dynamic_approximation=False,stateseq=None,censoring=True,**kwargs):
         if not dynamic_approximation:
             self.states_list.append(states.HSMMStatesGeoApproximation(
-                self,data=data,stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
+                self,data=np.asarray(data,dtype=np.float64),
+                stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
         else:
             self.states_list.append(states.HSMMStatesGeoDynamicApproximation(
-                self,data=data,stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
+                self,data=np.asarray(data,dtype=np.float64),
+                stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
+
+class HSMMIntNegBin(HSMM):
+    _states_class = states.HSMMStatesIntegerNegativeBinomial
+
+    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
+        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerR) for d in dur_distns), \
+                'duration distributions must be instances of NegativeBinomialIntegerR'
+        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+
 
 class HSMMIntNegBin(HSMM):
     _states_class = states.HSMMStatesIntegerNegativeBinomial

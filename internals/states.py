@@ -141,6 +141,47 @@ class HMMStatesPython(object):
         np.exp(expectations,out=expectations)
         expectations /= expectations.sum(1)[:,na]
 
+        self.stateseq = expectations.argmax(1)
+
+    def Viterbi(self):
+        scores, args = self.maxsum_messages_backwards()
+        self.maximize_forwards(scores,args)
+
+    @staticmethod
+    def _maxsum_messages_backwards(trans_matrix, log_likelihoods):
+        Al = np.log(trans_matrix)
+        aBl = log_likelihoods
+
+        scores = np.zeros_like(aBl)
+        args = np.zeros(aBl.shape,dtype=np.int32)
+
+        for t in xrange(scores.shape[0]-2,-1,-1):
+            vals = Al + scores[t+1] + aBl[t+1]
+            vals.argmax(axis=1,out=args[t+1])
+            vals.max(axis=1,out=scores[t])
+
+        return scores, args
+
+    def maxsum_messages_backwards(self):
+        return self._maxsum_messages_backwards(self.model.trans_distn.A,self.aBl)
+
+    @staticmethod
+    def _maximize_forwards(scores,args,init_state_distn,log_likelihoods):
+        aBl = log_likelihoods
+        T = aBl.shape[0]
+
+        stateseq = np.empty(T,dtype=np.int32)
+
+        stateseq[0] = (scores[0] + np.log(init_state_distn) + aBl[0]).argmax()
+        for idx in xrange(1,T):
+            stateseq[idx] = args[idx,stateseq[idx-1]]
+
+        return stateseq
+
+    def maximize_forwards(self,scores,args):
+        self.stateseq = self._maximize_forwards(
+                scores,args,self.model.init_state_distn.pi_0,self.aBl)
+
     ### plotting
 
     def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
