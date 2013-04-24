@@ -8,6 +8,9 @@ from basic.abstractions import ModelGibbsSampling, ModelEM
 import basic.distributions
 from internals import states, initial_state, transitions
 
+# TODO think about factoring out base classes for HMMs and HSMMs
+# TODO maybe states classes should handle log_likelihood...
+
 class HMM(ModelGibbsSampling, ModelEM):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
@@ -80,7 +83,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         from the posterior (as long as the Gibbs sampling has converged). In
         these cases, the keep argument should be False.
         '''
-        tempstates = states.HMMStates(self,T=T,initialize_from_prior=True)
+        tempstates = self._states_class(self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -480,17 +483,9 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
         raise NotImplementedError
 
 class HSMMGeoApproximation(HSMM):
-    def add_data(self,data,dynamic_approximation=False,stateseq=None,censoring=True,**kwargs):
-        if not dynamic_approximation:
-            self.states_list.append(states.HSMMStatesGeoApproximation(
-                self,data=np.asarray(data,dtype=np.float64),
-                stateseq=stateseq,censoring=censoring,trunc=self.trunc,**kwargs))
-        else:
-            self.states_list.append(states.HSMMStatesGeoDynamicApproximation(
-                self,data=np.asarray(data,dtype=np.float64),
-                stateseq=stateseq,censoring=censoring,trunc=None,**kwargs))
+    _states_class = states.HSMMStatesGeoApproximation
 
-class HSMMIntNegBin(HSMM):
+class HSMMIntNegBin(HSMM, HMMEigen):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
     def __init__(self,obs_distns,dur_distns,*args,**kwargs):
@@ -498,13 +493,16 @@ class HSMMIntNegBin(HSMM):
                 'duration distributions must be instances of NegativeBinomialIntegerR'
         super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
 
+    def log_likelihood(self,data):
+        # needs to use messages, so we need to know to act like an HMM
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+                stateseq=np.zeros(len(data))) # placeholder
+        betal = s.messages_backwards_hmm()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
 
-class HSMMIntNegBin(HSMM):
-    _states_class = states.HSMMStatesIntegerNegativeBinomial
-
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerR) for d in dur_distns), \
-                'duration distributions must be instances of NegativeBinomialIntegerR'
-        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
-
+    def EM_step(self):
+        # needs to use HMM messages that the states objects give us (only betal)
+        # on top of that, need to hand things duration distributions... UGH
+        # probably need betastarl too plus some indicator variable magic
+        raise NotImplementedError
 
