@@ -506,3 +506,9 @@ class HSMMIntNegBin(HSMM, HMMEigen):
         # probably need betastarl too plus some indicator variable magic
         raise NotImplementedError # TODO
 
+    def Viterbi_EM_step(self):
+        HMMEigen.Viterbi_EM_step(self)
+
+        for state, distn in enumerate(self.dur_distns):
+            distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
+
