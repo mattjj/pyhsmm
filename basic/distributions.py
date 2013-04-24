@@ -62,6 +62,23 @@ NegativeBinomialVariantDuration = _make_duration_distribution(NegativeBinomialVa
 NegativeBinomialFixedRVariantDuration = _make_duration_distribution(NegativeBinomialFixedRVariant)
 NegativeBinomialIntegerRVariantDuration = _make_duration_distribution(NegativeBinomialIntegerRVariant)
 
+#################
+#  Model stuff  #
+#################
+
+# this is extending the MixtureDistribution from basic/pybasicbayes/models.py
+# and then clobbering the name
+class MitureDistribution(MixtureDistribution, DurationDistribution):
+    # TODO test this
+    def log_sf(self,x):
+        x = np.asarray(x,dtype=np.float64)
+        K = len(self.components)
+        vals = np.empty((x.shape[0],K))
+        for idx, c in enumerate(self.components):
+            vals[:,idx] = c.log_sf(x)
+        vals += self.weights.log_likelihood(np.arange(K))
+        return np.logaddexp.reduce(vals,axis=1)
+
 ##########
 #  Meta  #
 ##########
