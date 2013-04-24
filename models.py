@@ -504,5 +504,5 @@ class HSMMIntNegBin(HSMM, HMMEigen):
         # needs to use HMM messages that the states objects give us (only betal)
         # on top of that, need to hand things duration distributions... UGH
         # probably need betastarl too plus some indicator variable magic
-        raise NotImplementedError
+        raise NotImplementedError # TODO
 
