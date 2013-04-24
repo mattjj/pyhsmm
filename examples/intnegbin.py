@@ -43,7 +43,7 @@ model.add_data(data)
 #  resample  #
 ##############
 
-for itr in progprint_xrange(100):
+for itr in progprint_xrange(10):
     model.resample_model()
 
 ################
