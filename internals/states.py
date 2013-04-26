@@ -19,7 +19,7 @@ class HMMStatesPython(object):
         self.T = data.shape[0] if data is not None else T
         self.data = data
 
-        self._clear_caches()
+        self.clear_caches()
 
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
@@ -159,6 +159,8 @@ class HMMStatesPython(object):
 
         self.stateseq = expectations.argmax(1)
 
+    ### Viterbi
+
     def Viterbi(self):
         scores, args = self.maxsum_messages_backwards()
         self.maximize_forwards(scores,args)
@@ -215,6 +217,9 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
+
+    ### common messages (Gibbs, EM, likelihood calculation)
+
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
         global eigen_path
@@ -250,6 +255,8 @@ class HMMStatesEigen(HMMStatesPython):
 
         return alphal
 
+    ### sampling
+
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
         global eigen_path
@@ -263,6 +270,42 @@ class HMMStatesEigen(HMMStatesPython):
         stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hmm_sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal','M'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return stateseq
+
+    ### Vitberbi
+
+    @staticmethod
+    def _maxsum_messages_backwards(trans_matrix,log_likelihoods):
+        global eigen_path
+        hmm_maxsum_messages_backwards_codestr = _get_codestr('hmm_maxsum_messages_backwards')
+
+        Al = np.log(trans_matrix)
+        aBl = log_likelihoods
+        T,M = log_likelihoods.shape
+
+        scores = np.zeros_like(aBl)
+        args = np.zeros(aBl.shape,dtype=np.int32)
+
+        scipy.weave.inline(hmm_maxsum_messages_backwards_codestr,['Al','aBl','T','M','scores','args'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return scores, args
+
+    @staticmethod
+    def _maximize_forwards(scores,args,init_state_distn,log_likelihoods):
+        global eigen_path
+        hmm_maximize_forwards_codestr = _get_codestr('hmm_maximize_forwards')
+
+        T,M = log_likelihoods.shape
+        stateseq = np.empty(T,dtype=np.int32)
+
+        stateseq[0] = (scores[0] + np.log(init_state_distn) + log_likelihoods[0]).argmax()
+
+        scipy.weave.inline(hmm_maximize_forwards_codestr,['stateseq','args','scores','T','M'],
                 headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
@@ -710,8 +753,8 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
     def __init__(self,*args,**kwargs):
         HSMMStatesPython.__init__(self,*args,**kwargs)
 
-    def _clear_caches(self):
-        HSMMStatesPython._clear_caches(self)
+    def clear_caches(self):
+        HSMMStatesPython.clear_caches(self)
         self._hmm_trans = None
         self._rs = None
         # note: we never use aDl or aDsl in this class
