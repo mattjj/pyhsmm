@@ -4,6 +4,7 @@ import scipy.stats as stats
 import scipy.special as special
 
 from pybasicbayes.distributions import *
+from pybasicbayes.models import MixtureDistribution
 from abstractions import DurationDistribution
 
 # If you're not comfortable with metaprogramming, here be dragons
