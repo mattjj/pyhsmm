@@ -11,6 +11,7 @@ lbv = c.load_balanced_view()
 
 # this dict needs to be populated by hand before calling build_states*, both
 # locally (in this module) and in the ipython top-level module on every engine
+# NOTE: the data should probably be arrays with dtype=np.float64
 alldata = {}
 
 # this function is run on the engines, and expects the alldata global as well as

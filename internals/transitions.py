@@ -82,12 +82,17 @@ class HDPHMMTransitions(object):
         return m
 
     ### max likelihood
+    # TODO these methods shouldn't really be in this class... maybe put them in
+    # a base class
 
-    def max_likelihood(self,expectations_list):
-        trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
+    def max_likelihood(self,stateseqs,expectations_list=None):
+        if expectations_list is not None:
+            trans_counts = self._count_weighted_transitions(expectations_list,self.A)
+        else:
+            trans_counts = self._count_transitions(stateseqs)
 
         errs = np.seterr(invalid='ignore',divide='ignore')
-        self.A = trans_softcounts / trans_softcounts.sum(1)[:,na]
+        self.A = trans_counts / trans_counts.sum(1)[:,na]
         np.seterr(**errs)
 
         self.A[np.isnan(self.A)] = 0.
@@ -207,10 +212,14 @@ class UniformTransitionsFixedSelfTrans(HDPHMMTransitions):
 
     ### max likelihood
 
-    def max_likelihood(self,expectations_list):
-        trans_softcounts = self._count_weighted_transitions(expectations_list,self.A)
-        trans_softcounts = self._E_augment_transitions(trans_softcounts)
-        self.pi.max_likelihood(trans_softcounts.sum(0))
+    def max_likelihood(self,stateseqs,expectations_list=None):
+        if expectations_list is not None:
+            trans_counts = self._count_weighted_transitions(expectations_list,self.A)
+        else:
+            trans_counts = self._count_transitions(stateseqs)
+
+        trans_counts = self._E_augment_transitions(trans_counts)
+        self.pi.max_likelihood(trans_counts.sum(0))
         self._set_A()
 
     def _E_augment_transitions(self,trans_softcounts):
@@ -248,7 +257,7 @@ class UniformTransitions(UniformTransitionsFixedSelfTrans):
             # resample everything else as usual
             super(UniformTransitions,self).resample(states_list,trans_counts=trans_counts,niter=1)
 
-    def max_likelihood(self,expectations_list):
+    def max_likelihood(self,stateseqs,expectations_list=None):
         raise NotImplementedError, "max_likelihood doesn't make sense on this class"
 
     @classmethod

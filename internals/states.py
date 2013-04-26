@@ -8,8 +8,8 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
-# TODO TODO add codestring refs to instances
-# TODO using log(A) can hurt stability a bit, -1000 turns into -inf
+# TODO using log(A) in message passing can hurt stability a bit, -1000 turns
+# into -inf
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,initialize_from_prior=True):
@@ -19,6 +19,8 @@ class HMMStatesPython(object):
         self.T = data.shape[0] if data is not None else T
         self.data = data
 
+        self.clear_caches()
+
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
         else:
@@ -26,6 +28,22 @@ class HMMStatesPython(object):
                 self.resample()
             else:
                 self.generate_states()
+
+    @property
+    def trans_matrix(self):
+        return self.model.trans_distn.A
+
+    @property
+    def pi_0(self):
+        return self.model.init_state_distn.pi_0
+
+    @property
+    def obs_distns(self):
+        return self.model.obs_distns
+
+    @property
+    def state_dim(self):
+        return self.model.state_dim
 
     ### generation
 
@@ -35,8 +53,8 @@ class HMMStatesPython(object):
 
     def generate_states(self):
         T = self.T
-        nextstate_distn = self.model.init_state_distn.pi_0
-        A = self.model.trans_distn.A
+        nextstate_distn = self.pi_0
+        A = self.trans_matrix
 
         stateseq = np.zeros(T,dtype=np.int32)
         for idx in xrange(T):
@@ -49,7 +67,7 @@ class HMMStatesPython(object):
     def generate_obs(self):
         obs = []
         for state,dur in zip(*util.rle(self.stateseq)):
-            obs.append(self.model.obs_distns[state].rvs(size=int(dur)))
+            obs.append(self.obs_distns[state].rvs(size=int(dur)))
         return np.concatenate(obs)
 
     ### caching common computation needed for several methods
@@ -62,10 +80,10 @@ class HMMStatesPython(object):
 
     @property
     def aBl(self):
-        if (not hasattr(self,'_aBl')) or (self._aBl is None):
+        if self._aBl is None:
             data = self.data
-            aBl = self._aBl = np.empty((data.shape[0],self.model.state_dim))
-            for idx, obs_distn in enumerate(self.model.obs_distns):
+            aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
+            for idx, obs_distn in enumerate(self.obs_distns):
                 aBl[:,idx] = obs_distn.log_likelihood(data)
         return self._aBl
 
@@ -84,7 +102,7 @@ class HMMStatesPython(object):
         return betal
 
     def messages_backwards(self):
-        return self._messages_backwards(self.model.trans_distn.A,self.aBl)
+        return self._messages_backwards(self.trans_matrix,self.aBl)
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
@@ -100,8 +118,7 @@ class HMMStatesPython(object):
         return alphal
 
     def messages_forwards(self):
-        return self._messages_forwards(self.model.trans_distn.A,
-                self.model.init_state_distn.pi_0,self.aBl)
+        return self._messages_forwards(self.trans_matrix,self.pi_0,self.aBl)
 
     ### Gibbs sampling
 
@@ -127,8 +144,7 @@ class HMMStatesPython(object):
         return stateseq
 
     def sample_forwards(self,betal):
-        self.stateseq = self._sample_forwards(
-                betal,self.model.trans_distn.A,self.model.init_state_distn.pi_0,self.aBl)
+        self.stateseq = self._sample_forwards(betal,self.trans_matrix,self.pi_0,self.aBl)
 
     ### EM
 
@@ -140,6 +156,48 @@ class HMMStatesPython(object):
         expectations -= expectations.max(1)[:,na]
         np.exp(expectations,out=expectations)
         expectations /= expectations.sum(1)[:,na]
+
+        self.stateseq = expectations.argmax(1)
+
+    ### Viterbi
+
+    def Viterbi(self):
+        scores, args = self.maxsum_messages_backwards()
+        self.maximize_forwards(scores,args)
+
+    @staticmethod
+    def _maxsum_messages_backwards(trans_matrix, log_likelihoods):
+        Al = np.log(trans_matrix)
+        aBl = log_likelihoods
+
+        scores = np.zeros_like(aBl)
+        args = np.zeros(aBl.shape,dtype=np.int32)
+
+        for t in xrange(scores.shape[0]-2,-1,-1):
+            vals = Al + scores[t+1] + aBl[t+1]
+            vals.argmax(axis=1,out=args[t+1])
+            vals.max(axis=1,out=scores[t])
+
+        return scores, args
+
+    def maxsum_messages_backwards(self):
+        return self._maxsum_messages_backwards(self.trans_matrix,self.aBl)
+
+    @staticmethod
+    def _maximize_forwards(scores,args,init_state_distn,log_likelihoods):
+        aBl = log_likelihoods
+        T = aBl.shape[0]
+
+        stateseq = np.empty(T,dtype=np.int32)
+
+        stateseq[0] = (scores[0] + np.log(init_state_distn) + aBl[0]).argmax()
+        for idx in xrange(1,T):
+            stateseq[idx] = args[idx,stateseq[idx-1]]
+
+        return stateseq
+
+    def maximize_forwards(self,scores,args):
+        self.stateseq = self._maximize_forwards(scores,args,self.pi_0,self.aBl)
 
     ### plotting
 
@@ -159,6 +217,9 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
+
+    ### common messages (Gibbs, EM, likelihood calculation)
+
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
         global eigen_path
@@ -194,6 +255,8 @@ class HMMStatesEigen(HMMStatesPython):
 
         return alphal
 
+    ### sampling
+
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
         global eigen_path
@@ -207,6 +270,42 @@ class HMMStatesEigen(HMMStatesPython):
         stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hmm_sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal','M'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return stateseq
+
+    ### Vitberbi
+
+    @staticmethod
+    def _maxsum_messages_backwards(trans_matrix,log_likelihoods):
+        global eigen_path
+        hmm_maxsum_messages_backwards_codestr = _get_codestr('hmm_maxsum_messages_backwards')
+
+        Al = np.log(trans_matrix)
+        aBl = log_likelihoods
+        T,M = log_likelihoods.shape
+
+        scores = np.zeros_like(aBl)
+        args = np.zeros(aBl.shape,dtype=np.int32)
+
+        scipy.weave.inline(hmm_maxsum_messages_backwards_codestr,['Al','aBl','T','M','scores','args'],
+                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return scores, args
+
+    @staticmethod
+    def _maximize_forwards(scores,args,init_state_distn,log_likelihoods):
+        global eigen_path
+        hmm_maximize_forwards_codestr = _get_codestr('hmm_maximize_forwards')
+
+        T,M = log_likelihoods.shape
+        stateseq = np.empty(T,dtype=np.int32)
+
+        stateseq[0] = (scores[0] + np.log(init_state_distn) + log_likelihoods[0]).argmax()
+
+        scipy.weave.inline(hmm_maximize_forwards_codestr,['stateseq','args','scores','T','M'],
                 headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
@@ -238,12 +337,16 @@ class HSMMStatesPython(HMMStatesPython):
         super(HSMMStatesPython,self).__init__(model,*args,**kwargs)
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
+    @property
+    def dur_distns(self):
+        return self.model.dur_distns
+
     ### generation
 
     def generate_states(self):
         idx = 0
-        nextstate_distr = self.model.init_state_distn.pi_0
-        A = self.model.trans_distn.A
+        nextstate_distr = self.pi_0
+        A = self.trans_matrix
 
         stateseq = np.empty(self.T,dtype=np.int32)
         durations = []
@@ -252,7 +355,7 @@ class HSMMStatesPython(HMMStatesPython):
             # sample a state
             state = sample_discrete(nextstate_distr)
             # sample a duration for that state
-            duration = self.model.dur_distns[state].rvs()
+            duration = self.dur_distns[state].rvs()
             # save everything
             durations.append(duration)
             stateseq[idx:idx+duration] = state # this can run off the end, that's okay
@@ -274,10 +377,10 @@ class HSMMStatesPython(HMMStatesPython):
 
     @property
     def aDl(self):
-        if (not hasattr(self,'_aDl')) or (self._aDl is None):
-            self._aDl = aDl = np.empty((self.T,self.model.state_dim))
+        if self._aDl is None:
+            self._aDl = aDl = np.empty((self.T,self.state_dim))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
-            for idx, dur_distn in enumerate(self.model.dur_distns):
+            for idx, dur_distn in enumerate(self.dur_distns):
                 aDl[:,idx] = dur_distn.log_pmf(possible_durations)
         return self._aDl
 
@@ -287,17 +390,17 @@ class HSMMStatesPython(HMMStatesPython):
 
     @property
     def aDsl(self):
-        if (not hasattr(self,'_aDsl')) or (self._aDsl is None):
-            self._aDsl = aDsl = np.empty((self.T,self.model.state_dim))
+        if self._aDsl is None:
+            self._aDsl = aDsl = np.empty((self.T,self.state_dim))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
-            for idx, dur_distn in enumerate(self.model.dur_distns):
+            for idx, dur_distn in enumerate(self.dur_distns):
                 aDsl[:,idx] = dur_distn.log_sf(possible_durations)
         return self._aDsl
 
     ### message passing
 
     def messages_backwards(self):
-        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.model.trans_distn.A)
+        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
         T,state_dim = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
 
@@ -332,7 +435,7 @@ class HSMMStatesPython(HMMStatesPython):
         self.sample_forwards(betal,betastarl)
 
     def sample_forwards(self,betal,betastarl):
-        A = self.model.trans_distn.A
+        A = self.trans_matrix
         apmf = self.aD
         T, state_dim = betal.shape
 
@@ -341,7 +444,7 @@ class HSMMStatesPython(HMMStatesPython):
         durations = []
 
         idx = 0
-        nextstate_unsmoothed = self.model.init_state_distn.pi_0
+        nextstate_unsmoothed = self.pi_0
 
         while idx < T:
             logdomain = betastarl[idx] - np.amax(betastarl[idx])
@@ -376,7 +479,7 @@ class HSMMStatesPython(HMMStatesPython):
                 else:
                     if self.censoring:
                         # TODO 3*T is a hacky approximation, could use log_sf
-                        dur += sample_discrete(self.model.dur_distns[state].pmf(np.arange(dur+1,3*self.T)))
+                        dur += sample_discrete(self.dur_distns[state].pmf(np.arange(dur+1,3*self.T)))
                     else:
                         dur += 1
                     durprob = -1 # just to get us out of loop
@@ -417,10 +520,10 @@ class HSMMStatesEigen(HSMMStatesPython):
         global eigen_path
         hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
 
-        A = self.model.trans_distn.A
+        A = self.trans_matrix
         apmf = self.aD
         T,M = betal.shape
-        pi0 = self.model.init_state_distn.pi_0
+        pi0 = self.pi_0
         aBl = self.aBl
 
         stateseq = np.zeros(T,dtype=np.int32)
@@ -435,7 +538,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 
         if self.censoring:
             dur = self.durations[-1]
-            dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
+            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
             # TODO instead of 3*T, use log_sf
             self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
 
@@ -457,8 +560,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         blockstateseq = np.zeros(Tblock,dtype=np.int32)
 
         tblock = 0
-        nextstate_distr = self.model.init_state_distn.pi_0
-        A = self.model.trans_distn.A
+        nextstate_distr = self.pi_0
+        A = self.trans_matrix
 
         while tblock < Tblock:
             # sample the state
@@ -468,7 +571,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             possible_durations = self.blocklens[tblock:].cumsum()
 
             # compute the pmf over those steps
-            durprobs = self.model.dur_distns[state].pmf(possible_durations)
+            durprobs = self.dur_distns[state].pmf(possible_durations)
             # TODO censoring: the last possible duration isn't quite right
             durprobs /= durprobs.sum()
 
@@ -502,9 +605,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     @property
     def aBBl(self):
-        if (not hasattr(self,'_aBBl')) or (self._aBBl is None):
+        if self._aBBl is None:
             aBl = self.aBl
-            aBBl = self._aBBl = np.empty((self.Tblock,self.model.state_dim))
+            aBBl = self._aBBl = np.empty((self.Tblock,self.state_dim))
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
         return self._aBBl
@@ -512,7 +615,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     ### message passing
 
     def messages_backwards(self):
-        aDl, Al = self.aDl, np.log(self.model.trans_distn.A)
+        aDl, Al = self.aDl, np.log(self.trans_matrix)
         Tblock = self.Tblock
         state_dim = Al.shape[0]
         trunc = self.trunc if self.trunc is not None else self.T
@@ -555,8 +658,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         blockstateseq = np.zeros(Tblock,dtype=np.int32)
 
         tblock = 0
-        nextstate_unsmoothed = self.model.init_state_distn.pi_0
-        A = self.model.trans_distn.A
+        nextstate_unsmoothed = self.pi_0
+        A = self.trans_matrix
         trunc = trunc if trunc is not None else self.T
 
         while tblock < Tblock:
@@ -597,15 +700,16 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self.stateseq[start:stop] = state
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
-# NOTE: these only work with iid emissions
+# NOTE: these only work with iid-like emissions with aBl (that includes
+# autoregressive but not fancier things)
 
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
         trunc = self.trunc if self.trunc is not None else self.T
-        state_dim = self.model.state_dim
-        hmm_A = self.model.trans_distn.A.copy()
+        state_dim = self.state_dim
+        hmm_A = self.trans_matrix.copy()
         hmm_A.flat[::state_dim+1] = 0
-        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.model.dur_distns])
+        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.dur_distns])
         assert (thediag < 1).all(), 'truncation is too small!'
         hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
         hmm_A.flat[::state_dim+1] = thediag
@@ -613,13 +717,13 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
 
     def messages_backwards(self):
         'approximates duration tails at indices > trunc with geometric tails'
-        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.model.trans_distn.A)
+        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
         trunc = self.trunc if self.trunc is not None else self.T
         T,state_dim = aDl.shape
 
         assert trunc > 1
 
-        hmm_betal = HMMStates._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
+        hmm_betal = HMMStatesEigen._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
         assert not np.isnan(hmm_betal).any()
 
         betal = np.zeros((T,state_dim),dtype=np.float64)
@@ -643,42 +747,109 @@ class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
         raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
         super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
 
-class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
-    def messages_backwards_python(self):
-        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
-        ps = np.array([d.p for d in self.model.dur_distns])
+class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
+    # NOTE: I'm secretly an HMMStates first! I just shh
 
-        trans_matrix = self.trans_matrix = np.zeros((rs.sum(),rs.sum()))
-        trans_matrix += np.diag(np.repeat(ps,rs))
-        trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
-        for z in rs[:-1].cumsum():
-            trans_matrix[z-1,z] = 0
+    def __init__(self,*args,**kwargs):
+        HSMMStatesPython.__init__(self,*args,**kwargs)
 
-        ends = rs.cumsum()
-        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-        for (i,j), v in np.ndenumerate(self.model.trans_distn.A * (1-ps)[:,None]):
-            if i != j:
-                trans_matrix[ends[i]-1,starts[j]] = v
+    def clear_caches(self):
+        HSMMStatesPython.clear_caches(self)
+        self._hmm_trans = None
+        self._rs = None
+        # note: we never use aDl or aDsl in this class
 
-        assert np.allclose(trans_matrix.sum(1),1.)
+    @property
+    def dur_distns(self):
+        return self.model.dur_distns
 
-        return HMMStates._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1)), \
-                None #HSMMStatesEigen._messages_backwards(trans_matrix,self.aBl.repeat(rs,axis=1))
+    @property
+    def hsmm_aBl(self):
+        return super(HSMMStatesIntegerNegativeBinomial,self).aBl
+
+    @property
+    def hsmm_trans_matrix(self):
+        return super(HSMMStatesIntegerNegativeBinomial,self).trans_matrix
+
+    @property
+    def hsmm_pi_0(self):
+        return super(HSMMStatesIntegerNegativeBinomial,self).pi_0
+
+    # the next methods are to override the calls that the parents' methods would
+    # make so that the parent can view us as the effective HMM we are!
+
+    @property
+    def rs(self):
+        if self._rs is None:
+            self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
+        return self._rs
+
+    @property
+    def aBl(self):
+        return self.hsmm_aBl.repeat(self.rs,axis=1)
+
+    @property
+    def pi_0(self):
+        return self.hsmm_pi_0.repeat(self.rs)
+
+    @property
+    def trans_matrix(self):
+        if self._hmm_trans is None:
+            rs = self.rs
+            ps = np.array([d.p for d in self.dur_distns])
+
+            trans_matrix = np.zeros((rs.sum(),rs.sum()))
+            trans_matrix += np.diag(np.repeat(ps,rs))
+            trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
+            for z in rs[:-1].cumsum():
+                trans_matrix[z-1,z] = 0
+
+            ends = rs.cumsum()
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,None]):
+                if i != j:
+                    trans_matrix[ends[i]-1,starts[j]] = v
+
+            assert np.allclose(trans_matrix.sum(1),1.)
+
+            self._hmm_trans = trans_matrix
+
+        return self._hmm_trans
+
+    ### HMM methods that need cleanup because they set the state sequence
+
+    def E_step(self):
+        raise NotImplementedError
+
+    def Viterbi(self):
+        super(HSMMStatesIntegerNegativeBinomial,self).Viterbi()
+        self._map_states()
+
+    def generate_states(self):
+        HMMStatesEigen.generate_states(self)
+        self._map_states()
+
+    def _map_states(self):
+        themap = np.arange(self.state_dim).repeat(self.rs)
+        self.stateseq = themap[self.stateseq]
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+    ### structure-exploiting methods
 
     def messages_backwards(self):
         global eigen_path
         hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_messages_backwards')
 
-        aBl = self.aBl
+        aBl = self.hsmm_aBl
         T,M = aBl.shape
 
-        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
         end_indices = crs-1
         rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.model.dur_distns])
-        AT = self.model.trans_distn.A.T.copy() * (1-ps)
+        ps = np.array([d.p for d in self.dur_distns])
+        AT = self.hsmm_trans_matrix.T.copy() * (1-ps)
 
         superbetal = np.zeros((T,M))
         betal = np.zeros((T,rtot))
@@ -694,16 +865,16 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
         global eigen_path
         hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbin_sample_forwards')
 
-        aBl = self.aBl
+        aBl = self.hsmm_aBl
         T,M = aBl.shape
-        pi0 = self.model.init_state_distn.pi_0
-        rs = np.array([d.r for d in self.model.dur_distns],dtype=np.int)
+        pi0 = self.hsmm_pi_0
+        rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
         end_indices = crs-1
         rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.model.dur_distns])
-        A = self.model.trans_distn.A * (1-ps[:,na])
+        ps = np.array([d.p for d in self.dur_distns])
+        A = self.hsmm_trans_matrix * (1-ps[:,na])
         A.flat[::A.shape[0]+1] = ps
 
         stateseq = np.zeros(T,dtype=np.int32)
@@ -718,13 +889,17 @@ class HSMMStatesIntegerNegativeBinomial(HSMMStatesPython):
 
         if self.censoring:
             dur = self.durations[-1]
-            dur_distn = self.model.dur_distns[self.stateseq_norep[-1]]
+            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
             # TODO instead of 3*T, use log_sf
             self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
 
-    def sample_forwards_python(self,betal,_):
-        # TODO construct big A, use generic HMM sampling
-        raise NotImplementedError
+    ### for testing
+
+    def messages_backwards_hmm(self):
+        return super(HSMMStatesIntegerNegativeBinomial,self).messages_backwards()
+
+    def sample_forwards_hmm(self,betal):
+        super(HSMMStatesIntegerNegativeBinomial,self).sample_forwards(betal)
 
 #################
 #  eigen stuff  #

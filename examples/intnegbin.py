@@ -10,7 +10,7 @@ from pyhsmm.util.text import progprint_xrange
 #  load data  #
 ###############
 
-data = np.loadtxt('example-data.txt')
+data = np.loadtxt('example-data.txt')[:2500]
 T,obs_dim = data.shape
 
 ##################
@@ -43,8 +43,15 @@ model.add_data(data)
 #  resample  #
 ##############
 
-for itr in progprint_xrange(25):
+for itr in progprint_xrange(10):
     model.resample_model()
+
+################
+#  viterbi EM  #
+################
+
+for itr in progprint_xrange(25):
+    model.Viterbi_EM_step()
 
 ##########
 #  plot  #

@@ -61,7 +61,7 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMM(
+posteriormodel = pyhsmm.models.HSMMEigen(
         alpha=6.,gamma=6., # these can matter; better to sample over them (concentration-resampling.py)
         init_state_concentration=6., # pretty inconsequential
         obs_distns=obs_distns,
