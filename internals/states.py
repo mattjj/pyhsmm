@@ -657,7 +657,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self.stateseq[start:stop] = state
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
-# NOTE: these only work with iid emissions
+# NOTE: these only work with iid-like emissions with aBl (that includes
+# autoregressive but not fancier things)
 
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
@@ -679,7 +680,7 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
 
         assert trunc > 1
 
-        hmm_betal = HMMStates._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
+        hmm_betal = HMMStatesEigen._messages_backwards(self._get_hmm_transition_matrix(),self.aBl)
         assert not np.isnan(hmm_betal).any()
 
         betal = np.zeros((T,state_dim),dtype=np.float64)
