@@ -8,10 +8,8 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
-# TODO TODO get rid of hasattr checks by calling clear_caches in init
-# TODO TODO add codestring refs to instances
-# TODO using log(A) in message passing can hurt stability a bit, -1000 turns into
-# -inf
+# TODO using log(A) in message passing can hurt stability a bit, -1000 turns
+# into -inf
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,initialize_from_prior=True):
@@ -20,6 +18,8 @@ class HMMStatesPython(object):
         assert (data is None) ^ (T is None)
         self.T = data.shape[0] if data is not None else T
         self.data = data
+
+        self._clear_caches()
 
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
@@ -80,7 +80,7 @@ class HMMStatesPython(object):
 
     @property
     def aBl(self):
-        if (not hasattr(self,'_aBl')) or (self._aBl is None):
+        if self._aBl is None:
             data = self.data
             aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
             for idx, obs_distn in enumerate(self.obs_distns):
@@ -334,7 +334,7 @@ class HSMMStatesPython(HMMStatesPython):
 
     @property
     def aDl(self):
-        if (not hasattr(self,'_aDl')) or (self._aDl is None):
+        if self._aDl is None:
             self._aDl = aDl = np.empty((self.T,self.state_dim))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
             for idx, dur_distn in enumerate(self.dur_distns):
@@ -347,7 +347,7 @@ class HSMMStatesPython(HMMStatesPython):
 
     @property
     def aDsl(self):
-        if (not hasattr(self,'_aDsl')) or (self._aDsl is None):
+        if self._aDsl is None:
             self._aDsl = aDsl = np.empty((self.T,self.state_dim))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
             for idx, dur_distn in enumerate(self.dur_distns):
@@ -562,7 +562,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     @property
     def aBBl(self):
-        if (not hasattr(self,'_aBBl')) or (self._aBBl is None):
+        if self._aBBl is None:
             aBl = self.aBl
             aBBl = self._aBBl = np.empty((self.Tblock,self.state_dim))
             for idx, (start,stop) in enumerate(self.changepoints):
@@ -736,7 +736,7 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def rs(self):
-        if (not hasattr(self,'_rs')) or (self._rs is None):
+        if self._rs is None:
             self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
         return self._rs
 
@@ -750,7 +750,7 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def trans_matrix(self):
-        if (not hasattr(self,'_hmm_trans')) or (self._hmm_trans is None):
+        if self._hmm_trans is None:
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
