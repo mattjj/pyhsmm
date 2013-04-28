@@ -494,11 +494,11 @@ class HSMMIntNegBin(HSMM, HMMEigen):
         super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
 
     def log_likelihood(self,data):
-        # needs to use messages, so we need to know to act like an HMM
         s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
                 stateseq=np.zeros(len(data))) # placeholder
-        betal = s.messages_backwards_hmm()
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
+        betal,_ = s.messages_backwards()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0).repeat(s.rs)
+                + betal[0] + s.aBl[0])
 
     def EM_step(self):
         # needs to use HMM messages that the states objects give us (only betal)
@@ -526,4 +526,14 @@ class HSMMIntNegBin(HSMM, HMMEigen):
 
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
+
+    ### for testing
+
+    def log_likelihood_hmm(self,data):
+        # needs to use messages, so we need to know to act like an HMM
+        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+                stateseq=np.zeros(len(data))) # placeholder
+        betal = s.messages_backwards_hmm()
+        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0.repeat(s.rs))
+                + betal[0] + s.aBl[0])
 

@@ -814,23 +814,20 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
         return self._hmm_trans
 
-    ### HMM methods that need cleanup because they set the state sequence
-
-    def E_step(self):
-        raise NotImplementedError
-
-    def Viterbi(self):
-        super(HSMMStatesIntegerNegativeBinomial,self).Viterbi()
-        self._map_states()
-
-    def generate_states(self):
-        HMMStatesEigen.generate_states(self)
-        self._map_states()
+    ### inherited from HMM parent, but should be implemented here instead
 
     def _map_states(self):
         themap = np.arange(self.state_dim).repeat(self.rs)
         self.stateseq = themap[self.stateseq]
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+    # TODO intnegbin-specific version
+    def generate_states(self):
+        HMMStatesEigen.generate_states(self)
+        self._map_states()
+
+    def E_step(self):
+        raise NotImplementedError
 
     ### structure-exploiting methods
 
@@ -894,10 +891,15 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
     ### for testing
 
     def messages_backwards_hmm(self):
-        return super(HSMMStatesIntegerNegativeBinomial,self).messages_backwards()
+        return HMMStatesEigen.messages_backwards(self)
 
     def sample_forwards_hmm(self,betal):
-        super(HSMMStatesIntegerNegativeBinomial,self).sample_forwards(betal)
+        return HMMStatesEigen.sample_forwards(self,betal)
+
+    def Viterbi_hmm(self):
+        HMMStatesEigen.Viterbi(self)
+        self._map_states()
+
 
 #################
 #  eigen stuff  #
