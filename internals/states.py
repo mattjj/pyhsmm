@@ -810,8 +810,6 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
                 if i != j:
                     trans_matrix[ends[i]-1,starts[j]] = v
 
-            assert np.allclose(trans_matrix.sum(1),1.)
-
             self._hmm_trans = trans_matrix
 
         return self._hmm_trans

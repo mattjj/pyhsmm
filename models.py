@@ -507,7 +507,22 @@ class HSMMIntNegBin(HSMM, HMMEigen):
         raise NotImplementedError # TODO
 
     def Viterbi_EM_step(self):
-        HMMEigen.Viterbi_EM_step(self)
+        self._clear_caches()
+
+        ## Viterbi step
+        for s in self.states_list:
+            s.Viterbi()
+
+        ## M step
+        for state, distn in enumerate(self.obs_distns):
+            distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
+
+        self.init_state_distn.max_likelihood(
+                np.array([s.stateseq[0] for s in self.states_list]))
+
+        # this is the only difference from parent's Viterbi_EM_step: use
+        # stateseq_norep
+        self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
 
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
