@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import itertools, collections, operator, random
+import itertools, collections, operator, random, abc
 from matplotlib import pyplot as plt
 from matplotlib import cm
 
@@ -485,20 +485,8 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 class HSMMGeoApproximation(HSMM):
     _states_class = states.HSMMStatesGeoApproximation
 
-class HSMMIntNegBin(HSMM, HMMEigen):
-    _states_class = states.HSMMStatesIntegerNegativeBinomial
-
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerR) for d in dur_distns), \
-                'duration distributions must be instances of NegativeBinomialIntegerR'
-        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
-
-    def log_likelihood(self,data):
-        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
-                stateseq=np.zeros(len(data))) # placeholder
-        betal,_ = s.messages_backwards()
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0).repeat(s.rs)
-                + betal[0] + s.aBl[0])
+class _HSMMIntNegBinBase(HSMM, HMMEigen):
+    __metaclass__ = abc.ABCMeta
 
     def EM_step(self):
         # needs to use HMM messages that the states objects give us (only betal)
@@ -527,13 +515,27 @@ class HSMMIntNegBin(HSMM, HMMEigen):
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
 
-    ### for testing
-
-    def log_likelihood_hmm(self,data):
-        # needs to use messages, so we need to know to act like an HMM
+    def log_likelihood(self,data):
         s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
                 stateseq=np.zeros(len(data))) # placeholder
-        betal = s.messages_backwards_hmm()
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0.repeat(s.rs))
-                + betal[0] + s.aBl[0])
+        betal,_ = s.messages_backwards()
+        return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
+
+class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
+    _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
+
+    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
+        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerRVariantDuration) or
+                   isinstance(d,basic.distributions.NegativeBinomialFixedRVariantDuration)
+                   for d in dur_distns)
+        super(HSMMIntNegBinVariant,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+
+class HSMMIntNegBin(HSMM, HMMEigen):
+    _states_class = states.HSMMStatesIntegerNegativeBinomial
+
+    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
+        assert all(isinstance(d,basic.distributions.NegativeBinomialIntegerRDuration) or
+                   isinstance(d,basic.distributions.NegativeBinomialFixedRDuration)
+                   for d in dur_distns)
+        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
 

@@ -95,7 +95,7 @@ class HDPHMMTransitions(object):
         self.A = trans_counts / trans_counts.sum(1)[:,na]
         np.seterr(**errs)
 
-        self.A[np.isnan(self.A)] = 0.
+        self.A[np.isnan(self.A)] = 1./self.state_dim # NOTE: just a reasonable hack, o/w undefined
 
     # NOTE: only needs aBl because the message computation saves betal and not
     # betastarl TODO compute betastarl like a civilized gentleman

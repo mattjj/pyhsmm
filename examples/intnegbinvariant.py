@@ -52,12 +52,12 @@ obs_distns = \
             nu_0=obs_dim+3) for state in range(Nmax)]
 
 dur_distns = \
-        [pyhsmm.distributions.NegativeBinomialIntegerRDuration(
+        [pyhsmm.distributions.NegativeBinomialIntegerRVariantDuration(
             np.r_[0,0,0,0,0,1.,1.,1.], # discrete distribution uniform over {6,7,8}
             9,1, # average geometric success probability 1/(9+1)
             ) for state in range(Nmax)]
 
-model  = pyhsmm.models.HSMMIntNegBin(
+model  = pyhsmm.models.HSMMIntNegBinVariant(
         init_state_concentration=10.,
         alpha=6.,gamma=6.,
         obs_distns=obs_distns,
