@@ -810,7 +810,7 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
             ends = rs.cumsum()
             starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,None]):
+            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,na]):
                 if i != j:
                     trans_matrix[ends[i]-1,starts[j]] = v
 
@@ -831,11 +831,17 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
         self._map_states()
 
     # TODO TODO replace
+    def Viterbi_hmm(self):
+        scores, args = self.maxsum_messages_backwards_hmm()
+        self.maximize_forwards(scores,args)
+
     def Viterbi(self):
         HMMStatesEigen.Viterbi(self)
-        self._map_states()
 
-    def Viterbi2(self):
+        for state, distn in enumerate(self.model.dur_distns):
+            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
+
+    def maxsum_messages_backwards(self):
         global eigen_path
         # these names are dumb
         hsmm_intnegbin_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_maxsum_messages_backwards')
@@ -851,10 +857,10 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
         ps = np.array([d.p for d in self.dur_distns])
         logps = np.log(ps)
         log1mps = np.log(1-ps)
-        Al = np.log(self.hsmm_trans_matrix) + logps[:,na]
+        Al = np.log(self.hsmm_trans_matrix * (1-ps)[:,na])
 
-        scores = np.zeros((T,M))
-        args = np.zeros((T,M),dtype=np.int32)
+        scores = np.zeros((T,rtot))
+        args = np.zeros((T,rtot),dtype=np.int32)
 
         scipy.weave.inline(hsmm_intnegbin_maxsum_messages_backwards_codestr,
                 ['start_indices','end_indices','rtot','Al','aBl',
@@ -863,6 +869,28 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         return scores, args
+
+    def maximize_forwards(self,scores,args):
+        global eigen_path
+        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
+
+        T,rtot = scores.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        themap = np.arange(self.state_dim).repeat(rs)
+
+        stateseq = np.empty(T,dtype=np.int32)
+        stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
+        initial_hmm_state = start_indices[stateseq[0]]
+
+        scipy.weave.inline(hsmm_intnegbin_maximize_forwards_codestr,
+                ['T','rtot','themap','scores','args','stateseq','initial_hmm_state'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq = stateseq
 
     def E_step(self):
         raise NotImplementedError
@@ -936,6 +964,12 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
     def sample_forwards_hmm(self,betal):
         return HMMStatesEigen.sample_forwards(self,betal)
+
+    def maxsum_messages_backwards_hmm(self):
+        return HMMStatesEigen.maxsum_messages_backwards(self)
+
+    def maximize_forwards_hmm(self,scores,args):
+        return HMMStatesEigen.maximize_forwards(self,scores,args)
 
 
 #################

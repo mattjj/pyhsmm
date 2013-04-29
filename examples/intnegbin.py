@@ -75,7 +75,7 @@ for itr in progprint_xrange(10):
 #  viterbi EM  #
 ################
 
-for itr in progprint_xrange(25):
+for itr in progprint_xrange(50):
     model.Viterbi_EM_step()
 
 ##########
