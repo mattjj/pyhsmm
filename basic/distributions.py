@@ -40,8 +40,14 @@ def _start_at_one(cls):
             else:
                 return super(Wrapper,self).resample([d-1 for d in data],*args,**kwargs)
 
-        def max_likelihood(self,*args,**kwargs):
-            raise NotImplementedError
+        def max_likelihood(self,data,weights=None,*args,**kwargs):
+            if weights is not None:
+                raise NotImplementedError
+            else:
+                if isinstance(data,np.ndarray):
+                    return super(Wrapper,self).max_likelihood(data-1,weights=None,*args,**kwargs)
+                else:
+                    return super(Wrapper,self).max_likelihood([d-1 for d in data],weights=None,*args,**kwargs)
 
     Wrapper.__name__ = cls.__name__ + 'Duration'
     Wrapper.__doc__ = cls.__doc__

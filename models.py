@@ -530,7 +530,7 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
                    for d in dur_distns)
         super(HSMMIntNegBinVariant,self).__init__(obs_distns,dur_distns,*args,**kwargs)
 
-class HSMMIntNegBin(HSMM, HMMEigen):
+class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
     def __init__(self,obs_distns,dur_distns,*args,**kwargs):
