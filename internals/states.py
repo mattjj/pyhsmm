@@ -790,7 +790,11 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def pi_0(self):
-        return self.hsmm_pi_0.repeat(self.rs)
+        rs = self.rs
+        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+        pi_0 = np.zeros(rs.sum())
+        pi_0[starts] = self.hsmm_pi_0
+        return pi_0
 
     @property
     def trans_matrix(self):
@@ -825,6 +829,40 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
     def generate_states(self):
         HMMStatesEigen.generate_states(self)
         self._map_states()
+
+    # TODO TODO replace
+    def Viterbi(self):
+        HMMStatesEigen.Viterbi(self)
+        self._map_states()
+
+    def Viterbi2(self):
+        global eigen_path
+        # these names are dumb
+        hsmm_intnegbin_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_maxsum_messages_backwards')
+
+        aBl = self.hsmm_aBl
+        T,M = aBl.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.dur_distns])
+        logps = np.log(ps)
+        log1mps = np.log(1-ps)
+        Al = np.log(self.hsmm_trans_matrix) + logps[:,na]
+
+        scores = np.zeros((T,M))
+        args = np.zeros((T,M),dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_maxsum_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','Al','aBl',
+                    'logps','log1mps','scores','args','T','M'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return scores, args
 
     def E_step(self):
         raise NotImplementedError
@@ -882,6 +920,9 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
 
+        for state, distn in enumerate(self.model.dur_distns):
+            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
+
         if self.censoring:
             dur = self.durations[-1]
             dur_distn = self.dur_distns[self.stateseq_norep[-1]]
@@ -895,10 +936,6 @@ class HSMMStatesIntegerNegativeBinomial(HMMStatesEigen, HSMMStatesPython):
 
     def sample_forwards_hmm(self,betal):
         return HMMStatesEigen.sample_forwards(self,betal)
-
-    def Viterbi_hmm(self):
-        HMMStatesEigen.Viterbi(self)
-        self._map_states()
 
 
 #################

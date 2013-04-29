@@ -22,7 +22,7 @@ for (int t=T-2; t>=0; t--) {
     cmax = thesum.maxCoeff();
     incoming = (eA * (thesum - cmax).exp().matrix()).array().log() + cmax;
 
-    // within-state transition part (block-diagonal part)
+    // within-state transition part (bidiagonal block-diagonal part)
     for (int idx=0; idx<M; idx++) {
         int start = start_indices[idx];
         int end = end_indices[idx];
