@@ -37,7 +37,7 @@ class DurationDistribution(Distribution):
 
         if data is not None:
             if len(data) > 1:
-                plt.hist(data,bins=t-0.5,color=color,normed=True)
+                plt.hist(data,bins=t-0.5,color=color,normed=len(set(data)) > 1)
             else:
                 plt.hist(data,bins=t-0.5,color=color)
 
