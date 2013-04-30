@@ -147,22 +147,10 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.obs_distns = parallel.resample_obs_distns.map(xrange(len(self.obs_distns)) )
         self.resample_trans_distn()
         self.resample_init_state_distn()
-	
         ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
         ### resample states in parallel
-        #self.resample_states()
-	import time
-	t1 = time.time()
-
-	self.states_list = parallel.rss.map([s for s in self.states_list])
-
-        #self._push_self_parallel(states_to_resample)
-        print "pushing",time.time() - t1
-	t1 = time.time()
-        #self._build_states_parallel(states_to_resample)
-        print "building",time.time() - t1
-	### purge to prevent memory buildup
+	self.states_list = parallel.resample_states.map([s for s in self.states_list])
         parallel.c.purge_results('all')
         
     def resample_model_parallel(self,numtoresample='all'):

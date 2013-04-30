@@ -2,8 +2,12 @@ from __future__ import division
 from IPython.parallel import Client
 from IPython.parallel.util import interactive
 
-# NOTE: the ipcluster should be set up before this file is imported
 
+
+profile = None
+
+# NOTE: the ipcluster should be set up before this file is imported
+from IPython.parallel import Client
 c = Client()
 dv = c.direct_view()
 dv.execute('import pyhsmm')
@@ -54,9 +58,8 @@ def resample_obs_distns(state):
 
 @lbv.parallel(block=True)
 @interactive
-def rss(s):
+def resample_states(s):
     global global_model
     global_model.states_list[0].resample()
-    #s.resample()
     return global_model.states_list[0]
   
