@@ -992,7 +992,6 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         self.stateseq = stateseq
 
-
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def clear_caches(self):
         super(HSMMStatesIntegerNegativeBinomial,self).clear_caches()
