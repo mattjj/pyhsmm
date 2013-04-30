@@ -2,8 +2,12 @@ from __future__ import division
 from IPython.parallel import Client
 from IPython.parallel.util import interactive
 
-# NOTE: the ipcluster should be set up before this file is imported
 
+
+profile = None
+
+# NOTE: the ipcluster should be set up before this file is imported
+from IPython.parallel import Client
 c = Client()
 dv = c.direct_view()
 dv.execute('import pyhsmm')
@@ -44,3 +48,17 @@ def build_states_changepoints(data_id):
     global_model.states_list = []
 
     return (data_id, stateseq)
+  
+@lbv.parallel(block=True)
+@interactive
+def resample_obs_distns(state):
+    global global_model
+    global_model.obs_distns[state].resample( ([s.data[s.stateseq == state] for s in global_model.states_list]) )
+    return global_model.obs_distns[ state ]
+
+@lbv.parallel(block=True)
+@interactive
+def resample_states(s):
+    s.resample()
+    return s
+  
