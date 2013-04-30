@@ -59,9 +59,6 @@ def resample_obs_distns(state):
 @lbv.parallel(block=True)
 @interactive
 def resample_states(s):
-    global global_model
     s.resample()
     return s
-#    global_model.states_list[0].resample()
-#    return global_model.states_list[0]
   

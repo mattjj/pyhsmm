@@ -142,6 +142,8 @@ class HMM(ModelGibbsSampling, ModelEM):
 	    numtoresample = len(self.states_list)
 	elif numtoresample == 'engines':
 	    numtoresample = len(parallel.dv)
+	    if numtoresample > len(self.states_list):
+	      numtoresample = (self.states_list)
 	# push model and data to engines    
 	parallel.dv.push({'global_model': self},block=True)
 	### resample parameters locally
