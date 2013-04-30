@@ -150,7 +150,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
         ### resample states in parallel
-	self.states_list = parallel.resample_states.map([s for s in self.states_list])
+	self.states_list = parallel.resample_states.map([s for s in self.states_list if s in states_to_resample])
         parallel.c.purge_results('all')
         
     def resample_model_parallel(self,numtoresample='all'):
