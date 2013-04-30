@@ -827,17 +827,24 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     ### for testing, ensures calling parent HMM methods
 
+    def Viterbi_hmm(self):
+        return HMMStatesEigen.Viterbi(self)
+
     def messages_backwards_hmm(self):
         return HMMStatesEigen.messages_backwards(self)
 
     def sample_forwards_hmm(self,betal):
-        return HMMStatesEigen.sample_forwards(self,betal)
+        ret = HMMStatesEigen.sample_forwards(self,betal)
+        self._map_states()
+        return ret
 
     def maxsum_messages_backwards_hmm(self):
         return HMMStatesEigen.maxsum_messages_backwards(self)
 
     def maximize_forwards_hmm(self,scores,args):
-        return HMMStatesEigen.maximize_forwards(self,scores,args)
+        ret = HMMStatesEigen.maximize_forwards(self,scores,args)
+        self._map_states()
+        return ret
 
 class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
     @property
@@ -870,9 +877,9 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         return self._hmm_trans
 
-    ### this method only exists for the assertions
     def Viterbi(self):
         HMMStatesEigen.Viterbi(self)
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
         for state, distn in enumerate(self.model.dur_distns):
             assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
 
