@@ -810,14 +810,13 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return HMMStatesEigen.messages_backwards(self), None
 
     def sample_forwards(self,betal,dummy):
-        ret = HMMStatesEigen.sample_forwards(self,betal)
-        self._map_states()
-        return ret
+        return self.sample_forwards_hmm(betal)
+
+    def maxsum_messages_backwards(self):
+        return self.maxsum_messages_backwards_hmm()
 
     def maximize_forwards(self,scores,args):
-        ret = HMMStatesEigen.maximize_forwards(self,scores,args)
-        self._map_states()
-        return ret
+        return self.maximize_forwards_hmm(scores,args)
 
     def _map_states(self):
         themap = np.arange(self.state_dim).repeat(self.rs)
@@ -843,6 +842,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     def maximize_forwards_hmm(self,scores,args):
         ret = HMMStatesEigen.maximize_forwards(self,scores,args)
+        self.unmapped_stateseq = self.stateseq.copy() # TODO
         self._map_states()
         return ret
 
