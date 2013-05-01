@@ -219,7 +219,6 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-
     ### common messages (Gibbs, EM, likelihood calculation)
 
     @staticmethod
