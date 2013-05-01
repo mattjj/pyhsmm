@@ -877,12 +877,6 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         return self._hmm_trans
 
-    def Viterbi(self):
-        HMMStatesEigen.Viterbi(self)
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-        for state, distn in enumerate(self.model.dur_distns):
-            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
-
     def E_step(self):
         raise NotImplementedError
 
@@ -998,6 +992,10 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq = stateseq
+        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+        for state, distn in enumerate(self.model.dur_distns):
+            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def clear_caches(self):
