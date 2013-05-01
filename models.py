@@ -499,7 +499,8 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
 
         ## Viterbi step
         for s in self.states_list:
-            s.Viterbi()
+            s.Viterbi_hmm() # TODO
+            # s.Viterbi()
 
         ## M step
         for state, distn in enumerate(self.obs_distns):

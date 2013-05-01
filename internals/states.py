@@ -787,7 +787,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def rs(self):
-        if self._rs is None:
+        if True or self._rs is None: # TODO
             self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
         return self._rs
 
@@ -827,7 +827,8 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     ### for testing, ensures calling parent HMM methods
 
     def Viterbi_hmm(self):
-        return HMMStatesEigen.Viterbi(self)
+        scores, args = self.maxsum_messages_backwards_hmm()
+        self.maximize_forwards_hmm(scores,args)
 
     def messages_backwards_hmm(self):
         return HMMStatesEigen.messages_backwards(self)
@@ -856,7 +857,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     @property
     def trans_matrix(self):
-        if self._hmm_trans is None:
+        if True or self._hmm_trans is None: # TODO
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
@@ -1004,7 +1005,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def binoms(self):
-        if self._binoms is None:
+        if True or self._binoms is None: # TODO
             self._binoms = []
             self._binoms = [stats.binom.pmf(np.arange(D.r),D.r,1.-D.p) for D in self.dur_distns]
             for b,D in zip(self._binoms,self.dur_distns):
