@@ -1007,9 +1007,14 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def binoms(self):
         if True or self._binoms is None: # TODO
             self._binoms = []
-            self._binoms = [stats.binom.pmf(np.arange(D.r),D.r,1.-D.p) for D in self.dur_distns]
-            for b,D in zip(self._binoms,self.dur_distns):
-                b[-1] += stats.binom.pmf(D.r,D.r,1.-D.p)
+            for D in self.dur_distns:
+                if 0 < D.p < 1:
+                    arr = stats.binom.pmf(np.arange(D.r),D.r,1.-D.p)
+                    arr[-1] += stats.binom.pmf(D.r,D.r,1.-D.p)
+                else:
+                    arr = np.zeros(D.r)
+                    arr[0] = 1
+                self._binoms.append(arr)
         return self._binoms
 
     # TODO test
