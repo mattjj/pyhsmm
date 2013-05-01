@@ -14,7 +14,7 @@ from pyhsmm.util.text import progprint_xrange
 # T,obs_dim = data.shape
 
 N = 4
-T = 1000
+T = 2000
 obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),

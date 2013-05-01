@@ -2,14 +2,16 @@ using namespace Eigen;
 using namespace std;
 
 // inputs
-Map<MatrixXd> eAlT(Al,M,M);
-Map<MatrixXd> eaBl(aBl,M,T);
+Map<ArrayXXd> eAlT(Al,M,M);
+Map<ArrayXXd> eaBl(aBl,M,T);
+Map<ArrayXd> ebinoms(binoms,rtot);
 
 // outputs
 Map<ArrayXXd> escores(scores,rtot,T);
 Map<ArrayXXi> eargs(args,rtot,T);
 
-// code!
+// locals
+ArrayXd temp(rtot);
 
 for (int t=T-2; t>=0; t--) {
     for (int superstate=0; superstate<M; superstate++) {
@@ -18,7 +20,7 @@ for (int t=T-2; t>=0; t--) {
         double logp = logps[superstate];
         double log1mp = log1mps[superstate];
 
-        // within-state (block bidiagonal)
+        // within-state
         for (int substate=start; substate<end; substate++) {
             double self = logp + escores(substate,t+1) + eaBl(superstate,t+1);
             double next = log1mp + escores(substate+1,t+1) + eaBl(superstate,t+1);
@@ -32,17 +34,20 @@ for (int t=T-2; t>=0; t--) {
         }
 
         // across states
-        double score = logp + escores(end,t+1) + eaBl(superstate,t+1);
-        int nextindex = end;
-        for (int nextsuperstate=0; nextsuperstate<M; nextsuperstate++) {
-            double nextscore = eaBl(nextsuperstate,t+1) + eAlT(nextsuperstate,superstate)
-                + escores(start_indices[nextsuperstate],t+1);
-            if (nextscore > score) {
-                score = nextscore;
-                nextindex = start_indices[nextsuperstate];
-            }
+        for (int nextstate=0; nextstate<M; nextstate++) {
+            int nextstart = start_indices[nextstate];
+            int len = end_indices[nextstate] - start_indices[nextstate] + 1;
+            temp.segment(nextstart,len) = ebinoms.segment(nextstart,len) + eAlT(nextstate,superstate)
+                + escores.col(t+1).segment(nextstart,len) + eaBl(nextstate,t+1);
         }
-        escores(end,t) = score;
-        eargs(end,t+1) = nextindex;
+        ArrayXd::Index idx;
+        escores(end,t) = temp.maxCoeff(&idx);
+        eargs(end,t+1) = idx;
+
+        double selfscore = logp + escores(end,t+1) + eaBl(superstate,t+1);
+        if (selfscore >= escores(end,t)) {
+            escores(end,t) = selfscore;
+            eargs(end,t+1) = end;
+        }
     }
 }
