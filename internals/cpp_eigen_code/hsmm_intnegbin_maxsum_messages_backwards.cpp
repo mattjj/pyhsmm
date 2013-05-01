@@ -9,9 +9,6 @@ Map<MatrixXd> eaBl(aBl,M,T);
 Map<ArrayXXd> escores(scores,rtot,T);
 Map<ArrayXXi> eargs(args,rtot,T);
 
-// locals
-
-
 // code!
 
 for (int t=T-2; t>=0; t--) {
@@ -25,7 +22,7 @@ for (int t=T-2; t>=0; t--) {
         for (int substate=start; substate<end; substate++) {
             double self = logp + escores(substate,t+1) + eaBl(superstate,t+1);
             double next = log1mp + escores(substate+1,t+1) + eaBl(superstate,t+1);
-            if (self > next) {
+            if (self >= next) {
                 escores(substate,t) = self;
                 eargs(substate,t+1) = substate;
             } else {
@@ -42,7 +39,7 @@ for (int t=T-2; t>=0; t--) {
                 + escores(start_indices[nextsuperstate],t+1);
             if (nextscore > score) {
                 score = nextscore;
-                nextindex = end_indices[nextsuperstate];
+                nextindex = start_indices[nextsuperstate];
             }
         }
         escores(end,t) = score;

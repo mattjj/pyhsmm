@@ -957,8 +957,8 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         rtot = int(crs[-1])
         ps = np.array([d.p for d in self.dur_distns])
         logps = np.log(ps)
-        log1mps = np.log(1-ps)
-        Al = np.log(self.hsmm_trans_matrix * (1-ps)[:,na])
+        log1mps = np.log1p(-ps)
+        Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
 
         scores = np.zeros((T,rtot))
         args = np.zeros((T,rtot),dtype=np.int32)
