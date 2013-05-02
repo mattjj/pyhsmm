@@ -1102,9 +1102,6 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         self.stateseq = stateseq
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
-        for state, distn in enumerate(self.model.dur_distns):
-            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
-
 #################
 #  eigen stuff  #
 #################
