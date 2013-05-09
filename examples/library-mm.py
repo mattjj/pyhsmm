@@ -13,10 +13,11 @@ from pyhsmm.basic.pybasicbayes.models import FrozenMixtureDistribution
 
 # dummy parameters, not used
 
-f = np.load('/Users/mattjj/Dropbox/Test Data/TMT_50p_mixtures_and_data.npz')
+#f = np.load('/Users/mattjj/Dropbox/Test Data/TMT_50p_mixtures_and_data.npz')
+f = np.load("/Users/Alex/Dropbox/Science/Datta lab/Posture Tracking/Test Data/TMT_50p_mixtures_and_data.npz")
 mus = f['mu']
 sigmas = f['sigma']
-data = f['data']
+data = f['data'][:1000]
 
 library_size, obs_dim = mus.shape
 labels = f['labels']
