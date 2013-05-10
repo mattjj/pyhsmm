@@ -198,13 +198,17 @@ class HMM(ModelGibbsSampling, ModelEM):
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
 
-    def BIC(self):
+    def BIC(self,data=None):
+        '''BIC on the passed data. If passed data is None (default), calculates BIC on the model's assigned data'''
         # NOTE: in principle this method computes the BIC only after finding the
         # maximum likelihood parameters (or, of course, an EM fixed-point as an
         # approximation!)
-        assert len(self.states_list) > 0, 'Must have data to get BIC'
-        return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
-                    self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+        assert data is None and len(self.states_list) > 0, 'Must have data to get BIC'
+        if data is None:
+            return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
+                        self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+        else:
+            return -2*self.log_likelihood(data) + self.num_parameters() * np.log(data.shape[0])
 
     def Viterbi_EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
