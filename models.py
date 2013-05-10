@@ -499,19 +499,21 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
 
         ## Viterbi step
         for s in self.states_list:
-            # s.Viterbi_hmm() # TODO
             s.Viterbi()
 
         ## M step
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
+        # self.resample_obs_distns()
 
         self.init_state_distn.max_likelihood(
                 np.array([s.stateseq[0] for s in self.states_list]))
 
-        # this is the only difference from parent's Viterbi_EM_step: use
-        # stateseq_norep
+        # NOTE: in this branch, we want to use the HDP over the transition
+        # matrix, so while we're doing EM-like steps elsewhere, we're going to
+        # resample just the transition matrix
         self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
+        # self.resample_trans_distn()
 
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])

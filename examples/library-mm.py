@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 
 from pyhsmm.util.general import rle
+from pyhsmm.util.text import progprint_xrange
 
 import pyhsmm
 from pyhsmm import distributions as d
@@ -24,7 +25,7 @@ library_size, obs_dim = mus.shape
 labels = f['labels'][:T]
 
 for i in range(sigmas.shape[0]):
-    sigmas[i] += np.eye(obs_dim)
+    sigmas[i] += np.eye(obs_dim)*1e-6
 
 #####################################
 #  build observation distributions  #
@@ -41,12 +42,15 @@ likelihoods = FrozenMixtureDistribution.get_all_likelihoods(
         components=component_library,
         data=data)
 
+# init_weights = np.ones((library_size,library_size))
+init_weights = np.eye(library_size)
+
 hsmm_obs_distns = [FrozenMixtureDistribution(
     likelihoods=likelihoods,
     alpha_0=3.,
     components=component_library,
-    weights=indicator,
-    ) for indicator in np.eye(library_size)]
+    weights=weights,
+    ) for weights in init_weights]
 
 dur_distns = [d.NegativeBinomialIntegerRVariantDuration(np.ones(20.),alpha_0=5.,beta_0=5.)
         for state in range(library_size)]
@@ -69,5 +73,13 @@ model.trans_distn.max_likelihood([rle(labels)[0]])
 # NOTE: data is a dummy, just indices being passed around because we precompute
 # all likelihoods
 model.add_data(np.arange(T))
-model.Viterbi_EM_step()
 
+# niter = 25
+# W = np.zeros((niter,library_size,library_size))
+# for itr in progprint_xrange(niter):
+#     model.Viterbi_EM_step()
+#     W[itr] = np.array([od.weights.weights for od in model.obs_distns])
+
+
+# TODO why dont the weights look updated?
+# TODO why doesn't it work good?
