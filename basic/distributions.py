@@ -103,7 +103,7 @@ class Delay(DurationDistribution):
         return self.dur_distn.log_likelihood(x-self.delay)
 
     def rvs(self,size=None):
-        return self.dur_distn.rvs(size=size) + self.delay
+        return self.dur_distn.rvs(size) + self.delay
 
     def resample(self,data=[],*args,**kwargs):
         if isinstance(data,np.ndarray):

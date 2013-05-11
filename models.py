@@ -198,13 +198,21 @@ class HMM(ModelGibbsSampling, ModelEM):
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
 
-    def BIC(self):
+    def BIC(self,data=None):
+        '''
+        BIC on the passed data.
+        If passed data is None (default), calculates BIC on the model's assigned data.
+        '''
         # NOTE: in principle this method computes the BIC only after finding the
         # maximum likelihood parameters (or, of course, an EM fixed-point as an
         # approximation!)
-        assert len(self.states_list) > 0, 'Must have data to get BIC'
-        return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
-                    self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+        if data is None:
+            assert len(self.labels_list) > 0, \
+                    "If not passing in data, the class must already have it. Use the method add_data()"
+            return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
+                        self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+        else:
+            return -2*self.log_likelihood(data) + self.num_parameters() * np.log(data.shape[0])
 
     def Viterbi_EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
@@ -499,19 +507,21 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
 
         ## Viterbi step
         for s in self.states_list:
-            # s.Viterbi_hmm() # TODO
             s.Viterbi()
 
         ## M step
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
+        # self.resample_obs_distns()
 
         self.init_state_distn.max_likelihood(
                 np.array([s.stateseq[0] for s in self.states_list]))
 
-        # this is the only difference from parent's Viterbi_EM_step: use
-        # stateseq_norep
+        # NOTE: in this branch, we want to use the HDP over the transition
+        # matrix, so while we're doing EM-like steps elsewhere, we're going to
+        # resample just the transition matrix
         self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
+        # self.resample_trans_distn()
 
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
