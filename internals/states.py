@@ -69,7 +69,7 @@ class HMMStatesPython(object):
     def generate_obs(self):
         obs = []
         for state,dur in zip(*util.rle(self.stateseq)):
-            obs.append(self.obs_distns[state].rvs(size=int(dur)))
+            obs.append(self.obs_distns[state].rvs(int(dur)))
         return np.concatenate(obs)
 
     ### caching common computation needed for several methods
@@ -884,7 +884,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     def messages_backwards(self):
         global eigen_path
-        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_messages_backwards')
+        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_messages_backwards')
 
         aBl = self.hsmm_aBl
         T,M = aBl.shape
@@ -909,7 +909,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     def sample_forwards(self,betal,superbetal):
         global eigen_path
-        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbin_sample_forwards')
+        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
 
         aBl = self.hsmm_aBl
         T,M = aBl.shape
