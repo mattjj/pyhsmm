@@ -49,9 +49,28 @@ hsmm_obs_distns = [FrozenMixtureDistribution(
     all_likelihoods=all_likelihoods,
     all_data=data, # for plotting
     components=component_library,
-    alpha_0=3.,
+    # NOTE: alpha_0 here controls the prior on the number of mixture components
+    # within each GMM emission distribution. a lower alpha_0 makes it more
+    # expensive to use more mixture components. it roughly corresponds to the
+    # expected number of components, though it's much more flexible than that.
+    alpha_0=6.,
+    # NOTE: an alternative to setting alpha_0 directly is to put a gamma prior
+    # over it and sample it. to do that, comment out the alpha_0 line above and
+    # use the line below to set a gamma prior. see the call to plt.plot below
+    # to get a sense for how these parameters set the relative probabilities of
+    # different alpha_0.
+    # a_0=1.,b_0=1./6,
     weights=weights,
     ) for weights in init_weights]
+
+## NOTE: run this block to visualize a gamma prior
+# from matplotlib import pyplot as plt
+# import scipy.stats as stats
+# a_0=1.   # making a_0 >1 will change its shape into a blob
+# b_0=1./5 # mean is a_0 / b_0
+# t = np.arange(0.01,25,0.01)
+# plt.figure() # plt.plot(t,stats.gamma.pdf(t,a_0,scale=1./b_0))
+# plt.hist(np.random.gamma(a_0,1./b_0,size=1000),normed=True)
 
 ####################
 #  build HDP-HSMM  #
@@ -62,8 +81,18 @@ dur_distns = [d.NegativeBinomialIntegerRVariantDuration(
     alpha_0=5.,beta_0=5.) for state in range(library_size)]
 
 model = pyhsmm.models.HSMMIntNegBinVariant(
-        init_state_concentration=10.,
-        alpha=6.,gamma=6.,
+        init_state_concentration=10., # this parameter is irrelevant for us
+        # NOTE: alpha and gamma are the concentration parameters for the HDP
+        # over the HSMM transition matrix, and they work analogously to alpha_0
+        # for the GMMs described above. roughly, gamma controls the total number
+        # of states while alpha controls the diversity of the transition
+        # distributions.
+        alpha=10.,gamma=10.,
+        # NOTE: as with a_0 and b_0 for the GMMs described above, we can also
+        # put gamma priors over alpha and gamma by commenting out the direct
+        # alpha= and gamma= lines and using these instead
+        # alpha_a_0=1.,alpha_b_0=1./10,
+        # gamma_a_0=1.,gamma_b_0=1./10,
         obs_distns=hsmm_obs_distns,
         dur_distns=dur_distns)
 model.trans_distn.max_likelihood([rle(labels)[0]])
