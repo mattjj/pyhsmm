@@ -973,7 +973,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     def maximize_forwards(self,scores,args):
         global eigen_path
-        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_maximize_forwards')
+        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
 
         T,rtot = scores.shape
 
