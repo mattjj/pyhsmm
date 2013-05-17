@@ -2,3 +2,4 @@
 *.pyo
 /tags
 /.tags
+*.lprof
