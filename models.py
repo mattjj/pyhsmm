@@ -104,15 +104,15 @@ class HMM(ModelGibbsSampling, ModelEM):
 
     ### Gibbs sampling
 
-    def resample_model(self):
-        self.resample_obs_distns()
+    def resample_model(self, temp=None):
+        self.resample_obs_distns(temp=temp)
         self.resample_trans_distn()
         self.resample_init_state_distn()
         self.resample_states()
 
-    def resample_obs_distns(self):
+    def resample_obs_distns(self, temp=None):
         for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list], temp=temp)
         self._clear_caches()
 
     def resample_trans_distn(self):
@@ -381,9 +381,9 @@ class HSMM(HMM, ModelGibbsSampling):
 
     ### Gibbs sampling
 
-    def resample_model(self):
+    def resample_model(self, temp=None):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model()
+        super(HSMM,self).resample_model(temp=temp)
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):

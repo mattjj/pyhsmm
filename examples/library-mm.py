@@ -14,7 +14,7 @@ from pyhsmm.basic.pybasicbayes.models import FrozenMixtureDistribution
 
 T = 1000
 
-f = np.load('/Users/mattjj/Dropbox/Test Data/TMT_50p_mixtures_and_data.npz')
+f = np.load("/Users/Alex/Dropbox/Science/Datta lab/Posture Tracking/Test Data/TMT_50p_mixtures_and_data.npz")
 mus = f['mu']
 sigmas = f['sigma']
 data = f['data'][:T]
@@ -87,12 +87,12 @@ model = pyhsmm.models.HSMMIntNegBinVariant(
         # for the GMMs described above. roughly, gamma controls the total number
         # of states while alpha controls the diversity of the transition
         # distributions.
-        alpha=10.,gamma=10.,
+        # alpha=10.,gamma=10.,
         # NOTE: as with a_0 and b_0 for the GMMs described above, we can also
         # put gamma priors over alpha and gamma by commenting out the direct
         # alpha= and gamma= lines and using these instead
-        # alpha_a_0=1.,alpha_b_0=1./10,
-        # gamma_a_0=1.,gamma_b_0=1./10,
+        alpha_a_0=1.,alpha_b_0=1./10,
+        gamma_a_0=1.,gamma_b_0=1./10,
         obs_distns=hsmm_obs_distns,
         dur_distns=dur_distns)
 model.trans_distn.max_likelihood([rle(labels)[0]])
