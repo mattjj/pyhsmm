@@ -69,6 +69,7 @@ def cov(a):
 
 def sample_discrete(distn,size=[],dtype=np.int):
     'samples from a one-dimensional finite pmf'
+    distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
