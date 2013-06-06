@@ -399,7 +399,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def resample_model_parallel(self,numtoresample='all'):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(self,numtoresample)
+        super(HSMM,self).resample_model_parallel(numtoresample)
 
     ### EM
 
