@@ -75,7 +75,7 @@ NegativeBinomialIntegerRVariantDuration = _make_duration_distribution(NegativeBi
 
 # this is extending the MixtureDistribution from basic/pybasicbayes/models.py
 # and then clobbering the name
-class MitureDistribution(MixtureDistribution, DurationDistribution):
+class MixtureDistribution(MixtureDistribution, DurationDistribution):
     # TODO test this
     def log_sf(self,x):
         x = np.asarray(x,dtype=np.float64)
