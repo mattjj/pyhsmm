@@ -65,7 +65,6 @@ PoissonDuration = _start_at_one(Poisson)
 NegativeBinomialDuration = _start_at_one(NegativeBinomial)
 NegativeBinomialFixedRDuration = _start_at_one(NegativeBinomialFixedR)
 NegativeBinomialIntegerRDuration = _start_at_one(NegativeBinomialIntegerR)
-NegativeBinomialVariantDuration = _make_duration_distribution(NegativeBinomialVariant)
 NegativeBinomialFixedRVariantDuration = _make_duration_distribution(NegativeBinomialFixedRVariant)
 NegativeBinomialIntegerRVariantDuration = _make_duration_distribution(NegativeBinomialIntegerRVariant)
 
