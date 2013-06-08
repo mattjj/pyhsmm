@@ -42,11 +42,11 @@ def combinedata(datas):
             ret.extend(data)
         else:
             assert isinstance(data,int) or isinstance(data,float)
-            ret.append(np.array(data,ndmin=1)) # ndmin=1 so that we can call .shape on it
+            ret.append(np.atleast_1d(data))
     return ret
 
 def flattendata(data):
-    # data is either an array or a list of arrays
+    # data is either an array (possibly a maskedarray) or a list of arrays
     if isinstance(data,np.ndarray):
         return data
     elif isinstance(data,list):
@@ -55,8 +55,9 @@ def flattendata(data):
         else:
             return np.concatenate(data)
     else:
+        # handle unboxed case for convenience
         assert isinstance(data,int) or isinstance(data,float)
-        return np.array(data,ndmin=1)
+        return np.atleast_1d(data)
 
 ### misc
 
@@ -173,3 +174,22 @@ def beta_predictive(priorcounts,newcounts):
     denom = scipy.special.gammaln(np.array([prior_nsuc, prior_nfail,
         prior_nsuc+prior_nfail+nsuc+nfail])).sum()
     return numer - denom
+
+### Statistical tests
+
+def two_sample_t_statistic(pop1, pop2):
+    pop1, pop2 = (flattendata(p) for p in (pop1, pop2))
+    t = (pop1.mean(0) - pop2.mean(0)) / np.sqrt(pop1.var(0)/pop1.shape[0] + pop2.var(0)/pop2.shape[0])
+    p = 2*stats.t.sf(np.abs(t),np.minimum(pop1.shape[0],pop2.shape[0]))
+    return t,p
+
+def f_statistic(pop1, pop2): # TODO test
+    pop1, pop2 = (flattendata(p) for p in (pop1, pop2))
+    var1, var2 = pop1.var(0), pop2.var(0)
+    n1, n2 = np.where(var1 >= var2, pop1.shape[0], pop2.shape[0]), \
+             np.where(var1 >= var2, pop2.shape[0], pop1.shape[0])
+    var1, var2 = np.maximum(var1,var2), np.minimum(var1,var2)
+    f = var1 / var2
+    p = stats.f.sf(f,n1,n2)
+    return f,p
+
