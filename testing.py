@@ -29,7 +29,7 @@ def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=10):
 
     def plot_1d_scaled_quantiles(p1,p2,plot_midline=True):
         # scaled quantiles so that multiple calls line up
-        p1.sort(), p2.sort() # NOTE: destructive!
+        p1.sort(), p2.sort() # NOTE: destructive! but that's cool
         xmin,xmax = general.scoreatpercentile(p1,percentilecutoff), \
                     general.scoreatpercentile(p1,100-percentilecutoff)
         ymin,ymax = general.scoreatpercentile(p2,percentilecutoff), \
