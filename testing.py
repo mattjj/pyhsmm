@@ -11,7 +11,7 @@ import stats, general
 
 ### graphical
 
-def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=10):
+def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=5):
     pop1, pop2 = stats.flattendata(pop1), stats.flattendata(pop2)
     assert pop1.ndim == pop2.ndim == 1 or \
             (pop1.ndim == pop2.ndim == 2 and pop1.shape[1] == pop2.shape[1]), \
@@ -82,12 +82,12 @@ def assert_populations_eq_moments(pop1, pop2, **kwargs):
 
 def assert_populations_eq_means(pop1, pop2, pval=0.05, msg=None):
     _,p = stats.two_sample_t_statistic(pop1,pop2)
-    if p < pval:
+    if np.any(p < pval):
         raise AssertionError(msg or "population means might be different at %0.3f" % pval)
 
 def assert_populations_eq_variances(pop1, pop2, pval=0.05, msg=None):
     _,p = stats.f_statistic(pop1, pop2)
-    if p < pval:
+    if np.any(p < pval):
         raise AssertionError(msg or "population variances might be different at %0.3f" % pval)
 
 def assert_populations_eq_komolgorofsmirnov(pop1, pop2, msg=None):
