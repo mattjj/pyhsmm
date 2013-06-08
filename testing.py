@@ -1,6 +1,9 @@
 from __future__ import division
+import numpy as np
+from numpy import newaxis as na
+from matplotlib import pyplot as plt
 
-import stats
+import stats, general
 
 #########################
 #  statistical testing  #
@@ -8,10 +11,57 @@ import stats
 
 ### graphical
 
-def populations_eq_plot(pop1, pop2):
-    # TODO plot sorted against each other
-    # if multidimensional, do each coordinate as well as some random projections
-    raise NotImplementedError
+def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=10):
+    pop1, pop2 = stats.flattendata(pop1), stats.flattendata(pop2)
+    assert pop1.ndim == pop2.ndim == 1 or \
+            (pop1.ndim == pop2.ndim == 2 and pop1.shape[1] == pop2.shape[1]), \
+            'populations must have consistent dimensions'
+    D = pop1.shape[1] if pop1.ndim == 2 else 1
+
+    # we want to have the same number of samples
+    n1, n2 = pop1.shape[0], pop2.shape[0]
+    if n1 != n2:
+        # subsample, since interpolation is dangerous
+        if n1 < n2:
+            pop1, pop2 = pop2, pop1
+        np.random.shuffle(pop1)
+        pop1 = pop1[:pop2.shape[0]]
+
+    def plot_1d_scaled_quantiles(p1,p2,plot_midline=True):
+        # scaled quantiles so that multiple calls line up
+        p1.sort(), p2.sort() # NOTE: destructive!
+        xmin,xmax = general.scoreatpercentile(p1,percentilecutoff), \
+                    general.scoreatpercentile(p1,100-percentilecutoff)
+        ymin,ymax = general.scoreatpercentile(p2,percentilecutoff), \
+                    general.scoreatpercentile(p2,100-percentilecutoff)
+        plt.plot((p1-xmin)/(xmax-xmin),(p2-ymin)/(ymax-ymin))
+
+        if plot_midline:
+            plt.plot((0,1),(0,1),'k--')
+        plt.axis((0,1,0,1))
+
+    if D == 1:
+        if fig is None:
+            plt.figure()
+        plot_1d_scaled_quantiles(pop1,pop2)
+    else:
+        if fig is None:
+            fig = plt.figure()
+
+        if not hasattr(fig,'_quantile_test_projs'):
+            firsttime = True
+            randprojs = np.random.randn(D,D)
+            randprojs /= np.sqrt(np.sum(randprojs**2,axis=1))[:,na]
+            projs = np.vstack((np.eye(D),randprojs))
+            fig._quantile_test_projs = projs
+        else:
+            firsttime = False
+            projs = fig._quantile_test_projs
+
+        ims1, ims2 = pop1.dot(projs.T), pop2.dot(projs.T)
+        for i, (im1, im2) in enumerate(zip(ims1.T,ims2.T)):
+            plt.subplot(2,D,i)
+            plot_1d_scaled_quantiles(im1,im2,plot_midline=firsttime)
 
 ### numerical
 

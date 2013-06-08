@@ -100,7 +100,7 @@ def match_by_overlap(a,b):
 def hamming_error(a,b):
     return (a!=b).sum()
 
-def scoreatpercentile(data,per,axis):
+def scoreatpercentile(data,per,axis=0):
     'like the function in scipy.stats but with an axis argument and works on arrays'
     a = np.sort(data,axis=axis)
     idx = per/100. * (data.shape[axis]-1)
