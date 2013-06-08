@@ -65,11 +65,11 @@ def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=10):
 
 ### numerical
 
-# NOTE: a random numerical test should be repeated at the OUTERMOST loop to see
-# if its failures exceed the number expected according to the specified pvalue
-# (tests could be repeated via sample bootstrapping inside the test, but that
-# doesn't work reliably and random tests should have no problem generating new
-# randomness!)
+# NOTE: a random numerical test should be repeated at the OUTERMOST loop (with
+# exception catching) to see if its failures exceed the number expected
+# according to the specified pvalue (tests could be repeated via sample
+# bootstrapping inside the test, but that doesn't work reliably and random tests
+# should have no problem generating new randomness!)
 
 def assert_populations_eq(pop1, pop2):
     assert_populations_eq_moments(pop1,pop2) and \
