@@ -49,7 +49,7 @@ def flattendata(data):
     # data is either an array (possibly a maskedarray) or a list of arrays
     if isinstance(data,np.ndarray):
         return data
-    elif isinstance(data,list):
+    elif isinstance(data,list) or isinstance(data,tuple):
         if any(isinstance(d,np.ma.MaskedArray) for d in data):
             return np.ma.concatenate(data).compressed()
         else:
