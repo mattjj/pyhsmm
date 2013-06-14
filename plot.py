@@ -38,7 +38,7 @@ def pca(data,num_components=2):
 
 
 def project_data(data,vecs):
-    return np.dot(data,vecs)
+    return np.dot(data,vecs.T)
 
 
 def project_ellipsoid(ellipsoid,vecs):
