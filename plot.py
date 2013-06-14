@@ -38,13 +38,13 @@ def pca(data,num_components=2):
 
 
 def project_data(data,vecs):
-    return np.dot(data,vecs)
+    return np.dot(data,vecs.T)
 
 
 def project_ellipsoid(ellipsoid,vecs):
     # vecs is a matrix whose columns are a subset of an orthonormal basis
     # ellipsoid is a pos def matrix
-    return np.dot(vecs.T,np.dot(ellipsoid,vecs))
+    return np.dot(vecs,np.dot(ellipsoid,vecs.T))
 
 
 def subplot_gridsize(num):
