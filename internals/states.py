@@ -248,7 +248,7 @@ class HMMStatesEigen(HMMStatesPython):
         aBl = log_likelihoods
 
         alphal = np.empty((T,M))
-        alphal[0] = np.log(init_state_distn)
+        alphal[0] = np.log(init_state_distn) + aBl[0]
 
         scipy.weave.inline(hmm_messages_forwards_codestr,['A','alphal','aBl','T','M'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
@@ -336,7 +336,6 @@ class HSMMStatesPython(HMMStatesPython):
         self.censoring = censoring
         self.trunc = trunc
         super(HSMMStatesPython,self).__init__(model,*args,**kwargs)
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
 
     @property
     def dur_distns(self):
@@ -541,7 +540,7 @@ class HSMMStatesEigen(HSMMStatesPython):
             dur = self.durations[-1]
             dur_distn = self.dur_distns[self.stateseq_norep[-1]]
             # TODO instead of 3*T, use log_sf
-            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
+            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,model,changepoints,*args,**kwargs):
@@ -760,6 +759,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         HSMMStatesPython.clear_caches(self)
         self._hmm_trans = None
         self._rs = None
+        self._hmm_aBl = None
         # note: we never use aDl or aDsl in this class
 
     @property
@@ -783,7 +783,9 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def aBl(self):
-        return self.hsmm_aBl.repeat(self.rs,axis=1)
+        if self._hmm_aBl is None:
+            self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
+        return self._hmm_aBl
 
     @property
     def rs(self):
@@ -809,6 +811,9 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def messages_backwards(self):
         return HMMStatesEigen.messages_backwards(self), None
 
+    def messages_forwards(self):
+        return HMMStatesEigen.messages_forwards(self), None
+
     def sample_forwards(self,betal,dummy):
         return self.sample_forwards_hmm(betal)
 
@@ -821,7 +826,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def _map_states(self):
         themap = np.arange(self.state_dim).repeat(self.rs)
         self.stateseq = themap[self.stateseq]
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+        self.stateseq_norep, self.durations = util.rle(self.stateseq) # TODO this truncates on the end!
 
     ### for testing, ensures calling parent HMM methods
 
@@ -847,6 +852,15 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return ret
 
 class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
+    def generate_states(self):
+        ret = super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
+        dur = self.durations[-1]
+        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
+        # TODO instead of 3*T, use log_sf
+        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
+        assert np.any(self.durations[-1] >= dur_distn.r_support)
+        return ret
+
     @property
     def pi_0(self):
         rs = self.rs
@@ -905,6 +919,8 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
+        assert not np.isnan(betal).any() and not np.isnan(superbetal).any()
+
         return betal, superbetal
 
     def sample_forwards(self,betal,superbetal):
@@ -936,11 +952,10 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         for state, distn in enumerate(self.model.dur_distns):
             assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
 
-        if self.censoring:
-            dur = self.durations[-1]
-            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-            # TODO instead of 3*T, use log_sf
-            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T)))
+        dur = self.durations[-1]
+        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
+        # TODO instead of 3*T, use log_sf
+        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
 
     def maxsum_messages_backwards(self):
         global eigen_path
@@ -1101,6 +1116,16 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
         self.stateseq = stateseq
         self.stateseq_norep, self.durations = util.rle(self.stateseq)
+
+class LibraryHSMMStatesIntegerNegativeBinomialVariant(HSMMStatesIntegerNegativeBinomialVariant):
+    @property
+    def hsmm_aBl(self):
+        if self._aBl is None:
+            likelihoods = self.obs_distns[0]._shifted_likelihoods
+            weights = np.hstack([o.weights.weights[:,na] for o in self.obs_distns])
+            self._aBl = np.log(likelihoods.dot(weights))
+            self._aBl += self.obs_distns[0]._maxes[:,na]
+        return self._aBl
 
 #################
 #  eigen stuff  #

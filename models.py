@@ -102,6 +102,10 @@ class HMM(ModelGibbsSampling, ModelEM):
         for s in self.states_list:
             s.clear_caches()
 
+    def __getstate__(self):
+        self._clear_caches()
+        return self.__dict__.copy()
+
     ### Gibbs sampling
 
     def resample_model(self):

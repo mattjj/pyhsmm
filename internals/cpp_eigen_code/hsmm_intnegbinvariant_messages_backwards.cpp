@@ -21,6 +21,7 @@ for (int t=T-2; t>=0; t--) {
     thesum = esuperbetal.col(t+1) + eaBl.col(t+1);
     cmax = thesum.maxCoeff();
     incoming = (eA * (thesum - cmax).exp().matrix()).array().log() + cmax;
+    if (isinf(cmax)) printf("DAMMMNNNN! %d %f\n",t,cmax);
 
     // within-state transition part (bidiagonal block-diagonal part)
     for (int idx=0; idx<M; idx++) {
@@ -30,12 +31,20 @@ for (int t=T-2; t>=0; t--) {
 
         for (int i=start; i<end; i++) {
             cmax = max(ebetal(i,t+1),ebetal(i+1,t+1));
-            ebetal(i,t) = log(pi*exp(ebetal(i,t+1)-cmax)+(1.0-pi)*exp(ebetal(i+1,t+1)-cmax))
-                            + cmax + eaBl(idx,t+1);
+            if (isinf(cmax)) {
+                ebetal(i,t) = -INFINITY;
+            } else {
+                ebetal(i,t) = log(pi*exp(ebetal(i,t+1)-cmax)+(1.0-pi)*exp(ebetal(i+1,t+1)-cmax))
+                                + cmax + eaBl(idx,t+1);
+            }
         }
         temp = ebetal(end,t+1) + eaBl(idx,t+1);
         cmax = max(temp,incoming(idx));
-        ebetal(end,t) = log(pi*exp(temp-cmax)+exp(incoming(idx)-cmax)) + cmax;
+        if (isinf(cmax)) {
+            ebetal(end,t) = -INFINITY;
+        } else {
+            ebetal(end,t) = log(pi*exp(temp-cmax)+exp(incoming(idx)-cmax)) + cmax; // NOTE: (1-pi) applied to A
+        }
 
         esuperbetal(idx,t) = ebetal(start,t);
     }
