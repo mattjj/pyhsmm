@@ -1,6 +1,7 @@
 # __all__ = something
 import models
 import basic.distributions as distributions
+import basic.models
 import plugins
 
 import os

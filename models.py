@@ -58,11 +58,11 @@ class HMM(ModelGibbsSampling, ModelEM):
                     rho=init_state_concentration)
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+        self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data):
-        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+        s = self._states_class(model=self,data=np.asarray(data),
                 stateseq=np.zeros(len(data))) # placeholder
         betal = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -368,11 +368,11 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(self._states_class(self,
-            data=np.asarray(data,dtype=np.float64),stateseq=stateseq,censoring=censoring,
+            data=np.asarray(data),stateseq=stateseq,censoring=censoring,
             trunc=self.trunc,**kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
-        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),trunc=trunc,
+        s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
                 stateseq=np.zeros(len(data)),**kwargs)
         betal, _ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
@@ -466,7 +466,7 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                self._states_class(self,changepoints,data=np.asarray(data,dtype=np.float64),
+                self._states_class(self,changepoints,data=np.asarray(data),
                     trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
@@ -527,7 +527,7 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
 
     def log_likelihood(self,data):
-        s = self._states_class(model=self,data=np.asarray(data,dtype=np.float64),
+        s = self._states_class(model=self,data=np.asarray(data),
                 stateseq=np.zeros(len(data))) # placeholder
         betal,_ = s.messages_backwards()
         return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
