@@ -16,15 +16,23 @@ excellent `ipython.parallel` module. Someday I might even document how to do
 it!
 
 ## Installing ##
-You can clone this library and its dependencies with
+You can clone this library and its dependencies into your current working directory with
 
 ```bash
 git clone --recursive git://github.com/mattjj/pyhsmm.git
 ```
 
-To pull updates, you can do this
+For the Python interpreter to be able to import pyhsmm, you'll need it on your
+Python path. Since the current working directory is usually included in the
+Python path, you can probably run the examples from the same directory in which
+you run the git clone with commands like `python pyhsmm/examples/hsmm.py`. You
+might also want to add pyhsmm to your global Python path (e.g. by copying it to
+your site-packages directory).
+
+To pull updates, you can do this:
 
 ```bash
+cd /path/to/pyhsmm
 git pull
 git submodule update --init --recursive
 ```
