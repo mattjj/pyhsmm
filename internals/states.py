@@ -332,16 +332,16 @@ class HSMMStatesPython(HMMStatesPython):
     stateseq_norep
     '''
 
-    def __init__(self,model,censoring=True,trunc=None,**kwargs):
+    def __init__(self,model,censoring=True,trunc=None,
+            stateseq=None,stateseq_norep=None,durations=None,
+            **kwargs):
         self.censoring = censoring
         self.trunc = trunc
-        if 'durations' in kwargs:
-            self.durations = kwargs['durations']
-            del kwargs['durations']
-        if 'stateseq_norep' in kwargs:
-            self.stateseq_norep = kwargs['stateseq_norep']
-            del kwargs['stateseq_norep']
-        super(HSMMStatesPython,self).__init__(model,**kwargs)
+        if stateseq is not None:
+            assert stateseq_norep is not None and durations is not None
+            self.stateseq_norep = stateseq_norep
+            self.durations = durations
+        super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 
     @property
     def dur_distns(self):
