@@ -18,7 +18,7 @@ alldata = {}
 # the current model global_model to be present in the ipython global frame
 @lbv.parallel(block=True)
 @interactive
-def build_states(data_id):
+def hmm_build_states(data_id):
     global global_model
     global alldata
 
@@ -29,6 +29,21 @@ def build_states(data_id):
     global_model.states_list = []
 
     return (data_id, stateseq)
+
+@lbv.parallel(block=True)
+@interactive
+def hsmm_build_states(data_id):
+    global global_model
+    global alldata
+
+    # adding the data to the pushed global model will build a substates object
+    # and resample the states given the parameters in the model
+    global_model.add_data(alldata[data_id],initialize_from_prior=False)
+    s = global_model.states_list[-1]
+    stateseq, stateseq_norep, durations = s.stateseq, s.stateseq_norep, s.durations
+    global_model.states_list = []
+
+    return (data_id, stateseq, stateseq_norep, durations)
 
 # this stuff is for the 'changepoints' models
 allchangepoints = {}
