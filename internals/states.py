@@ -897,6 +897,14 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         return self._hmm_trans
 
+    @property
+    def _trans_matrix_terms(self):
+        # returns diag part and off-diag part of (hmm) trans matrix, along with
+        # lengths
+        rs = self.rs
+        ps = np.array([d.p for d in self.dur_distns])
+        return np.repeat(ps,rs), (1-ps)[:,na] * self.hsmm_trans_matrix, rs
+
     def E_step(self):
         raise NotImplementedError
 
@@ -1026,7 +1034,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def binoms(self):
-        if True or self._binoms is None: # TODO
+        if self._binoms is None:
             self._binoms = []
             for D in self.dur_distns:
                 if 0 < D.p < 1:

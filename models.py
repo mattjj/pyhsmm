@@ -9,7 +9,8 @@ import basic.distributions
 from internals import states, initial_state, transitions
 
 # TODO think about factoring out base classes for HMMs and HSMMs
-# TODO maybe states classes should handle log_likelihood...
+# TODO maybe states classes should handle log_likelihood and predictive
+# likelihood methods
 
 class HMM(ModelGibbsSampling, ModelEM):
     '''
@@ -61,11 +62,55 @@ class HMM(ModelGibbsSampling, ModelEM):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
 
-    def log_likelihood(self,data):
-        s = self._states_class(model=self,data=np.asarray(data),
-                stateseq=np.zeros(len(data))) # placeholder
-        betal = s.messages_backwards()
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
+    def log_likelihood(self,data=None):
+        if data is not None:
+            s = self._states_class(model=self,data=np.asarray(data),
+                    stateseq=np.zeros(len(data))) # placeholder
+            betal = s.messages_backwards()
+            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
+        else:
+            betastarls = np.vstack([s.messages_backwards()[0] + s.aBl[0]
+                for s in self.states_list])
+            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0)
+                                            + betastarls,axis=1).sum()
+
+    def predictive_likelihoods(self,test_data,forecast_horizons):
+        s = self._states_class(model=self,data=np.asarray(test_data),
+                stateseq=np.zeros(test_data.shape[0])) # placeholder
+        alphal = s.messages_forwards()
+
+        cmaxes = alphal.max(axis=1)
+        scaled_alphal = np.exp(alphal - cmaxes[:,None])
+        prev_k = 0
+
+        outs = []
+        for k in forecast_horizons:
+            step = k - prev_k
+
+            cmaxes = cmaxes[:-step]
+            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
+
+            future_likelihoods = np.logaddexp.reduce(
+                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
+            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+            outs.append(future_likelihoods - past_likelihoods)
+
+            prev_k = k
+
+        return outs
+
+    def block_predictive_likelihoods(self,test_data,blocklens):
+        s = self._states_class(model=self,data=np.asarray(test_data),
+                stateseq=np.zeros(test_data.shape[0])) # placeholder
+        alphal = s.messages_forwards()
+
+        outs = []
+        for k in blocklens:
+
+            outs.append(np.logaddexp.reduce(alphal[k:],axis=1)
+                    - np.logaddexp.reduce(alphal[:-k],axis=1))
+
+        return outs
 
     ### generation
 
@@ -108,15 +153,16 @@ class HMM(ModelGibbsSampling, ModelEM):
 
     ### Gibbs sampling
 
-    def resample_model(self):
-        self.resample_obs_distns()
+    # TODO TODO pass temp to resample_states
+    def resample_model(self,**kwargs):
+        self.resample_obs_distns(**kwargs)
         self.resample_trans_distn()
         self.resample_init_state_distn()
         self.resample_states()
 
-    def resample_obs_distns(self):
+    def resample_obs_distns(self,**kwargs):
         for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list],**kwargs)
         self._clear_caches()
 
     def resample_trans_distn(self):
@@ -176,6 +222,25 @@ class HMM(ModelGibbsSampling, ModelEM):
             self.states_list[-1].data_id = data_id
 
     ### EM
+
+    def EM_fit(self,tol=1e-1,maxiter=100):
+        return self._EM_fit(self.EM_step,tol=tol,maxiter=maxiter)
+
+    def Viterbi_EM_fit(self,tol=1e-1,maxiter=100):
+        return self._EM_fit(self.Viterbi_EM_step,tol=tol,maxiter=maxiter)
+
+    def _EM_fit(self,method,tol=1e-1,maxiter=100):
+        # NOTE: doesn't re-initialize!
+        assert len(self.states_list) > 0, 'Must have data to run EM'
+
+        likes = []
+        for itr in xrange(maxiter):
+            method()
+            likes.append(self.log_likelihood())
+            if len(likes) > 1 and np.abs(likes[-1] - likes[-2]) < tol:
+                return likes
+        print 'WARNING: EM_fit reached maxiter of %d' % maxiter
+        return likes
 
     def EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run EM'
@@ -385,9 +450,9 @@ class HSMM(HMM, ModelGibbsSampling):
 
     ### Gibbs sampling
 
-    def resample_model(self):
+    def resample_model(self,**kwargs):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model()
+        super(HSMM,self).resample_model(**kwargs)
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
@@ -540,11 +605,23 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
 
-    def log_likelihood(self,data):
-        s = self._states_class(model=self,data=np.asarray(data),
-                stateseq=np.zeros(len(data))) # placeholder
-        betal,_ = s.messages_backwards()
-        return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
+    def log_likelihood(self,data=None):
+        if data is not None:
+            s = self._states_class(model=self,data=np.asarray(data),
+                    stateseq=np.zeros(len(data))) # placeholder
+            superbetal = s.messages_backwards()[1]
+            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + superbetal[0] + s.hsmm_aBl[0])
+        else:
+            superbetastarls = np.vstack([s.messages_backwards()[1][0] + s.hsmm_aBl[0]
+                for s in self.states_list])
+            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0)
+                                            + superbetastarls,axis=1).sum()
+
+    def predictive_likelihoods(self,test_data,forecast_horizons):
+        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
+
+    def block_predictive_likelihoods(self,test_data,blocklens):
+        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens) # TODO improve speed
 
 class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
