@@ -86,7 +86,7 @@ class HMMStatesPython(object):
             data = self.data
             aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
             for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = obs_distn.log_likelihood(data)
+                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
         return self._aBl
 
     ### message passing
