@@ -5,6 +5,7 @@ import scipy.weave
 from numpy import newaxis as na
 np.seterr(invalid='raise')
 import operator
+import copy
 
 from ..basic.distributions import DirGamma
 from ..util.general import rle
@@ -16,6 +17,8 @@ from ..util.general import rle
 # TODO scaling by self.state_dim in concresampling is the confusing result of
 # having a DirGamma object and not a WLDPGamma object! make one
 # TODO reuse Multinomial/Categorical code
+# TODO change concentrationresampling from mixin to metaprogramming?
+# TODO add model ref, change trans_counts to cached property
 
 class ConcentrationResampling(object):
     def __init__(self,state_dim,alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
@@ -54,6 +57,14 @@ class HDPHMMTransitions(object):
 
         self._resample_beta(m)
         self._resample_A(trans_counts)
+
+    def copy_sample(self):
+        new = copy.deepcopy(self)
+        if hasattr(new,'trans_counts'):
+            del new.trans_counts
+        if hasattr(new,'m'):
+            del new.m
+        return new
 
     def _resample_beta(self,m):
         self.beta = np.random.dirichlet(self.gamma / self.state_dim + m.sum(0) + 1e-2)
@@ -387,6 +398,12 @@ class StickyHDPHMMTransitions(HDPHMMTransitions):
     def __init__(self,kappa,*args,**kwargs):
         self.kappa = kappa
         super(StickyHDPHMMTransitions,self).__init__(*args,**kwargs)
+
+    def copy_sample(self):
+        new = super(StickyHDPHMMTransitions,self).copy_sample()
+        if hasattr(new,'newm'):
+            del new.newm
+        return new
 
     def _resample_beta(self,m):
         # the counts in newm are the ones we keep for the transition matrix;

@@ -132,6 +132,7 @@ class HMMStatesPython(object):
         new = copy.copy(self)
         new.clear_caches()
         new.model = newmodel
+        new.stateseq = self.stateseq.copy()
         return new
 
     @staticmethod
@@ -445,6 +446,12 @@ class HSMMStatesPython(HMMStatesPython):
     def resample(self):
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
+
+    def copy_sample(self,newmodel):
+        new = super(HSMMStatesPython,self).copy_sample(newmodel)
+        new.durations = self.durations.copy()
+        new.stateseq_norep = self.stateseq_norep.copy()
+        return new
 
     def sample_forwards(self,betal,betastarl):
         A = self.trans_matrix
