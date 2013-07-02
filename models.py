@@ -183,7 +183,7 @@ class HMM(ModelGibbsSampling, ModelEM):
         new.obs_distns = [o.copy_sample() for o in self.obs_distns]
         new.trans_distn = self.trans_distn.copy_sample()
         new.init_state_distn = self.init_state_distn.copy_sample()
-        new.states_list = [s.copy_sample() for s in self.states_list]
+        new.states_list = [s.copy_sample(new) for s in self.states_list]
         return new
 
     ### parallel

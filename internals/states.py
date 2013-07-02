@@ -2,7 +2,7 @@ import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
-import abc
+import abc, copy
 import scipy.stats as stats
 
 np.seterr(invalid='raise')
@@ -127,6 +127,12 @@ class HMMStatesPython(object):
     def resample(self):
         betal = self.messages_backwards()
         self.sample_forwards(betal)
+
+    def copy_sample(self,newmodel):
+        new = copy.copy(self)
+        new.clear_caches()
+        new.model = newmodel
+        return new
 
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
