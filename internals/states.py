@@ -338,7 +338,7 @@ class HSMMStatesPython(HMMStatesPython):
         self.censoring = censoring
         self.trunc = trunc
         if stateseq is not None:
-            assert stateseq_norep is not None and durations is not None
+            # assert stateseq_norep is not None and durations is not None
             self.stateseq_norep = stateseq_norep
             self.durations = durations
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
@@ -808,6 +808,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         pass
 
     # generic implementation, these could be overridden for efficiency
+    # they act like HMMs
 
     def generate_states(self):
         ret = HMMStatesEigen.generate_states(self)
@@ -815,10 +816,10 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return ret
 
     def messages_backwards(self):
-        return HMMStatesEigen.messages_backwards(self), None
+        return HMMStatesEigen.messages_backwards(self)
 
     def messages_forwards(self):
-        return HMMStatesEigen.messages_forwards(self), None
+        return HMMStatesEigen.messages_forwards(self)
 
     def sample_forwards(self,betal,dummy):
         return self.sample_forwards_hmm(betal)
