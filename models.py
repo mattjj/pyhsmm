@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import itertools, collections, operator, random, abc
+import itertools, collections, operator, random, abc, copy
 from matplotlib import pyplot as plt
 from matplotlib import cm
 
@@ -11,6 +11,7 @@ from internals import states, initial_state, transitions
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
+# TODO generate_obs should be here, not in states.py
 
 class HMM(ModelGibbsSampling, ModelEM):
     '''
@@ -176,6 +177,14 @@ class HMM(ModelGibbsSampling, ModelEM):
     def resample_states(self):
         for s in self.states_list:
             s.resample()
+
+    def copy_sample(self):
+        new = copy.copy(self)
+        new.obs_distns = [o.copy_sample() for o in self.obs_distns]
+        new.trans_distn = self.trans_distn.copy_sample()
+        new.init_state_distn = self.init_state_distn.copy_sample()
+        new.states_list = [s.copy_sample() for s in self.states_list]
+        return new
 
     ### parallel
 
@@ -458,6 +467,11 @@ class HSMM(HMM, ModelGibbsSampling):
         for state, distn in enumerate(self.dur_distns):
             distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
         self._clear_caches()
+
+    def copy_sample(self):
+        new = super(HSMM,self).copy_sample()
+        new.dur_distns = [d.copy_sample() for d in self.dur_distns]
+        return new
 
     ### parallel
 
