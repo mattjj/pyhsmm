@@ -130,7 +130,7 @@ class HMMStatesPython(object):
 
     def copy_sample(self,newmodel):
         new = copy.copy(self)
-        new.clear_caches()
+        new.clear_caches() # saves space, though may recompute later for likelihoods
         new.model = newmodel
         new.stateseq = self.stateseq.copy()
         return new
