@@ -56,8 +56,7 @@ print 'Gibbs sampling'
 for idx in progprint_xrange(25):
     posteriormodel.resample_model()
 
-for idx in progprint_xrange(50):
-    posteriormodel.Viterbi_EM_step()
+posteriormodel.Viterbi_EM_fit()
 
 plt.figure()
 posteriormodel.plot()

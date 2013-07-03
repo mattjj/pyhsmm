@@ -190,7 +190,7 @@ class HMM(ModelGibbsSampling, ModelEM):
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id],**kwargs)
+        self.add_data(data=parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
 
@@ -273,21 +273,6 @@ class HMM(ModelGibbsSampling, ModelEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
 
-    def num_parameters(self):
-        return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
-
-    def BIC(self,data=None):
-        '''BIC on the passed data. If passed data is None (default), calculates BIC on the model's assigned data'''
-        # NOTE: in principle this method computes the BIC only after finding the
-        # maximum likelihood parameters (or, of course, an EM fixed-point as an
-        # approximation!)
-        assert data is None and len(self.states_list) > 0, 'Must have data to get BIC'
-        if data is None:
-            return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
-                        self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
-        else:
-            return -2*self.log_likelihood(data) + self.num_parameters() * np.log(data.shape[0])
-
     def Viterbi_EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
         self._clear_caches()
@@ -297,13 +282,34 @@ class HMM(ModelGibbsSampling, ModelEM):
             s.Viterbi()
 
         ## M step
+        # observation distribution parameters
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
+        # initial distribution parameters
         self.init_state_distn.max_likelihood(
                 np.array([s.stateseq[0] for s in self.states_list]))
 
+        # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
+
+    def num_parameters(self):
+        return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
+
+    def BIC(self,data=None):
+        '''
+        BIC on the passed data. If passed data is None (default), calculates BIC
+        on the model's assigned data
+        '''
+        # NOTE: in principle this method computes the BIC only after finding the
+        # maximum likelihood parameters (or, of course, an EM fixed-point as an
+        # approximation!)
+        assert data is None and len(self.states_list) > 0, 'Must have data to get BIC'
+        if data is None:
+            return -2*sum(self.log_likelihood(s.data).sum() for s in self.states_list) + \
+                        self.num_parameters() * np.log(sum(s.data.shape[0] for s in self.states_list))
+        else:
+            return -2*self.log_likelihood(data) + self.num_parameters() * np.log(data.shape[0])
 
     ### plotting
 
@@ -441,7 +447,7 @@ class HSMM(HMM, ModelGibbsSampling):
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(self._states_class(self,
+        self.states_list.append(self._states_class(model=self,
             data=np.asarray(data),stateseq=stateseq,censoring=censoring,
             trunc=self.trunc,**kwargs))
 
@@ -477,7 +483,7 @@ class HSMM(HMM, ModelGibbsSampling):
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id],**kwargs)
+        self.add_data(data=parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def resample_model_parallel(self,numtoresample='all'):
@@ -505,6 +511,14 @@ class HSMM(HMM, ModelGibbsSampling):
             distn.max_likelihood(
                     None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
                     [s.expectations[:,state] for s in self.states_list])
+
+    def Viterbi_EM_step(self):
+        super(HSMM,self).Viterbi_EM_step()
+
+        # M step for duration distributions
+        for state, distn in enumerate(self.dur_distns):
+            distn.max_likelihood(
+                    [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) \
@@ -556,12 +570,12 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                self._states_class(self,changepoints,data=np.asarray(data),
+                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),
                     trunc=self.trunc,**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
-        self.add_data(parallel.alldata[data_id],parallel.allchangepoints[data_id],**kwargs)
+        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
     def _build_states_parallel(self,states_to_resample):
@@ -594,30 +608,6 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
         # on top of that, need to hand things duration distributions... UGH
         # probably need betastarl too plus some indicator variable magic
         raise NotImplementedError # TODO
-
-    def Viterbi_EM_step(self):
-        self._clear_caches()
-
-        ## Viterbi step
-        for s in self.states_list:
-            s.Viterbi()
-
-        ## M step
-        for state, distn in enumerate(self.obs_distns):
-            distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
-        # self.resample_obs_distns()
-
-        self.init_state_distn.max_likelihood(
-                np.array([s.stateseq[0] for s in self.states_list]))
-
-        # NOTE: in this branch, we want to use the HDP over the transition
-        # matrix, so while we're doing EM-like steps elsewhere, we're going to
-        # resample just the transition matrix
-        self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
-        # self.resample_trans_distn()
-
-        for state, distn in enumerate(self.dur_distns):
-            distn.max_likelihood([s.durations[:-1][s.stateseq_norep[:-1] == state] for s in self.states_list])
 
     def log_likelihood(self,data=None):
         if data is not None:

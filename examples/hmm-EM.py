@@ -62,9 +62,7 @@ plt.gcf().suptitle('Gibbs-sampled initialization')
 
 print 'EM'
 
-for idx in progprint_xrange(100):
-    # instead of blindly running iterations, we could also quit on convergence
-    fitmodel.EM_step()
+fitmodel.EM_fit()
 
 plt.figure()
 fitmodel.plot()
