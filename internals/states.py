@@ -2,7 +2,7 @@ import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
-import abc, copy
+import abc, copy, warnings
 import scipy.stats as stats
 
 np.seterr(invalid='raise')
@@ -339,10 +339,10 @@ class HSMMStatesPython(HMMStatesPython):
     stateseq_norep
     '''
 
-    def __init__(self,model,censoring=True,trunc=None,
+    def __init__(self,model,right_censoring=True,trunc=None,
             stateseq=None,stateseq_norep=None,durations=None,
             **kwargs):
-        self.censoring = censoring
+        self.right_censoring = right_censoring
         self.trunc = trunc
         if stateseq is not None:
             # assert stateseq_norep is not None and durations is not None
@@ -422,7 +422,7 @@ class HSMMStatesPython(HMMStatesPython):
 
         for t in xrange(T-1,-1,-1):
             np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            if T-t < trunc and self.censoring:
+            if T-t < trunc and self.right_censoring:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
@@ -500,8 +500,8 @@ class HSMMStatesPython(HMMStatesPython):
                     durprob -= p_d
                     dur += 1
                 else:
-                    if self.censoring:
-                        dur = self.dur_distns[state].rvs_given_greater_than(dur)
+                    if self.right_censoring:
+                        dur = self.self[state].rvs_given_greater_than(dur)
                     else:
                         dur += 1
 
@@ -559,14 +559,18 @@ class HSMMStatesEigen(HSMMStatesPython):
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
 
-        if self.censoring:
+        # clean up right-censoring
+
+        if self.right_censoring:
             dur = self.durations[-1]
             dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-            # TODO instead of 3*T, use log_sf
-            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
+            self.durations[-1] = dur_distn.rvs_given_greater_than(dur)
 
-class HSMMStatesPossibleChangepoints(HSMMStatesPython):
+class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this class
     def __init__(self,model,changepoints,*args,**kwargs):
+        warnings.warn("%s hasn't been used in a while; there may be some bumps"
+                % self.__class__.__name__)
+
         self.changepoints = changepoints
         self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
@@ -758,7 +762,7 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
             if t+trunc < T:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
                         + hmm_betal[t+trunc], out=betastarl[t])
-            if T-t < trunc and self.censoring:
+            if T-t < trunc and self.right_censoring:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.

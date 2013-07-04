@@ -437,10 +437,14 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
-    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(self._states_class(model=self,
-            data=np.asarray(data),stateseq=stateseq,censoring=censoring,
-            trunc=self.trunc,**kwargs))
+    def add_data(self,data,stateseq=None,right_censoring=True,**kwargs):
+        self.states_list.append(self._states_class(
+            model=self,
+            data=np.asarray(data),
+            stateseq=stateseq,
+            right_censoring=right_censoring,
+            trunc=self.trunc,
+            **kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
         s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
