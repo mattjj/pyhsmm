@@ -4,7 +4,7 @@ import itertools, collections, operator, random, abc, copy
 from matplotlib import pyplot as plt
 from matplotlib import cm
 
-from basic.abstractions import ModelGibbsSampling, ModelEM
+from basic.abstractions import ModelGibbsSampling, ModelEM, ModelMAPEM
 import basic.distributions
 from internals import states, initial_state, transitions
 
@@ -13,7 +13,7 @@ from internals import states, initial_state, transitions
 # likelihood methods
 # TODO generate_obs should be here, not in states.py
 
-class HMM(ModelGibbsSampling, ModelEM):
+class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     '''
     The HMM class is a convenient wrapper that provides useful constructors and
     packages all the components.
@@ -232,25 +232,6 @@ class HMM(ModelGibbsSampling, ModelEM):
 
     ### EM
 
-    def EM_fit(self,tol=1e-1,maxiter=100):
-        return self._EM_fit(self.EM_step,tol=tol,maxiter=maxiter)
-
-    def Viterbi_EM_fit(self,tol=1e-1,maxiter=100):
-        return self._EM_fit(self.Viterbi_EM_step,tol=tol,maxiter=maxiter)
-
-    def _EM_fit(self,method,tol=1e-1,maxiter=100):
-        # NOTE: doesn't re-initialize!
-        assert len(self.states_list) > 0, 'Must have data to run EM'
-
-        likes = []
-        for itr in xrange(maxiter):
-            method()
-            likes.append(self.log_likelihood())
-            if len(likes) > 1 and np.abs(likes[-1] - likes[-2]) < tol:
-                return likes
-        print 'WARNING: EM_fit reached maxiter of %d' % maxiter
-        return likes
-
     def EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run EM'
         self._clear_caches()
@@ -272,6 +253,12 @@ class HMM(ModelGibbsSampling, ModelEM):
 
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
+
+    def Viterbi_EM_fit(self):
+        return self.MAP_EM_fit()
+
+    def MAP_EM_step(self):
+        return self.Viterbi_EM_step()
 
     def Viterbi_EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
@@ -394,10 +381,14 @@ class StickyHMM(HMM, ModelGibbsSampling):
     def EM_step(self):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
+    def MAP_EM_step(self):
+        raise NotImplementedError, "Can't run EM on a StickyHMM"
+
+
 class StickyHMMEigen(StickyHMM):
     _states_class = states.HMMStatesEigen
 
-class HSMM(HMM, ModelGibbsSampling):
+class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     '''
     The HSMM class is a wrapper to package all the pieces of an HSMM:
         * HSMM internals, including distribution objects for
