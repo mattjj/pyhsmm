@@ -59,6 +59,11 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                     state_dim=self.state_dim,
                     rho=init_state_concentration)
 
+    @property
+    def stateseqs(self):
+        'a convenient reference to the state sequence arrays'
+        return [s.stateseq for s in self.states_list]
+
     def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
