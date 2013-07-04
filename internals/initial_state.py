@@ -54,11 +54,14 @@ class SteadyState(object):
             self._pi = top_eigenvector(self.model.trans_distn.A)
         return self._pi
 
+    def resample(self,*args,**kwargs):
+        pass
+
 class HSMMSteadyState(SteadyState):
     @property
     def pi_0(self):
         if self._pi is None:
-            markov_part = super(HSMMSteadyState,self).pi_0.fget(self)
+            markov_part = super(HSMMSteadyState,self).pi_0
             duration_expectations = np.array([d.mean for d in self.model.dur_distns])
             self._pi = markov_part * duration_expectations
             self._pi /= self._pi.sum()

@@ -372,6 +372,8 @@ class HSMMStatesPython(HMMStatesPython):
         stateseq = np.empty(self.T,dtype=np.int32)
         durations = []
 
+        # TODO TODO TODO handle initial censored duration
+
         while idx < self.T:
             # sample a state
             state = sample_discrete(nextstate_distr)
@@ -473,6 +475,8 @@ class HSMMStatesPython(HMMStatesPython):
         idx = 0
         nextstate_unsmoothed = self.pi_0
 
+        # TODO TODO handle initial censored state
+
         while idx < T:
             logdomain = betastarl[idx] - np.amax(betastarl[idx])
             nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
@@ -558,6 +562,8 @@ class HSMMStatesEigen(HSMMStatesPython):
         aBl = self.aBl
 
         stateseq = np.zeros(T,dtype=np.int32)
+
+        # TODO TODO handle initial censored state (maybe in python)
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
