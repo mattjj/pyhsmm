@@ -65,9 +65,8 @@ posteriormodel = pyhsmm.models.HSMMEigen(
         alpha=6.,gamma=6., # these can matter; better to sample over them (concentration-resampling.py)
         init_state_concentration=6., # pretty inconsequential
         obs_distns=obs_distns,
-        dur_distns=dur_distns,
-        trunc=60) # duration truncation speeds things up when it's possible
-posteriormodel.add_data(data)
+        dur_distns=dur_distns)
+posteriormodel.add_data(data,trunc=60) # duration truncation speeds things up when it's possible
 
 models = []
 for idx in progprint_xrange(150):

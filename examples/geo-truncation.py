@@ -34,9 +34,8 @@ model = pyhsmm.models.HSMMGeoApproximation(
         init_state_concentration=Nmax, # doesn't matter for one chain
         alpha=6.,gamma=6.,
         obs_distns=obs_distns,
-        dur_distns=dur_distns,
-        trunc=150) # NOTE: blows up this isn't long enough wrt the NegativeBinomial parameters
-model.add_data(data)
+        dur_distns=dur_distns)
+model.add_data(data,trunc=150)
 
 ##############
 #  resample  #
