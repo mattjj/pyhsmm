@@ -415,16 +415,11 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     _trans_class_conc_class = transitions.HDPHSMMTransitionsConcResampling
     _init_steady_state_class = initial_state.HSMMSteadyState
 
-    def __init__(self,
-            obs_distns,dur_distns,
-            trans_distn=None,
-            alpha=None,gamma=None,
-            alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
-            **kwargs):
+    def __init__(self,dur_distns,**kwargs):
 
         self.dur_distns = dur_distns
 
-        super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
+        super(HSMM,self).__init__(**kwargs)
 
         if isinstance(self.init_state_distn,self._init_steady_state_class):
             self.left_censoring_init_state_distn = self.init_state_distn
@@ -439,6 +434,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             stateseq=stateseq,
             right_censoring=right_censoring,
             left_censoring=left_censoring,
+            trunc=trunc,
             **kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):

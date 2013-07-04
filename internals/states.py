@@ -339,10 +339,11 @@ class HSMMStatesPython(HMMStatesPython):
     stateseq_norep
     '''
 
-    def __init__(self,model,right_censoring=True,trunc=None,
+    def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
             stateseq=None,stateseq_norep=None,durations=None,
             **kwargs):
         self.right_censoring = right_censoring
+        self.left_censoring = left_censoring
         self.trunc = trunc
         if stateseq is not None:
             # assert stateseq_norep is not None and durations is not None
