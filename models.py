@@ -442,6 +442,14 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
 
+    @property
+    def stateseqs_norep(self):
+        return [s.stateseq_norep for s in self.states_list]
+
+    @property
+    def durations(self):
+        return [s.durations for s in self.states_list]
+
     def add_data(self,data,stateseq=None,censoring=True,**kwargs):
         self.states_list.append(self._states_class(model=self,
             data=np.asarray(data),stateseq=stateseq,censoring=censoring,
