@@ -105,8 +105,7 @@ posteriormodel = pyhsmm.models.HSMM(
         alpha=6.,gamma=6., # better to sample over these; see concentration-resampling.py
         init_state_concentration=6., # pretty inconsequential
         obs_distns=obs_distns,
-        dur_distns=dur_distns,
-        trunc=60) # duration truncation speeds things up when it's possible
+        dur_distns=dur_distns)
 ```
 
 (The first two arguments set the "new-table" proportionality constant for the
@@ -115,20 +114,20 @@ prior on transition matrices. For this example, they really don't matter at
 all, but on real data it's much better to infer these parameters, as in
 `examples/concentration_resampling.py`.)
 
+Then, we add the data we want to condition on:
+
+```python
+posteriormodel.add_data(data,trunc=60)
+```
 
 The `trunc` parameter is an optional argument that can speed up inference: it
 sets a truncation limit on the maximum duration for any state. If you don't
 pass in the `trunc` argument, no truncation is used and all possible state
-duration lengths are considered.
+duration lengths are considered. (pyhsmm has fancier ways to speed up message
+passing over durations, but they aren't documented.)
 
-Then, we add the data we want to condition on:
-
-```python
-posteriormodel.add_data(data)
-```
-
-(If we had multiple observation sequences to learn from, we could add them to the
-model just by calling `add_data()` for each observation sequence.)
+If we had multiple observation sequences to learn from, we could add them to the
+model just by calling `add_data()` for each observation sequence.
 
 Now we run a resampling loop. For each iteration of the loop, all the latent
 variables of the model will be resampled by Gibbs sampling steps, including the
@@ -162,6 +161,23 @@ I generated these data from an HSMM that looked like this:
 ![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/pyhsmm/truth.png)
 
 So the posterior samples look pretty good!
+
+A convenient shortcut to build a list of sampled models is to write
+
+```python
+model_samples = [model.resample_and_copy() for itr in progprint_xrange(150)]
+```
+
+That will build a list of model objects (each of which can be inspected,
+plotted, pickled, etc, independently) in a way that won't duplicate data that
+isn't changed (like the observations or hyperparameter arrays) so that memory
+usage is minimized. It also minimizes file size if you save samples like
+
+```python
+import cPickle
+with open('sampled_models.pickle','w') as outfile:
+    cPickle.dump(model_samples,outfile,protocol=-1)
+```
 
 ## Speed ##
 
