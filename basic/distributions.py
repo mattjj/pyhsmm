@@ -34,6 +34,9 @@ def _start_at_one(cls):
         def rvs(self,size=None):
             return super(Wrapper,self).rvs(size)+1
 
+        def rvs_given_greater_than(self,x):
+            return super(Wrapper,self).rvs_given_greater_than(x-1)+1
+
         def resample(self,data=[],*args,**kwargs):
             if isinstance(data,np.ndarray):
                 return super(Wrapper,self).resample(data-1,*args,**kwargs)

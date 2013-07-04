@@ -478,18 +478,22 @@ class HSMMStatesPython(HMMStatesPython):
             dur = 0 # always incremented at least once
             prob_so_far = 0.0
             while durprob > 0:
-                assert dur < 2*T # hacky infinite loop check
-                # NOTE: funny indexing: dur variable is 1 less than actual dur we're considering
-                p_d_marg = apmf[dur,state] if dur < T else 1.
-                assert not np.isnan(p_d_marg)
-                assert p_d_marg >= 0
-                if p_d_marg == 0:
+                # NOTE: funny indexing: dur variable is 1 less than actual dur
+                # we're considering, i.e. if dur=5 at this point and we break
+                # out of the loop in this iteration, that corresponds to
+                # sampling a duration of 6
+                p_d_prior = apmf[dur,state] if dur < T else 1.
+                assert not np.isnan(p_d_prior)
+                assert p_d_prior >= 0
+
+                if p_d_prior == 0:
                     dur += 1
                     continue
+
                 if idx+dur < T:
                     mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) \
                             + betal[idx+dur,state] - betastarl[idx,state])
-                    p_d = mess_term * p_d_marg
+                    p_d = mess_term * p_d_prior
                     prob_so_far += p_d
 
                     assert not np.isnan(p_d)
@@ -497,11 +501,11 @@ class HSMMStatesPython(HMMStatesPython):
                     dur += 1
                 else:
                     if self.censoring:
-                        # TODO 3*T is a hacky approximation, could use log_sf
-                        dur += sample_discrete(self.dur_distns[state].pmf(np.arange(dur+1,3*self.T)))
+                        dur = self.dur_distns[state].rvs_given_greater_than(dur)
                     else:
                         dur += 1
-                    durprob = -1 # just to get us out of loop
+
+                    break
 
             assert dur > 0
 
