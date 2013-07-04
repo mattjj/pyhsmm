@@ -148,6 +148,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     def _clear_caches(self):
         for s in self.states_list:
             s.clear_caches()
+        if hasattr(self.init_state_distn,'clear_caches'):
+            self.init_state_distn.clear_caches()
 
     def __getstate__(self):
         self._clear_caches()

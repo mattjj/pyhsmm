@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 
+from ..util.general import top_eigenvector
 from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
@@ -40,4 +41,16 @@ class Uniform(GibbsSampling,MaxLikelihood):
         pass
 
 class SteadyState(object):
-    pass
+    def __init__(self,trans_distn):
+        self._trans_distn = trans_distn
+        self.clear_caches()
+
+    def clear_caches(self):
+        self._pi = None
+
+    @property
+    def pi_0(self):
+        if self._pi is None:
+            self._pi = top_eigenvector(self._trans_distn.A)
+        return self._pi
+
