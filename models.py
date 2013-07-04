@@ -56,6 +56,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                     state_dim=self.state_dim,
                     rho=init_state_concentration)
         else:
+            # can only use steady state here (left censoring must be true for
+            # each add_data)
             self.init_state_distn = initial_state.SteadyState(self.trans_distn)
 
     def add_data(self,data,stateseq=None,**kwargs):
