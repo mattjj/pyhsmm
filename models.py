@@ -49,15 +49,14 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
-        assert (init_state_distn is not None) ^ \
-                (init_state_concentration is not None)
-
         if init_state_distn is not None:
             self.init_state_distn = init_state_distn
-        else:
+        elif init_state_concentration is not None:
             self.init_state_distn = initial_state.InitialState(
                     state_dim=self.state_dim,
                     rho=init_state_concentration)
+        else:
+            self.init_state_distn = initial_state.SteadyState(self.trans_distn)
 
     def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),

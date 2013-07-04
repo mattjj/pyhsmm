@@ -39,3 +39,5 @@ class Uniform(GibbsSampling,MaxLikelihood):
     def max_likelihood(*args,**kwargs):
         pass
 
+class SteadyState(object):
+    pass
