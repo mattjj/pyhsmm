@@ -351,6 +351,13 @@ class HSMMStatesPython(HMMStatesPython):
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 
     @property
+    def pi_0(self):
+        if not self.left_censoring:
+            return self.model.init_state_distn.pi_0
+        else:
+            return self.model.left_censoring_init_state_distn.pi_0
+
+    @property
     def dur_distns(self):
         return self.model.dur_distns
 
