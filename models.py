@@ -619,7 +619,7 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
         assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRVariantDuration or
                    d.__class__ == basic.distributions.NegativeBinomialFixedRVariantDuration
                    for d in dur_distns)
-        super(HSMMIntNegBinVariant,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+        super(HSMMIntNegBinVariant,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
 
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
