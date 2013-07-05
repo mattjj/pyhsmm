@@ -366,15 +366,13 @@ class HSMMStatesPython(HMMStatesPython):
 
     def generate_states(self):
         if self.left_censoring:
-            raise NotImplementedError
+            raise NotImplementedError # TODO
         idx = 0
         nextstate_distr = self.pi_0
         A = self.trans_matrix
 
         stateseq = np.empty(self.T,dtype=np.int32)
         durations = []
-
-        # TODO TODO TODO handle initial censored duration
 
         while idx < self.T:
             # sample a state
@@ -467,7 +465,7 @@ class HSMMStatesPython(HMMStatesPython):
 
     def sample_forwards(self,betal,betastarl):
         if self.left_censoring:
-            raise NotImplementedError
+            raise NotImplementedError # TODO
 
         A = self.trans_matrix
         apmf = self.aD
@@ -558,7 +556,7 @@ class HSMMStatesPython(HMMStatesPython):
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
         if self.left_censoring:
-            raise NotImplementedError
+            raise NotImplementedError # TODO
 
         global eigen_path
         hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
