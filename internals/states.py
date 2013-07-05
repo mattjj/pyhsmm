@@ -922,7 +922,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     @property
     def trans_matrix(self):
-        if True or self._hmm_trans is None: # TODO
+        if self._hmm_trans is None: # TODO
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
@@ -1094,15 +1094,16 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def pi_0(self):
-        if self.left_censoring:
-            raise NotImplementedError # TODO
-        rs = self.rs
-        return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        if not self.left_censoring:
+            rs = self.rs
+            return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        else:
+            return util.top_eigenvector(self.trans_matrix)
 
     # TODO test
     @property
     def trans_matrix(self):
-        if True or self._hmm_trans is None:
+        if self._hmm_trans is None:
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
