@@ -209,9 +209,6 @@ To add your own observation or duration distributions, implement the interfaces
 defined in `basic/abstractions.py`. Also see the plugins. To get a flavor of
 the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
 
-## Contributors ##
-Contributions by Chia-ying Lee.
-
 ## References ##
 * Matthew J. Johnson and Alan S. Willsky. [Bayesian Nonparametric Hidden
   Semi-Markov Models](http://www.jmlr.org/papers/volume14/johnson13a/johnson13a.pdf).
