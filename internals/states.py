@@ -342,6 +342,8 @@ class HSMMStatesPython(HMMStatesPython):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
             stateseq=None,stateseq_norep=None,durations=None,
             **kwargs):
+        if left_censoring:
+            raise NotImplementedError # TODO
         self.right_censoring = right_censoring
         self.left_censoring = left_censoring
         self.trunc = trunc
@@ -905,11 +907,14 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     @property
     def pi_0(self):
-        rs = self.rs
-        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-        pi_0 = np.zeros(rs.sum())
-        pi_0[starts] = self.hsmm_pi_0
-        return pi_0
+        if not self.left_censoring:
+            rs = self.rs
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            pi_0 = np.zeros(rs.sum())
+            pi_0[starts] = self.hsmm_pi_0
+            return pi_0
+        else:
+            return util.top_eigenvector(self.trans_matrix)
 
     @property
     def trans_matrix(self):
@@ -1085,6 +1090,8 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def pi_0(self):
+        if self.left_censoring:
+            raise NotImplementedError # TODO
         rs = self.rs
         return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
 
