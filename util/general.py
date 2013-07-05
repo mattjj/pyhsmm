@@ -137,3 +137,31 @@ def _sieve(stream):
 
 def primes():
     return _sieve(itertools.count(2))
+
+def top_eigenvector(A,niter=1000,force_iteration=False):
+    '''
+    assuming the invariant subspace of A corresponding to the eigenvalue of
+    largest modulus has geometric multiplicity of 1 (trivial Jordan block),
+    returns the vector at the intersection of that eigenspace and the simplex
+
+    A should probably be a row-stochastic matrix
+
+    probably uses power iteration
+    '''
+    n = A.shape[0]
+    if n <= 25 and not force_iteration:
+        x = np.repeat(1/n,n)
+        x = np.linalg.matrix_power(A.T,niter).dot(x)
+        x /= x.sum()
+        return x
+    else:
+        x1 = np.repeat(1/n,n)
+        x2 = x1.copy()
+        for itr in xrange(niter):
+            np.dot(A.T,x1,out=x2)
+            x2 /= x2.sum()
+            x1,x2 = x2,x1
+            if np.linalg.norm(x1-x2) < 1e-8:
+                break
+        return x1
+

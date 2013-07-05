@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 
+from ..util.general import top_eigenvector
 from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
@@ -38,4 +39,31 @@ class Uniform(GibbsSampling,MaxLikelihood):
 
     def max_likelihood(*args,**kwargs):
         pass
+
+class SteadyState(object):
+    def __init__(self,model):
+        self.model = model
+        self.clear_caches()
+
+    def clear_caches(self):
+        self._pi = None
+
+    @property
+    def pi_0(self):
+        if self._pi is None:
+            self._pi = top_eigenvector(self.model.trans_distn.A)
+        return self._pi
+
+    def resample(self,*args,**kwargs):
+        pass
+
+class HSMMSteadyState(SteadyState):
+    @property
+    def pi_0(self):
+        if self._pi is None:
+            markov_part = super(HSMMSteadyState,self).pi_0
+            duration_expectations = np.array([d.mean for d in self.model.dur_distns])
+            self._pi = markov_part * duration_expectations
+            self._pi /= self._pi.sum()
+        return self._pi
 

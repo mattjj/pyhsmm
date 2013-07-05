@@ -20,14 +20,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     '''
 
     _states_class = states.HMMStatesPython
+    _trans_class = transitions.HDPHMMTransitions
+    _trans_class_conc_class = transitions.HDPHMMTransitionsConcResampling
+    _init_steady_state_class = initial_state.SteadyState
 
     def __init__(self,
             obs_distns,
             trans_distn=None,
             alpha=None,gamma=None,
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
-            init_state_distn=None,
-            init_state_concentration=None):
+            init_state_distn=None,init_state_concentration=None):
 
         self.state_dim = len(obs_distns)
         self.obs_distns = obs_distns
@@ -40,24 +42,25 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         if trans_distn is not None:
             self.trans_distn = trans_distn
         elif alpha is not None:
-            self.trans_distn = transitions.HDPHMMTransitions(
+            self.trans_distn = self._trans_class(
                     state_dim=self.state_dim,
                     alpha=alpha,gamma=gamma)
         else:
-            self.trans_distn = transitions.HDPHMMTransitionsConcResampling(
+            self.trans_distn = self._trans_class_conc_class(
                     state_dim=self.state_dim,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
-        assert (init_state_distn is not None) ^ \
-                (init_state_concentration is not None)
-
         if init_state_distn is not None:
             self.init_state_distn = init_state_distn
-        else:
+        elif init_state_concentration is not None:
             self.init_state_distn = initial_state.InitialState(
                     state_dim=self.state_dim,
                     rho=init_state_concentration)
+        else:
+            # in this case, the initial state distribution is just the
+            # steady-state of the transition matrix
+            self.init_state_distn = self._init_steady_state_class(self)
 
     @property
     def stateseqs(self):
@@ -112,7 +115,6 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         outs = []
         for k in blocklens:
-
             outs.append(np.logaddexp.reduce(alphal[k:],axis=1)
                     - np.logaddexp.reduce(alphal[:-k],axis=1))
 
@@ -152,6 +154,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     def _clear_caches(self):
         for s in self.states_list:
             s.clear_caches()
+        if hasattr(self.init_state_distn,'clear_caches'):
+            self.init_state_distn.clear_caches()
 
     def __getstate__(self):
         self._clear_caches()
@@ -411,36 +415,20 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     '''
 
     _states_class = states.HSMMStatesPython
+    _trans_class = transitions.HDPHSMMTransitions
+    _trans_class_conc_class = transitions.HDPHSMMTransitionsConcResampling
+    _init_steady_state_class = initial_state.HSMMSteadyState
 
-    def __init__(self,
-            obs_distns,dur_distns,
-            trunc=None,
-            trans_distn=None,
-            alpha=None,gamma=None,
-            alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
-            **kwargs):
+    def __init__(self,dur_distns,**kwargs):
 
-        self.state_dim = len(obs_distns)
-        self.trunc = trunc
         self.dur_distns = dur_distns
 
-        assert (trans_distn is not None) ^ \
-                (alpha is not None and gamma is not None) ^ \
-                (alpha_a_0 is not None and alpha_b_0 is not None
-                        and gamma_a_0 is not None and gamma_b_0 is not None)
-        if trans_distn is not None:
-            self.trans_distn = trans_distn
-        elif alpha is not None:
-            self.trans_distn = transitions.HDPHSMMTransitions(
-                    state_dim=self.state_dim,
-                    alpha=alpha,gamma=gamma)
-        else:
-            self.trans_distn = transitions.HDPHSMMTransitionsConcResampling(
-                    state_dim=self.state_dim,
-                    alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
-                    gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
+        super(HSMM,self).__init__(**kwargs)
 
-        super(HSMM,self).__init__(obs_distns=obs_distns,trans_distn=self.trans_distn,**kwargs)
+        if isinstance(self.init_state_distn,self._init_steady_state_class):
+            self.left_censoring_init_state_distn = self.init_state_distn
+        else:
+            self.left_censoring_init_state_distn = self._init_steady_state_class(self)
 
     @property
     def stateseqs_norep(self):
@@ -450,10 +438,16 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     def durations(self):
         return [s.durations for s in self.states_list]
 
-    def add_data(self,data,stateseq=None,censoring=True,**kwargs):
-        self.states_list.append(self._states_class(model=self,
-            data=np.asarray(data),stateseq=stateseq,censoring=censoring,
-            trunc=self.trunc,**kwargs))
+    def add_data(self,data,stateseq=None,trunc=None,right_censoring=True,left_censoring=False,
+            **kwargs):
+        self.states_list.append(self._states_class(
+            model=self,
+            data=np.asarray(data),
+            stateseq=stateseq,
+            right_censoring=right_censoring,
+            left_censoring=left_censoring,
+            trunc=trunc,
+            **kwargs))
 
     def log_likelihood(self,data,trunc=None,**kwargs):
         s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
@@ -464,7 +458,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True,**kwargs):
-        tempstates = self._states_class(self,T=T,initialize_from_prior=True,trunc=self.trunc,**kwargs)
+        tempstates = self._states_class(self,T=T,initialize_from_prior=True,**kwargs)
         return self._generate(tempstates,keep)
 
     ### Gibbs sampling
@@ -574,8 +568,7 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def add_data(self,data,changepoints,**kwargs):
         self.states_list.append(
-                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),
-                    trunc=self.trunc,**kwargs))
+                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
         from pyhsmm import parallel
@@ -638,7 +631,7 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
         assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRVariantDuration or
                    d.__class__ == basic.distributions.NegativeBinomialFixedRVariantDuration
                    for d in dur_distns)
-        super(HSMMIntNegBinVariant,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+        super(HSMMIntNegBinVariant,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
 
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial

@@ -46,17 +46,15 @@ hardtrunc = pyhsmm.models.HSMM(
         init_state_concentration=10.,
         obs_distns=obs_distns,
         dur_distns=dur_distns,
-        trans_distn=truemodel.trans_distn,
-        trunc=250)
-hardtrunc.add_data(data)
+        trans_distn=truemodel.trans_distn)
+hardtrunc.add_data(data,trunc=250)
 
 geotrunc = pyhsmm.models.HSMMGeoApproximation(
         init_state_concentration=10.,
         obs_distns=obs_distns,
         dur_distns=dur_distns,
-        trans_distn=truemodel.trans_distn,
-        trunc=250)
-geotrunc.add_data(data)
+        trans_distn=truemodel.trans_distn)
+geotrunc.add_data(data,trunc=250)
 
 tic = time.time()
 betal_hardtrunc, _ = hardtrunc.states_list[0].messages_backwards()

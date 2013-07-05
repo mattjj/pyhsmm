@@ -55,9 +55,8 @@ posteriormodel = pyhsmm.models.HSMM(
         alpha_a_0=1.,alpha_b_0=1./4,
         gamma_a_0=1.,gamma_b_0=1./4,
         init_state_concentration=6.,
-        obs_distns=obs_distns,
-        dur_distns=dur_distns,trunc=70)
-posteriormodel.add_data(data)
+        obs_distns=obs_distns)
+posteriormodel.add_data(data,trunc=70)
 
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()

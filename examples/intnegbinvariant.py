@@ -62,7 +62,7 @@ model  = pyhsmm.models.HSMMIntNegBinVariant(
         alpha=6.,gamma=6.,
         obs_distns=obs_distns,
         dur_distns=dur_distns)
-model.add_data(data)
+model.add_data(data,left_censoring=True)
 
 ##############
 #  resample  #

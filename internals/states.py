@@ -2,7 +2,7 @@ import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
 import scipy.weave
-import abc, copy
+import abc, copy, warnings
 import scipy.stats as stats
 
 np.seterr(invalid='raise')
@@ -339,10 +339,11 @@ class HSMMStatesPython(HMMStatesPython):
     stateseq_norep
     '''
 
-    def __init__(self,model,censoring=True,trunc=None,
+    def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
             stateseq=None,stateseq_norep=None,durations=None,
             **kwargs):
-        self.censoring = censoring
+        self.right_censoring = right_censoring
+        self.left_censoring = left_censoring
         self.trunc = trunc
         if stateseq is not None:
             # assert stateseq_norep is not None and durations is not None
@@ -351,12 +352,21 @@ class HSMMStatesPython(HMMStatesPython):
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 
     @property
+    def pi_0(self):
+        if not self.left_censoring:
+            return self.model.init_state_distn.pi_0
+        else:
+            return self.model.left_censoring_init_state_distn.pi_0
+
+    @property
     def dur_distns(self):
         return self.model.dur_distns
 
     ### generation
 
     def generate_states(self):
+        if self.left_censoring:
+            raise NotImplementedError # TODO
         idx = 0
         nextstate_distr = self.pi_0
         A = self.trans_matrix
@@ -422,7 +432,7 @@ class HSMMStatesPython(HMMStatesPython):
 
         for t in xrange(T-1,-1,-1):
             np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            if T-t < trunc and self.censoring:
+            if T-t < trunc and self.right_censoring:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
@@ -454,6 +464,9 @@ class HSMMStatesPython(HMMStatesPython):
         return new
 
     def sample_forwards(self,betal,betastarl):
+        if self.left_censoring:
+            raise NotImplementedError # TODO
+
         A = self.trans_matrix
         apmf = self.aD
         T, state_dim = betal.shape
@@ -464,6 +477,8 @@ class HSMMStatesPython(HMMStatesPython):
 
         idx = 0
         nextstate_unsmoothed = self.pi_0
+
+        # TODO TODO handle initial censored state
 
         while idx < T:
             logdomain = betastarl[idx] - np.amax(betastarl[idx])
@@ -478,30 +493,34 @@ class HSMMStatesPython(HMMStatesPython):
             dur = 0 # always incremented at least once
             prob_so_far = 0.0
             while durprob > 0:
-                assert dur < 2*T # hacky infinite loop check
-                # NOTE: funny indexing: dur variable is 1 less than actual dur we're considering
-                p_d_marg = apmf[dur,state] if dur < T else 1.
-                assert not np.isnan(p_d_marg)
-                assert p_d_marg >= 0
-                if p_d_marg == 0:
+                # NOTE: funny indexing: dur variable is 1 less than actual dur
+                # we're considering, i.e. if dur=5 at this point and we break
+                # out of the loop in this iteration, that corresponds to
+                # sampling a duration of 6
+                p_d_prior = apmf[dur,state] if dur < T else 1.
+                assert not np.isnan(p_d_prior)
+                assert p_d_prior >= 0
+
+                if p_d_prior == 0:
                     dur += 1
                     continue
+
                 if idx+dur < T:
                     mess_term = np.exp(self.likelihood_block_state(idx,idx+dur+1,state) \
                             + betal[idx+dur,state] - betastarl[idx,state])
-                    p_d = mess_term * p_d_marg
+                    p_d = mess_term * p_d_prior
                     prob_so_far += p_d
 
                     assert not np.isnan(p_d)
                     durprob -= p_d
                     dur += 1
                 else:
-                    if self.censoring:
-                        # TODO 3*T is a hacky approximation, could use log_sf
-                        dur += sample_discrete(self.dur_distns[state].pmf(np.arange(dur+1,3*self.T)))
+                    if self.right_censoring:
+                        dur = self.self[state].rvs_given_greater_than(dur)
                     else:
                         dur += 1
-                    durprob = -1 # just to get us out of loop
+
+                    break
 
             assert dur > 0
 
@@ -536,6 +555,9 @@ class HSMMStatesPython(HMMStatesPython):
 
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
+        if self.left_censoring:
+            raise NotImplementedError # TODO
+
         global eigen_path
         hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
 
@@ -555,14 +577,18 @@ class HSMMStatesEigen(HSMMStatesPython):
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
 
-        if self.censoring:
+        # clean up right-censoring
+
+        if self.right_censoring:
             dur = self.durations[-1]
             dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-            # TODO instead of 3*T, use log_sf
-            self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
+            self.durations[-1] = dur_distn.rvs_given_greater_than(dur)
 
-class HSMMStatesPossibleChangepoints(HSMMStatesPython):
+class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this class
     def __init__(self,model,changepoints,*args,**kwargs):
+        warnings.warn("%s hasn't been used in a while; there may be some bumps"
+                % self.__class__.__name__)
+
         self.changepoints = changepoints
         self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
@@ -754,7 +780,7 @@ class HSMMStatesGeoApproximation(HSMMStatesPython):
             if t+trunc < T:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
                         + hmm_betal[t+trunc], out=betastarl[t])
-            if T-t < trunc and self.censoring:
+            if T-t < trunc and self.right_censoring:
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
@@ -883,15 +909,18 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     @property
     def pi_0(self):
-        rs = self.rs
-        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-        pi_0 = np.zeros(rs.sum())
-        pi_0[starts] = self.hsmm_pi_0
-        return pi_0
+        if not self.left_censoring:
+            rs = self.rs
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            pi_0 = np.zeros(rs.sum())
+            pi_0[starts] = self.hsmm_pi_0
+            return pi_0
+        else:
+            return util.top_eigenvector(self.trans_matrix)
 
     @property
     def trans_matrix(self):
-        if True or self._hmm_trans is None: # TODO
+        if self._hmm_trans is None: # TODO
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
@@ -1063,13 +1092,16 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def pi_0(self):
-        rs = self.rs
-        return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        if not self.left_censoring:
+            rs = self.rs
+            return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        else:
+            return util.top_eigenvector(self.trans_matrix)
 
     # TODO test
     @property
     def trans_matrix(self):
-        if True or self._hmm_trans is None:
+        if self._hmm_trans is None:
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
