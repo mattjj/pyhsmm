@@ -110,7 +110,6 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         outs = []
         for k in blocklens:
-
             outs.append(np.logaddexp.reduce(alphal[k:],axis=1)
                     - np.logaddexp.reduce(alphal[:-k],axis=1))
 
