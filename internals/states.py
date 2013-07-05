@@ -342,8 +342,6 @@ class HSMMStatesPython(HMMStatesPython):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
             stateseq=None,stateseq_norep=None,durations=None,
             **kwargs):
-        if left_censoring:
-            raise NotImplementedError # TODO
         self.right_censoring = right_censoring
         self.left_censoring = left_censoring
         self.trunc = trunc
@@ -367,6 +365,8 @@ class HSMMStatesPython(HMMStatesPython):
     ### generation
 
     def generate_states(self):
+        if self.left_censoring:
+            raise NotImplementedError
         idx = 0
         nextstate_distr = self.pi_0
         A = self.trans_matrix
@@ -466,6 +466,9 @@ class HSMMStatesPython(HMMStatesPython):
         return new
 
     def sample_forwards(self,betal,betastarl):
+        if self.left_censoring:
+            raise NotImplementedError
+
         A = self.trans_matrix
         apmf = self.aD
         T, state_dim = betal.shape
@@ -554,6 +557,9 @@ class HSMMStatesPython(HMMStatesPython):
 
 class HSMMStatesEigen(HSMMStatesPython):
     def sample_forwards(self,betal,betastarl):
+        if self.left_censoring:
+            raise NotImplementedError
+
         global eigen_path
         hsmm_sample_forwards_codestr = _get_codestr('hsmm_sample_forwards')
 
@@ -564,8 +570,6 @@ class HSMMStatesEigen(HSMMStatesPython):
         aBl = self.aBl
 
         stateseq = np.zeros(T,dtype=np.int32)
-
-        # TODO TODO handle initial censored state (maybe in python)
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
