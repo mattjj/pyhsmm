@@ -337,6 +337,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                         color=cmap(colors[state]),
                         data=[s.data[s.stateseq == state] if s.data is not None else None
                             for s in states_objs],
+                        indices=[np.where(s.stateseq == state)[0] for s in states_objs],
                         label='%d' % state)
         plt.title('Observation Distributions')
 
