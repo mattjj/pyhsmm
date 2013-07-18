@@ -904,7 +904,6 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         dur_distn = self.dur_distns[self.stateseq_norep[-1]]
         # TODO instead of 3*T, use log_sf
         self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
-        assert np.any(self.durations[-1] >= dur_distn.r_support)
         return ret
 
     @property
@@ -984,9 +983,13 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         global eigen_path
         hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
 
+        # import pudb
+        # pudb.set_trace()
+        initial_substate = sample_discrete_from_log(self.pi_0 + betal[0])
+        initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
+
         aBl = self.hsmm_aBl
         T,M = aBl.shape
-        pi0 = self.hsmm_pi_0
         rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
@@ -999,15 +1002,12 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
-                ['betal','superbetal','aBl','stateseq','A','pi0','M','T','ps','rtot','start_indices','end_indices'],
+                ['betal','superbetal','aBl','stateseq','A','initial_superstate','initial_substate','M','T','ps','rtot','start_indices','end_indices'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq_norep, self.durations = util.rle(stateseq)
         self.stateseq = stateseq
-
-        for state, distn in enumerate(self.model.dur_distns):
-            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
 
         dur = self.durations[-1]
         dur_distn = self.dur_distns[self.stateseq_norep[-1]]

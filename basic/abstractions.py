@@ -36,7 +36,7 @@ class DurationDistribution(Distribution):
         trunc = 500
         while self.log_sf(x+trunc) - tail > -20:
             trunc *= 1.5
-        probs = np.exp(self.log_pmf(np.arange(x+1,trunc)) - tail)
+        probs = np.exp(self.log_pmf(np.arange(x+1,x+trunc+1)) - tail)
         return sample_discrete(probs)+x+1
 
     def resample_with_truncations(self,data=[],truncated_data=[]):

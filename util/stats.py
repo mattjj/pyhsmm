@@ -5,6 +5,7 @@ na = np.newaxis
 import scipy.stats as stats
 import scipy.special as special
 import scipy.linalg
+import scipy.weave
 from numpy.core.umath_tests import inner1d
 
 import general
@@ -100,7 +101,7 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
             for (int i=0; i<M; i++) {
                 Map<ArrayXd> vals(scores + i*N,N);
                 vals = vals.exp();
-                double tot = vals.sum() * ((float) rand()) / RAND_MAX;
+                double tot = vals.sum() * (((float) rand()) / RAND_MAX);
                 int j;
                 for (j=0; (tot -= vals(j)) > 0; j++) ;
                 out[i] = j;
