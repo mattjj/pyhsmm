@@ -4,10 +4,16 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
-from ..util.stats import flattendata, sample_discrete
+from ..util.stats import flattendata, sample_discrete, combinedata
+
+# PLAN: have a resample_with_truncations method default implementation which
+# just samples out the other business using rvs_greater_than
 
 class DurationDistribution(Distribution):
     __metaclass__ = abc.ABCMeta
+
+    # in addition to the methods required by Distribution, we also require a
+    # log_sf implementation
 
     @abc.abstractmethod
     def log_sf(self,x):
@@ -32,6 +38,14 @@ class DurationDistribution(Distribution):
             trunc *= 1.5
         probs = np.exp(self.log_pmf(np.arange(x+1,trunc)) - tail)
         return sample_discrete(probs)+x+1
+
+    def resample_with_truncations(self,data=[],truncated_data=[]):
+        '''
+        truncated_data is full of observations that were truncated, so this
+        method samples them out to be at least that large
+        '''
+        self.resample(data=combinedata(
+            (data,np.asarray([self.rvs_given_greater_than(x-1) for x in truncated_data]))))
 
     @property
     def mean(self):

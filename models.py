@@ -8,17 +8,14 @@ from basic.abstractions import ModelGibbsSampling, ModelEM, ModelMAPEM
 import basic.distributions
 from internals import states, initial_state, transitions
 
+# TODO TODO treat right censoring like left censoring (and pass as explicit
+# truncation to tudration resample method)
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
 # TODO generate_obs should be here, not in states.py
 
 class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
-    '''
-    The HMM class is a convenient wrapper that provides useful constructors and
-    packages all the components.
-    '''
-
     _states_class = states.HMMStatesPython
     _trans_class = transitions.HDPHMMTransitions
     _trans_class_conc_class = transitions.HDPHMMTransitionsConcResampling
@@ -399,22 +396,6 @@ class StickyHMMEigen(StickyHMM):
     _states_class = states.HMMStatesEigen
 
 class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
-    '''
-    The HSMM class is a wrapper to package all the pieces of an HSMM:
-        * HSMM internals, including distribution objects for
-            - states
-            - transitions
-            - initial state
-        * the main distributions that define the HSMM:
-            - observations
-            - durations
-    When an HSMM is instantiated, it is a ``prior'' model object. Observation
-    sequences can be added via the add_data(data_seq) method, making it a
-    ``posterior'' model object and then the latent components (including all
-    state sequences and parameters) can be resampled by calling the resample()
-    method.
-    '''
-
     _states_class = states.HSMMStatesPython
     _trans_class = transitions.HDPHSMMTransitions
     _trans_class_conc_class = transitions.HDPHSMMTransitionsConcResampling
@@ -470,7 +451,13 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
-            distn.resample([s.durations[s.stateseq_norep == state] for s in self.states_list])
+            distn.resample_with_truncations(
+                    data=[s.durations[s.stateseq_norep == state] \
+                        if not s.left_censoring else \
+                        s.durations[1:][s.stateseq_norep[1:]==state] \
+                        for s in self.states_list],
+                    truncated_data=[s.durations[0] for s in self.states_list if s.left_censoring]
+                    )
         self._clear_caches()
 
     def copy_sample(self):
@@ -642,4 +629,3 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
                    d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
                    for d in dur_distns)
         super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
-
