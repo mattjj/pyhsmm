@@ -565,7 +565,6 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
 
     def _build_states_parallel(self,states_to_resample):
         from pyhsmm import parallel
-        warn('needs to pass around durations too') # TODO
         raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
         for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
             self.add_data(

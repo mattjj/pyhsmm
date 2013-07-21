@@ -983,11 +983,6 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         global eigen_path
         hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
 
-        # import pudb
-        # pudb.set_trace()
-        initial_substate = sample_discrete_from_log(self.pi_0 + betal[0])
-        initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
-
         aBl = self.hsmm_aBl
         T,M = aBl.shape
         rs = self.rs
@@ -998,6 +993,13 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         ps = np.array([d.p for d in self.dur_distns])
         A = self.hsmm_trans_matrix * (1-ps[:,na])
         A.flat[::A.shape[0]+1] = ps
+
+        if self.left_censoring:
+            initial_substate = sample_discrete_from_log(self.pi_0 + betal[0])
+            initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
+        else:
+            initial_superstate = sample_discrete_from_log(self.hsmm_pi_0 + superbetal[0])
+            initial_substate = start_indices[initial_superstate]
 
         stateseq = np.zeros(T,dtype=np.int32)
 
