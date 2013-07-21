@@ -7,6 +7,10 @@ from pybasicbayes.distributions import *
 from pybasicbayes.models import MixtureDistribution
 from abstractions import DurationDistribution
 
+##############################################
+#  Mixins for making duratino distributions  #
+##############################################
+
 class _StartAtOneMixin(object):
     def log_likelihood(self,x,*args,**kwargs):
         return super(_StartAtOneMixin,self).log_likelihood(x-1,*args,**kwargs)
