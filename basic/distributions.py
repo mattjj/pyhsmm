@@ -7,69 +7,62 @@ from pybasicbayes.distributions import *
 from pybasicbayes.models import MixtureDistribution
 from abstractions import DurationDistribution
 
-# If you're not comfortable with metaprogramming, here be dragons
+class _StartAtOneMixin(object):
+    def log_likelihood(self,x,*args,**kwargs):
+        return super(_StartAtOneMixin,self).log_likelihood(x-1,*args,**kwargs)
 
-##########################
-#  Metaprogramming util  #
-##########################
+    def log_sf(self,x,*args,**kwargs):
+        return super(_StartAtOneMixin,self).log_sf(x-1,*args,**kwargs)
 
-def _make_duration_distribution(cls):
-    class Wrapper(cls, DurationDistribution):
-        pass
+    def rvs(self,size=None):
+        return super(_StartAtOneMixin,self).rvs(size)+1
 
-    Wrapper.__name__ = cls.__name__ + 'Duration'
-    Wrapper.__doc__ = cls.__doc__
-    return Wrapper
+    def rvs_given_greater_than(self,x):
+        return super(_StartAtOneMixin,self).rvs_given_greater_than(x-1)+1
 
-# this method is for generating new classes, shifting their support from
-# {0,1,2,...} to {1,2,3,...}
-def _start_at_one(cls):
-    class Wrapper(cls, DurationDistribution):
-        def log_likelihood(self,x,*args,**kwargs):
-            return super(Wrapper,self).log_likelihood(x-1,*args,**kwargs)
+    def resample(self,data=[],*args,**kwargs):
+        if isinstance(data,np.ndarray):
+            return super(_StartAtOneMixin,self).resample(data-1,*args,**kwargs)
+        else:
+            return super(_StartAtOneMixin,self).resample([d-1 for d in data],*args,**kwargs)
 
-        def log_sf(self,x,*args,**kwargs):
-            return super(Wrapper,self).log_sf(x-1,*args,**kwargs)
-
-        def rvs(self,size=None):
-            return super(Wrapper,self).rvs(size)+1
-
-        def rvs_given_greater_than(self,x):
-            return super(Wrapper,self).rvs_given_greater_than(x-1)+1
-
-        def resample(self,data=[],*args,**kwargs):
+    def max_likelihood(self,data,weights=None,*args,**kwargs):
+        if weights is not None:
+            raise NotImplementedError
+        else:
             if isinstance(data,np.ndarray):
-                return super(Wrapper,self).resample(data-1,*args,**kwargs)
+                return super(_StartAtOneMixin,self).max_likelihood(data-1,weights=None,*args,**kwargs)
             else:
-                return super(Wrapper,self).resample([d-1 for d in data],*args,**kwargs)
-
-        def max_likelihood(self,data,weights=None,*args,**kwargs):
-            if weights is not None:
-                raise NotImplementedError
-            else:
-                if isinstance(data,np.ndarray):
-                    return super(Wrapper,self).max_likelihood(data-1,weights=None,*args,**kwargs)
-                else:
-                    return super(Wrapper,self).max_likelihood([d-1 for d in data],weights=None,*args,**kwargs)
-
-    Wrapper.__name__ = cls.__name__ + 'Duration'
-    Wrapper.__doc__ = cls.__doc__
-    return Wrapper
+                return super(_StartAtOneMixin,self).max_likelihood([d-1 for d in data],weights=None,*args,**kwargs)
 
 ##########################
 #  Distribution classes  #
 ##########################
 
-class GeometricDuration(Geometric, DurationDistribution):
-    pass # mixin style!
+class GeometricDuration(Geometric,DurationDistribution):
+    pass
 
-PoissonDuration = _start_at_one(Poisson)
+class PoissonDuration(_StartAtOneMixin,Poisson,DurationDistribution):
+    pass
 
-NegativeBinomialDuration = _start_at_one(NegativeBinomial)
-NegativeBinomialFixedRDuration = _start_at_one(NegativeBinomialFixedR)
-NegativeBinomialIntegerRDuration = _start_at_one(NegativeBinomialIntegerR)
-NegativeBinomialFixedRVariantDuration = _make_duration_distribution(NegativeBinomialFixedRVariant)
-NegativeBinomialIntegerRVariantDuration = _make_duration_distribution(NegativeBinomialIntegerRVariant)
+class NegativeBinomialDuration(_StartAtOneMixin,NegativeBinomial,DurationDistribution):
+    pass
+
+class NegativeBinomialFixedRDuration(_StartAtOneMixin,NegativeBinomialFixedR,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialIntegerRDuration(_StartAtOneMixin,NegativeBinomialIntegerR,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialFixedRVariantDuration(NegativeBinomialFixedRVariant,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialIntegerRVariantDuration(NegativeBinomialIntegerRVariant,
+        DurationDistribution):
+    pass
 
 #################
 #  Model stuff  #
