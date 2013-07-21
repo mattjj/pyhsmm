@@ -995,10 +995,10 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         A.flat[::A.shape[0]+1] = ps
 
         if self.left_censoring:
-            initial_substate = sample_discrete_from_log(self.pi_0 + betal[0])
+            initial_substate = sample_discrete_from_log(np.log(self.pi_0) + betal[0] + aBl[0].repeat(rs))
             initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
         else:
-            initial_superstate = sample_discrete_from_log(self.hsmm_pi_0 + superbetal[0])
+            initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
             initial_substate = start_indices[initial_superstate]
 
         stateseq = np.zeros(T,dtype=np.int32)
