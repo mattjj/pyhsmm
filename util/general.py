@@ -165,3 +165,8 @@ def top_eigenvector(A,niter=1000,force_iteration=False):
                 break
         return x1
 
+def interactive(f):
+    # see IPython.parallel.util.interactive
+    f.__module__ = '__main__'
+    return f
+

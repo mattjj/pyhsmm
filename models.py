@@ -7,6 +7,7 @@ from matplotlib import cm
 from basic.abstractions import ModelGibbsSampling, ModelEM, ModelMAPEM
 import basic.distributions
 from internals import states, initial_state, transitions
+import util.general
 
 # TODO TODO treat right censoring like left censoring (and pass as explicit
 # truncation to tudration resample method)
@@ -120,19 +121,6 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True):
-        '''
-        Generates a forward sample using the current values of all parameters.
-        Returns an observation sequence and a state sequence of length T.
-
-        If keep is True, the states object created is appended to the
-        states_list. This is mostly useful for generating synthetic data and
-        keeping it around in an HSMM object as the latent truth.
-
-        To construct a posterior sample, one must call both the add_data and
-        resample methods first. Then, calling generate() will produce a sample
-        from the posterior (as long as the Gibbs sampling has converged). In
-        these cases, the keep argument should be False.
-        '''
         tempstates = self._states_class(self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
@@ -160,16 +148,15 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### Gibbs sampling
 
-    # TODO TODO pass temp to resample_states
-    def resample_model(self,**kwargs):
-        self.resample_obs_distns(**kwargs)
+    def resample_model(self,temp=None):
+        self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
-        self.resample_states()
+        self.resample_states(temp=temp)
 
-    def resample_obs_distns(self,**kwargs):
+    def resample_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
-            distn.resample([s.data[s.stateseq == state] for s in self.states_list],**kwargs)
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
 
     def resample_trans_distn(self):
@@ -180,9 +167,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
         self._clear_caches()
 
-    def resample_states(self):
+    def resample_states(self,temp=None):
         for s in self.states_list:
-            s.resample()
+            s.resample(temp=temp)
 
     def copy_sample(self):
         new = copy.copy(self)
@@ -199,8 +186,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.add_data(data=parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
-
-    def resample_model_parallel(self,numtoresample='all'):
+    def resample_model_parallel(self,numtoresample='all',temp=None):
         from pyhsmm import parallel
         if numtoresample == 'all':
             numtoresample = len(self.states_list)
@@ -217,7 +203,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         ### resample states in parallel
         self._push_self_parallel(states_to_resample)
-        self._build_states_parallel(states_to_resample)
+        self._build_states_parallel(states_to_resample,temp=temp)
 
         ### purge to prevent memory buildup
         parallel.c.purge_results('all')
@@ -226,15 +212,26 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         from pyhsmm import parallel
         states_to_restore = [s for s in self.states_list if s not in states_to_resample]
         self.states_list = []
-        parallel.dv.push({'global_model':self},block=True)
+        res = parallel.dv.push({'global_model':self},block=False)
         self.states_list = states_to_restore
+        return res
 
-    def _build_states_parallel(self,states_to_resample):
+    def _build_states_parallel(self,states_to_resample,temp=None):
         from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hmm_build_states.map([s.data_id for s in states_to_resample])
+        parallel.dv.push(dict(temp=temp),block=False)
+        raw_stateseq_tuples = parallel.dv.map(self._state_builder,
+                [s.data_id for s in states_to_resample],block=True)
         for data_id, stateseq in raw_stateseq_tuples:
             self.add_data(data=parallel.alldata[data_id],stateseq=stateseq)
             self.states_list[-1].data_id = data_id
+
+    @staticmethod
+    @util.general.interactive
+    def _state_builder(data_id):
+        # expects globals: global_model, alldata, temp
+        global_model.add_data(alldata[data_id],initialize_from_prior=False,temp=temp)
+        stateseq = global_model.states_list.pop().stateseq
+        return (data_id, stateseq)
 
     ### EM
 
@@ -472,13 +469,15 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.add_data(data=parallel.alldata[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
 
-    def resample_model_parallel(self,numtoresample='all'):
+    def resample_model_parallel(self,numtoresample='all',**kwargs):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(numtoresample)
+        super(HSMM,self).resample_model_parallel(numtoresample,**kwargs)
 
-    def _build_states_parallel(self,states_to_resample):
+    def _build_states_parallel(self,states_to_resample,temp=None):
         from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hsmm_build_states.map([s.data_id for s in states_to_resample])
+        parallel.dv.push(dict(temp=temp),block=False)
+        raw_stateseq_tuples = parallel.dv.map(self._state_builder,
+                [s.data_id for s in states_to_resample],block=True)
         for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
             self.add_data(
                     data=parallel.alldata[data_id],
@@ -486,6 +485,15 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
                     stateseq_norep=stateseq_norep,
                     durations=durations)
             self.states_list[-1].data_id = data_id
+
+    @staticmethod
+    @util.general.interactive
+    def _state_builder(data_id):
+        # expects globals: global_model, alldata, temp
+        global_model.add_data(alldata[data_id],initialize_from_prior=False,temp=temp)
+        s = global_model.states_list.pop()
+        stateseq, stateseq_norep, durations = s.stateseq, s.stateseq_norep, s.durations
+        return (data_id, stateseq, stateseq_norep, durations)
 
     ### EM
 
@@ -559,6 +567,7 @@ class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
                 self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
 
     def add_data_parallel(self,data_id,**kwargs):
+        raise NotImplementedError # I broke this!
         from pyhsmm import parallel
         self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
         self.states_list[-1].data_id = data_id
