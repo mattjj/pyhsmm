@@ -524,7 +524,7 @@ class HSMMStatesPython(HMMStatesPython):
                     dur += 1
                 else:
                     if self.right_censoring:
-                        dur = self.self[state].rvs_given_greater_than(dur)
+                        dur = self.dur_distns[state].rvs_given_greater_than(dur)
                     else:
                         dur += 1
 
