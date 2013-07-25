@@ -165,8 +165,10 @@ def top_eigenvector(A,niter=1000,force_iteration=False):
                 break
         return x1
 
-def interactive(f):
-    # see IPython.parallel.util.interactive
+def engine_global_namespace(f):
+    # see IPython.parallel.util.interactive; it's copied here so as to avoid
+    # extra imports/dependences elsewhere, and to provide a slightly clearer
+    # name
     f.__module__ = '__main__'
     return f
 

@@ -184,8 +184,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     def add_data_parallel(self,data,already_loaded=False,**kwargs):
         import pyhsmm.parallel
         self.add_data(data=data,**kwargs)
-        if not already_loaded:
-            pyhsmm.parallel.send_data_to_an_engine(data)
+        pyhsmm.parallel.add_data(data,already_loaded=already_loaded)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         import pyhsmm.parallel
@@ -204,43 +203,34 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
 
         ### resample states in parallel
-        # TODO the raw_tuples will be different for HSMMs
-        del self.states_list
-        # factor out this next line
-        raw_tuples = pyhsmm.parallel.call_resampler(
+        self.states_list = states_to_resample
+        self._resample_states_parallel(temp=temp)
+
+        ### add back the held-out states
+        self.states_list.extend(states_to_hold_out)
+
+    def _resample_states_parallel(self,temp=None):
+        import pyhsmm.parallel
+        states = self.states_list
+        del self.states_list # removed because we push the global model
+        raw_tuples = pyhsmm.parallel.call_resampler_with_local_data(
                 resampler_fn=self._state_builder,
-                args=[s.data for s in states_to_resample],
+                args=[s.data for s in states],
                 engine_globals=dict(global_model=self,temp=temp),
                 )
-        self.states_list = states_to_hold_out
-        # and this next line
-        for data,stateseq in raw_tuples:
+        for data, stateseq in raw_tuples:
             self.add_data(data=data,stateseq=stateseq)
 
-    def _push_self_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        states_to_restore = [s for s in self.states_list if s not in states_to_resample]
-        self.states_list = []
-        res = parallel.dv.push({'global_model':self},block=False)
-        self.states_list = states_to_restore
-        return res
-
-    def _build_states_parallel(self,states_to_resample,temp=None):
-        from pyhsmm import parallel
-        parallel.dv.push(dict(temp=temp),block=False)
-        raw_stateseq_tuples = parallel.dv.map(self._state_builder,
-                [s.data_id for s in states_to_resample],block=True)
-        for data_id, stateseq in raw_stateseq_tuples:
-            self.add_data(data=parallel.alldata[data_id],stateseq=stateseq)
-            self.states_list[-1].data_id = data_id
+    # TODO add _resample_states_parallel_loadbalanced, where ALL data is on EACH
+    # engine so we can use lbv
 
     @staticmethod
-    @util.general.interactive
-    def _state_builder(data_id):
+    @util.general.engine_global_namespace # access to engine globals
+    def _state_builder(data):
         # expects globals: global_model, alldata, temp
-        global_model.add_data(alldata[data_id],initialize_from_prior=False,temp=temp)
+        global_model.add_data(data=data,initialize_from_prior=False,temp=temp)
         stateseq = global_model.states_list.pop().stateseq
-        return (data_id, stateseq)
+        return stateseq
 
     ### EM
 
