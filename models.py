@@ -181,17 +181,18 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### parallel
 
-    def add_data_parallel(self,data_id,**kwargs):
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
+    def add_data_parallel(self,data,already_loaded=False,**kwargs):
+        import pyhsmm.parallel
+        self.add_data(data=data,**kwargs)
+        if not already_loaded:
+            pyhsmm.parallel.send_data_to_an_engine(data)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
-        from pyhsmm import parallel
+        import pyhsmm.parallel
         if numtoresample == 'all':
             numtoresample = len(self.states_list)
         elif numtoresample == 'engines':
-            numtoresample = len(parallel.dv)
+            numtoresample = pyhsmm.parallel.get_num_engines()
 
         ### resample parameters locally
         self.resample_obs_distns()
@@ -200,13 +201,21 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         ### choose which sequences to resample
         states_to_resample = random.sample(self.states_list,numtoresample)
+        states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
 
         ### resample states in parallel
-        self._push_self_parallel(states_to_resample)
-        self._build_states_parallel(states_to_resample,temp=temp)
-
-        ### purge to prevent memory buildup
-        parallel.c.purge_results('all')
+        # TODO the raw_tuples will be different for HSMMs
+        del self.states_list
+        # factor out this next line
+        raw_tuples = pyhsmm.parallel.call_resampler(
+                resampler_fn=self._state_builder,
+                args=[s.data for s in states_to_resample],
+                engine_globals=dict(global_model=self,temp=temp),
+                )
+        self.states_list = states_to_hold_out
+        # and this next line
+        for data,stateseq in raw_tuples:
+            self.add_data(data=data,stateseq=stateseq)
 
     def _push_self_parallel(self,states_to_resample):
         from pyhsmm import parallel
