@@ -4,6 +4,8 @@ from collections import defaultdict
 from itertools import count
 from IPython.parallel import Client
 
+from util.general import engine_global_namespace
+
 # NOTE: the ipcluster should be set up before this file is imported
 
 ### setup
@@ -12,7 +14,7 @@ c = Client()
 dv = c.direct_view()
 lbv = c.load_balanced_view()
 
-dv.push(dict(mydata={}))
+dv.push(dict(mydata={}),block=True)
 
 ### util
 
@@ -33,14 +35,23 @@ def _data_to_id(data):
 def _id_to_data(data_id):
     return _id_to_data_dict[data_id]
 
+def _send_data_to_an_engine(data,costfunc=lambda x: len(x)):
+    # NOTE: this is basically a one-by-one scatter with an additive parametric
+    # cost function treated greedily
+    engine_to_send = np.argmin(_get_engine_costs(costfunc))
+    return c[engine_to_send].apply_async(_update_mydata,_data_to_id(data),data)
+
 @dv.remote(block=True)
+@engine_global_namespace
 def _get_engine_costs(costfunc):
     return sum([costfunc(d) for d in mydata.values()])
 
+@engine_global_namespace
 def _update_mydata(data_id,data):
     mydata[data_id] = data
 
-def _call_resampler_fn(f,data_ids_to_resample,**kwargs):
+@engine_global_namespace
+def _call_data_fn(f,data_ids_to_resample,**kwargs):
     return [(data_id,f(data,**kwargs)) for data_id, data in mydata.iteritems()
             if data_id in data_ids_to_resample]
 
@@ -49,20 +60,18 @@ def _call_resampler_fn(f,data_ids_to_resample,**kwargs):
 def add_data(data,already_loaded,**kwargs):
     _id_to_data_dict[_data_to_id(data)] = data
     if not already_loaded:
-        return send_data_to_an_engine(data,**kwargs)
-
-def send_data_to_an_engine(data,costfunc=lambda x: len(x)):
-    engine_to_send = np.argmin(_get_engine_costs(costfunc))
-    return c[engine_to_send].apply_async(_update_mydata,_data_to_id(data),data)
+        return _send_data_to_an_engine(data,**kwargs)
 
 def broadcast_data(data):
     return dv.apply_async(_update_mydata,_data_to_id(data),data)
 
-def call_resampler(resampler_fn,datas,engine_globals={},kwargs={}):
+def call_data_fn(fn,datas,engine_globals={},kwargs={}):
     dv.push(engine_globals,block=False)
     data_ids_to_resample = set(_data_to_id(data) for data in datas)
     assert all(data_id in _id_to_data_dict for data_id in data_ids_to_resample)
-    results = dv.apply_sync(_call_resampler_fn,resampler_fn,data_ids_to_resample,**kwargs)
+    results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample,**kwargs)
     c.purge_results('all')
     return [(_id_to_data(data_id),outs) for result in results for data_id, outs in result]
+
+# TODO data-everywhere, dynamic load balancing version
 
