@@ -40,9 +40,8 @@ def _get_engine_costs(costfunc):
 def _update_mydata(data_id,data):
     mydata[data_id] = data
 
-@dv.remote(block=True)
 def _call_resampler_fn(f,data_ids_to_resample,**kwargs):
-    return [(data_id,f(data)) for data_id, data in mydata.iteritems()
+    return [(data_id,f(data,**kwargs)) for data_id, data in mydata.iteritems()
             if data_id in data_ids_to_resample]
 
 # interface
@@ -50,17 +49,20 @@ def _call_resampler_fn(f,data_ids_to_resample,**kwargs):
 def add_data(data,already_loaded,**kwargs):
     _id_to_data_dict[_data_to_id(data)] = data
     if not already_loaded:
-        send_data_to_an_engine(data,**kwargs)
+        return send_data_to_an_engine(data,**kwargs)
 
 def send_data_to_an_engine(data,costfunc=lambda x: len(x)):
     engine_to_send = np.argmin(_get_engine_costs(costfunc))
-    c[engine_to_send].apply(_update_mydata,_data_to_id(data),data)
+    return c[engine_to_send].apply_async(_update_mydata,_data_to_id(data),data)
+
+def broadcast_data(data):
+    return dv.apply_async(_update_mydata,_data_to_id(data),data)
 
 def call_resampler(resampler_fn,datas,engine_globals={},kwargs={}):
     dv.push(engine_globals,block=False)
     data_ids_to_resample = set(_data_to_id(data) for data in datas)
     assert all(data_id in _id_to_data_dict for data_id in data_ids_to_resample)
-    results = _call_resampler_fn(resampler_fn,data_ids_to_resample,**kwargs)
+    results = dv.apply_sync(_call_resampler_fn,resampler_fn,data_ids_to_resample,**kwargs)
     c.purge_results('all')
     return [(_id_to_data(data_id),outs) for result in results for data_id, outs in result]
 
