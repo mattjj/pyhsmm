@@ -602,17 +602,15 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
         # probably need betastarl too plus some indicator variable magic
         raise NotImplementedError # TODO
 
-    def log_likelihood(self,data=None):
+    def log_likelihood(self,data=None,**kwargs):
         if data is not None:
             s = self._states_class(model=self,data=np.asarray(data),
-                    stateseq=np.zeros(len(data))) # placeholder
-            superbetal = s.messages_backwards()[1]
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + superbetal[0] + s.hsmm_aBl[0])
+                    stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
+            return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
         else:
-            superbetastarls = np.vstack([s.messages_backwards()[1][0] + s.hsmm_aBl[0]
+            all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0)
-                                            + superbetastarls,axis=1).sum()
+            return np.logaddexp.reduce(all_initials,axis=1).sum()
 
     def predictive_likelihoods(self,test_data,forecast_horizons):
         return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
