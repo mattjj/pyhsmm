@@ -450,10 +450,10 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
                     data=
-                    [s.durations[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                    [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                         for s in self.states_list],
                     truncated_data=
-                    [s.durations[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                    [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
                         for s in self.states_list])
         self._clear_caches()
 
@@ -473,28 +473,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.resample_dur_distns()
         super(HSMM,self).resample_model_parallel(numtoresample,**kwargs)
 
-    def _build_states_parallel(self,states_to_resample,temp=None):
-        from pyhsmm import parallel
-        parallel.dv.push(dict(temp=temp),block=False)
-        raw_stateseq_tuples = parallel.dv.map(self._state_builder,
-                [s.data_id for s in states_to_resample],block=True)
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    @staticmethod
-    @util.general.interactive
-    def _state_builder(data_id):
-        # expects globals: global_model, alldata, temp
-        global_model.add_data(alldata[data_id],initialize_from_prior=False,temp=temp)
-        s = global_model.states_list.pop()
-        stateseq, stateseq_norep, durations = s.stateseq, s.stateseq_norep, s.durations
-        return (data_id, stateseq, stateseq_norep, durations)
-
     ### EM
 
     def EM_step(self):
@@ -511,7 +489,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
-            # TODO TODO handle censoring as in resample
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 

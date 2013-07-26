@@ -325,35 +325,25 @@ class HMMStatesEigen(HMMStatesPython):
 
 
 class HSMMStatesPython(HMMStatesPython):
-    '''
-    HSMM states distribution class. Connects the whole model.
-
-    Parameters include:
-
-    T
-    state_dim
-    obs_distns
-    dur_distns
-    transition_distn
-    initial_distn
-    trunc
-
-    stateseq
-    durations
-    stateseq_norep
-    '''
-
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
-            stateseq=None,stateseq_norep=None,durations=None,
-            **kwargs):
+            stateseq=None,**kwargs):
         self.right_censoring = right_censoring
         self.left_censoring = left_censoring
         self.trunc = trunc
+
         if stateseq is not None:
-            # assert stateseq_norep is not None and durations is not None
-            self.stateseq_norep = stateseq_norep
-            self.durations = durations
+            self.stateseq_norep, self.durations_censored = util.rle(stateseq)
+
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
+
+    @property
+    def durations(self):
+        durs = self.durations_censored.copy()
+        if self.left_censoring:
+            durs[0] = self.dur_distns[self.stateseq_norep[0]].rvs_given_greater_than(durs[0]-1)
+        if self.right_censoring:
+            durs[-1] = self.dur_distns[self.stateseq_norep[-1]].rvs_given_greater_than(durs[-1]-1)
+        return durs
 
     @property
     def untrunc_slice(self):
@@ -406,8 +396,7 @@ class HSMMStatesPython(HMMStatesPython):
             idx += duration
 
         self.stateseq = stateseq
-        self.stateseq_norep, _ = util.rle(stateseq)
-        self.durations = np.array(durations,dtype=np.int32) # sum(self.durations) >= self.T
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     ### caching
 
@@ -483,7 +472,7 @@ class HSMMStatesPython(HMMStatesPython):
 
     def copy_sample(self,newmodel):
         new = super(HSMMStatesPython,self).copy_sample(newmodel)
-        new.durations = self.durations.copy()
+        new.durations_censored = self.durations_censored.copy()
         new.stateseq_norep = self.stateseq_norep.copy()
         return new
 
@@ -496,8 +485,6 @@ class HSMMStatesPython(HMMStatesPython):
         T, state_dim = betal.shape
 
         stateseq = self.stateseq = np.zeros(T,dtype=np.int32)
-        stateseq_norep = []
-        durations = []
 
         idx = 0
         nextstate_unsmoothed = self.pi_0
@@ -509,7 +496,6 @@ class HSMMStatesPython(HMMStatesPython):
                 # this is a numerical issue; no good answer, so we'll just follow the messages.
                 nextstate_distr = np.exp(logdomain)
             state = sample_discrete(nextstate_distr)
-            assert len(stateseq_norep) == 0 or state != stateseq_norep[-1]
 
             durprob = random()
             dur = 0 # always incremented at least once
@@ -547,22 +533,21 @@ class HSMMStatesPython(HMMStatesPython):
             assert dur > 0
 
             stateseq[idx:idx+dur] = state
-            stateseq_norep.append(state)
-            assert len(stateseq_norep) < 2 or stateseq_norep[-1] != stateseq_norep[-2]
-            durations.append(dur)
+            # stateseq_norep.append(state)
+            # assert len(stateseq_norep) < 2 or stateseq_norep[-1] != stateseq_norep[-2]
+            # durations.append(dur)
 
             nextstate_unsmoothed = A[state,:]
 
             idx += dur
 
-        self.durations = np.array(durations,dtype=np.int32)
-        self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     ### plotting
 
     def plot(self,colors_dict=None,**kwargs):
         from matplotlib import pyplot as plt
-        X,Y = np.meshgrid(np.hstack((0,self.durations.cumsum())),(0,1))
+        X,Y = np.meshgrid(np.hstack((0,self.durations_censored.cumsum())),(0,1))
 
         if colors_dict is not None:
             C = np.array([[colors_dict[state] for state in self.stateseq_norep]])
@@ -589,186 +574,14 @@ class HSMMStatesEigen(HSMMStatesPython):
         pi0 = self.pi_0
         aBl = self.aBl / self.temp if self.temp is not None else self.aBl
 
-        stateseq = np.zeros(T,dtype=np.int32)
+        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations = util.rle(stateseq)
-        self.stateseq = stateseq
-
-        # clean up right-censoring
-
-        if self.right_censoring:
-            dur = self.durations[-1]
-            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-            self.durations[-1] = dur_distn.rvs_given_greater_than(dur)
-
-class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this class
-    def __init__(self,model,changepoints,*args,**kwargs):
-        warnings.warn("%s hasn't been used in a while; there may be some bumps"
-                % self.__class__.__name__)
-
-        self.changepoints = changepoints
-        self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
-        self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
-        self.Tblock = len(changepoints) # number of blocks
-        super(HSMMStatesPossibleChangepoints,self).__init__(model,*args,**kwargs)
-
-    ### generation
-
-    def generate_states(self):
-        # TODO TODO this method can probably call sample_forwards with dummy uniform
-        # aBl/betal/betastarl, but that's just too complicated!
-        Tblock = self.Tblock
-        assert Tblock == len(self.changepoints)
-        blockstateseq = np.zeros(Tblock,dtype=np.int32)
-
-        tblock = 0
-        nextstate_distr = self.pi_0
-        A = self.trans_matrix
-
-        while tblock < Tblock:
-            # sample the state
-            state = sample_discrete(nextstate_distr)
-
-            # compute possible duration info (indep. of state)
-            possible_durations = self.blocklens[tblock:].cumsum()
-
-            # compute the pmf over those steps
-            durprobs = self.dur_distns[state].pmf(possible_durations)
-            # TODO censoring: the last possible duration isn't quite right
-            durprobs /= durprobs.sum()
-
-            # sample it
-            blockdur = sample_discrete(durprobs) + 1
-
-            # set block sequence
-            blockstateseq[tblock:tblock+blockdur] = state
-
-            # set up next iteration
-            tblock += blockdur
-            nextstate_distr = A[state]
-
-        # convert block state sequence to full stateseq and stateseq_norep and
-        # durations
-        self.stateseq = np.zeros(self.T,dtype=np.int32)
-        for state, (start,stop) in zip(blockstateseq,self.changepoints):
-            self.stateseq[start:stop] = state
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-
-        return self.stateseq
-
-    def generate(self): # TODO
-        raise NotImplementedError
-
-    ### caching
-
-    def clear_caches(self):
-        self._aBBl = None
-        super(HSMMStatesPossibleChangepoints,self).clear_caches()
-
-    @property
-    def aBBl(self):
-        if self._aBBl is None:
-            aBl = self.aBl
-            aBBl = self._aBBl = np.empty((self.Tblock,self.state_dim))
-            for idx, (start,stop) in enumerate(self.changepoints):
-                aBBl[idx] = aBl[start:stop].sum(0)
-        return self._aBBl
-
-    ### message passing
-
-    def messages_backwards(self):
-        aDl, Al = self.aDl, np.log(self.trans_matrix)
-        Tblock = self.Tblock
-        state_dim = Al.shape[0]
-        trunc = self.trunc if self.trunc is not None else self.T
-
-        betal = np.zeros((Tblock,state_dim),dtype=np.float64)
-        betastarl = np.zeros_like(betal)
-
-        for tblock in range(Tblock-1,-1,-1):
-            possible_durations = self.blocklens[tblock:].cumsum() # could precompute these
-            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
-            truncblock = len(possible_durations)
-            normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
-
-            np.logaddexp.reduce(betal[tblock:tblock+truncblock]
-                    + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations)
-                    + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
-            # TODO TODO put censoring here, must implement likelihood_block
-            np.logaddexp.reduce(betastarl[tblock] + Al, axis=1, out=betal[tblock-1])
-        betal[-1] = 0.
-
-        assert not np.isnan(betal).any()
-        assert not np.isnan(betastarl).any()
-
-        return betal, betastarl
-
-    def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
-        return self.aBBl[startblock:stopblock].cumsum(0)[:possible_durations.shape[0]]
-
-    def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
-        return self.aBBl[startblock:stopblock,state].cumsum(0)[:possible_durations.shape[0]]
-
-    ### Gibbs sampling
-
-    def sample_forwards(self,betal,betastarl):
-        aDl = self.aDl
-        trunc = self.trunc
-
-        Tblock = betal.shape[0]
-        assert Tblock == len(self.changepoints)
-        blockstateseq = np.zeros(Tblock,dtype=np.int32)
-
-        tblock = 0
-        nextstate_unsmoothed = self.pi_0
-        A = self.trans_matrix
-        trunc = trunc if trunc is not None else self.T
-
-        while tblock < Tblock:
-            # sample the state
-            logdomain = betastarl[tblock] - np.amax(betastarl[tblock])
-            nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
-            state = sample_discrete(nextstate_distr)
-
-            # compute possible duration info (indep. of state)
-            # TODO TODO doesn't handle censoring quite correctly
-            possible_durations = self.blocklens[tblock:].cumsum()
-            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
-            truncblock = len(possible_durations)
-
-            if truncblock > 1:
-                # compute the next few log likelihoods
-                loglikelihoods = self.block_cumulative_likelihood_state(tblock,tblock+truncblock,state,possible_durations)
-
-                # compute pmf over those steps
-                logpmf = aDl[possible_durations-1,state] + loglikelihoods + betal[tblock:tblock+truncblock,state] - betastarl[tblock,state]
-
-                # sample from it
-                blockdur = sample_discrete_from_log(logpmf)+1
-            else:
-                blockdur = 1
-
-            # set block sequence
-            blockstateseq[tblock:tblock+blockdur] = state
-
-            # set up next iteration
-            tblock += blockdur
-            nextstate_unsmoothed = A[state]
-
-        # convert block state sequence to full stateseq and stateseq_norep and
-        # durations
-        self.stateseq = np.zeros(self.T,dtype=np.int32)
-        for state, (start,stop) in zip(blockstateseq,self.changepoints):
-            self.stateseq[start:stop] = state
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-
-# NOTE: these only work with iid-like emissions with aBl (that includes
-# autoregressive but not fancier things)
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
@@ -895,7 +708,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def _map_states(self):
         themap = np.arange(self.state_dim).repeat(self.rs)
         self.stateseq = themap[self.stateseq]
-        self.stateseq_norep, self.durations = util.rle(self.stateseq) # TODO this truncates on the end!
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
     ### for testing, ensures calling parent HMM methods
 
@@ -925,12 +738,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         self._hmm_trans = None
 
     def generate_states(self):
-        ret = super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
-        dur = self.durations[-1]
-        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-        # TODO instead of 3*T, use log_sf
-        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
-        return ret
+        return super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
 
     @property
     def pi_0(self):
@@ -1027,20 +835,14 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
             initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
             initial_substate = start_indices[initial_superstate]
 
-        stateseq = np.zeros(T,dtype=np.int32)
+        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
                 ['betal','superbetal','aBl','stateseq','A','initial_superstate','initial_substate','M','T','ps','rtot','start_indices','end_indices'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations = util.rle(stateseq)
-        self.stateseq = stateseq
-
-        dur = self.durations[-1]
-        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-        # TODO TODO TODO get rid of this
-        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     def maxsum_messages_backwards(self):
         global eigen_path
@@ -1082,7 +884,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         start_indices = np.concatenate(((0,),crs[:-1]))
         themap = np.arange(self.state_dim).repeat(rs)
 
-        stateseq = np.empty(T,dtype=np.int32)
+        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
         stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
         initial_hmm_state = start_indices[stateseq[0]]
 
@@ -1091,11 +893,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq = stateseq
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-
-        for state, distn in enumerate(self.model.dur_distns):
-            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def clear_caches(self):
@@ -1193,7 +991,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         start_indices = np.concatenate(((0,),crs[:-1]))
         themap = np.arange(self.state_dim).repeat(rs)
 
-        stateseq = np.empty(T,dtype=np.int32)
+        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
         initial_hmm_state = (np.concatenate(self.binoms) + scores[0] + np.log(self.pi_0) + self.aBl[0]).argmax()
         stateseq[0] = themap[initial_hmm_state]
 
@@ -1202,8 +1000,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq = stateseq
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
 #################
 #  eigen stuff  #
@@ -1222,4 +1019,173 @@ def _get_codestr(name):
         with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
             codestrs[name] = infile.read()
     return codestrs[name]
+
+
+####################
+#  NEEDS UPDATING  #
+####################
+
+class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this class
+    def __init__(self,model,changepoints,*args,**kwargs):
+        warnings.warn("%s hasn't been used in a while; there may be some bumps"
+                % self.__class__.__name__)
+
+        self.changepoints = changepoints
+        self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+        self.Tblock = len(changepoints) # number of blocks
+        super(HSMMStatesPossibleChangepoints,self).__init__(model,*args,**kwargs)
+
+    ### generation
+
+    def generate_states(self):
+        # TODO TODO this method can probably call sample_forwards with dummy uniform
+        # aBl/betal/betastarl, but that's just too complicated!
+        Tblock = self.Tblock
+        assert Tblock == len(self.changepoints)
+        blockstateseq = np.zeros(Tblock,dtype=np.int32)
+
+        tblock = 0
+        nextstate_distr = self.pi_0
+        A = self.trans_matrix
+
+        while tblock < Tblock:
+            # sample the state
+            state = sample_discrete(nextstate_distr)
+
+            # compute possible duration info (indep. of state)
+            possible_durations = self.blocklens[tblock:].cumsum()
+
+            # compute the pmf over those steps
+            durprobs = self.dur_distns[state].pmf(possible_durations)
+            # TODO censoring: the last possible duration isn't quite right
+            durprobs /= durprobs.sum()
+
+            # sample it
+            blockdur = sample_discrete(durprobs) + 1
+
+            # set block sequence
+            blockstateseq[tblock:tblock+blockdur] = state
+
+            # set up next iteration
+            tblock += blockdur
+            nextstate_distr = A[state]
+
+        # convert block state sequence to full stateseq and stateseq_norep and
+        # durations
+        self.stateseq = np.zeros(self.T,dtype=np.int32)
+        for state, (start,stop) in zip(blockstateseq,self.changepoints):
+            self.stateseq[start:stop] = state
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+
+        return self.stateseq
+
+    def generate(self): # TODO
+        raise NotImplementedError
+
+    ### caching
+
+    def clear_caches(self):
+        self._aBBl = None
+        super(HSMMStatesPossibleChangepoints,self).clear_caches()
+
+    @property
+    def aBBl(self):
+        if self._aBBl is None:
+            aBl = self.aBl
+            aBBl = self._aBBl = np.empty((self.Tblock,self.state_dim))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+        return self._aBBl
+
+    ### message passing
+
+    def messages_backwards(self):
+        aDl, Al = self.aDl, np.log(self.trans_matrix)
+        Tblock = self.Tblock
+        state_dim = Al.shape[0]
+        trunc = self.trunc if self.trunc is not None else self.T
+
+        betal = np.zeros((Tblock,state_dim),dtype=np.float64)
+        betastarl = np.zeros_like(betal)
+
+        for tblock in range(Tblock-1,-1,-1):
+            possible_durations = self.blocklens[tblock:].cumsum() # could precompute these
+            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
+            truncblock = len(possible_durations)
+            normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
+
+            np.logaddexp.reduce(betal[tblock:tblock+truncblock]
+                    + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations)
+                    + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
+            # TODO TODO put censoring here, must implement likelihood_block
+            np.logaddexp.reduce(betastarl[tblock] + Al, axis=1, out=betal[tblock-1])
+        betal[-1] = 0.
+
+        assert not np.isnan(betal).any()
+        assert not np.isnan(betastarl).any()
+
+        return betal, betastarl
+
+    def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
+        return self.aBBl[startblock:stopblock].cumsum(0)[:possible_durations.shape[0]]
+
+    def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
+        return self.aBBl[startblock:stopblock,state].cumsum(0)[:possible_durations.shape[0]]
+
+    ### Gibbs sampling
+
+    def sample_forwards(self,betal,betastarl):
+        aDl = self.aDl
+        trunc = self.trunc
+
+        Tblock = betal.shape[0]
+        assert Tblock == len(self.changepoints)
+        blockstateseq = np.zeros(Tblock,dtype=np.int32)
+
+        tblock = 0
+        nextstate_unsmoothed = self.pi_0
+        A = self.trans_matrix
+        trunc = trunc if trunc is not None else self.T
+
+        while tblock < Tblock:
+            # sample the state
+            logdomain = betastarl[tblock] - np.amax(betastarl[tblock])
+            nextstate_distr = np.exp(logdomain) * nextstate_unsmoothed
+            state = sample_discrete(nextstate_distr)
+
+            # compute possible duration info (indep. of state)
+            # TODO TODO doesn't handle censoring quite correctly
+            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
+            truncblock = len(possible_durations)
+
+            if truncblock > 1:
+                # compute the next few log likelihoods
+                loglikelihoods = self.block_cumulative_likelihood_state(tblock,tblock+truncblock,state,possible_durations)
+
+                # compute pmf over those steps
+                logpmf = aDl[possible_durations-1,state] + loglikelihoods + betal[tblock:tblock+truncblock,state] - betastarl[tblock,state]
+
+                # sample from it
+                blockdur = sample_discrete_from_log(logpmf)+1
+            else:
+                blockdur = 1
+
+            # set block sequence
+            blockstateseq[tblock:tblock+blockdur] = state
+
+            # set up next iteration
+            tblock += blockdur
+            nextstate_unsmoothed = A[state]
+
+        # convert block state sequence to full stateseq and stateseq_norep and
+        # durations
+        self.stateseq = np.zeros(self.T,dtype=np.int32)
+        for state, (start,stop) in zip(blockstateseq,self.changepoints):
+            self.stateseq[start:stop] = state
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+
+# NOTE: these only work with iid-like emissions with aBl (that includes
+# autoregressive but not fancier things)
 
