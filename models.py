@@ -451,9 +451,10 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             distn.resample_with_truncations(
                     data=[s.durations[s.stateseq_norep == state] \
                         if not s.left_censoring else \
-                        s.durations[1:][s.stateseq_norep[1:]==state] \
+                        s.durations[1:][s.stateseq_norep[1:] == state] \
                         for s in self.states_list],
-                    truncated_data=[s.durations[0] for s in self.states_list if s.left_censoring]
+                    truncated_data=[s.durations[0] for s in self.states_list
+                        if s.left_censoring and s.stateseq_norep[0] == state]
                     )
         self._clear_caches()
 
@@ -511,6 +512,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
+            # TODO TODO handle censoring as in resample
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
