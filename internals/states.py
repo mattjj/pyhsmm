@@ -1028,9 +1028,6 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         # TODO instead of 3*T, use log_sf
         self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
 
-        for state, r in enumerate(self.rs):
-            assert np.all(self.durations[self.stateseq_norep == state] >= r)
-
     def maxsum_messages_backwards(self):
         global eigen_path
         # these names are dumb
