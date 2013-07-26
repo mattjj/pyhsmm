@@ -449,13 +449,12 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
-                    data=[s.durations[s.stateseq_norep == state] \
-                        if not s.left_censoring else \
-                        s.durations[1:][s.stateseq_norep[1:] == state] \
+                    data=
+                    [s.durations[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                         for s in self.states_list],
-                    truncated_data=[s.durations[0] for s in self.states_list
-                        if s.left_censoring and s.stateseq_norep[0] == state]
-                    )
+                    truncated_data=
+                    [s.durations[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                        for s in self.states_list])
         self._clear_caches()
 
     def copy_sample(self):

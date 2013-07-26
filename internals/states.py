@@ -356,6 +356,20 @@ class HSMMStatesPython(HMMStatesPython):
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 
     @property
+    def untrunc_slice(self):
+        return slice(1 if self.left_censoring else 0, -1 if self.right_censoring else None)
+
+    @property
+    def trunc_slice(self):
+        # not really a slice, but this can be passed in to an ndarray
+        trunced = []
+        if self.left_censoring:
+            trunced.append(0)
+        if self.right_censoring:
+            trunced.append(-1)
+        return trunced
+
+    @property
     def pi_0(self):
         if not self.left_censoring:
             return self.model.init_state_distn.pi_0
@@ -1025,11 +1039,8 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         dur = self.durations[-1]
         dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-        # TODO instead of 3*T, use log_sf
+        # TODO TODO TODO get rid of this
         self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
-
-        for state, r in enumerate(self.rs):
-            assert np.all(self.durations[self.stateseq_norep == state] >= r)
 
     def maxsum_messages_backwards(self):
         global eigen_path

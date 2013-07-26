@@ -44,8 +44,12 @@ class DurationDistribution(Distribution):
         truncated_data is full of observations that were truncated, so this
         method samples them out to be at least that large
         '''
-        self.resample(data=combinedata(
-            (data,np.asarray([self.rvs_given_greater_than(x-1) for x in truncated_data]))))
+        if not isinstance(truncated_data,list):
+            filled_in = np.asarray([self.rvs_given_greater_than(x-1) for x in truncated_data])
+        else:
+            filled_in = np.asarray([self.rvs_given_greater_than(x-1)
+                for xx in truncated_data for x in xx])
+        self.resample(data=combinedata((data,filled_in)))
 
     @property
     def mean(self):
