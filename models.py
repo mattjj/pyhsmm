@@ -635,3 +635,4 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
                    d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
                    for d in dur_distns)
         super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+

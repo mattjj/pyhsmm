@@ -837,13 +837,13 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def aBl(self):
-        if self._hmm_aBl is None:
+        if self._hmm_aBl is None or True:
             self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
         return self._hmm_aBl
 
     @property
     def rs(self):
-        if True or self._rs is None: # TODO
+        if True or self._rs is None or True: # TODO
             self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
         return self._rs
 
@@ -887,7 +887,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     def Viterbi_hmm(self):
         scores, args = self.maxsum_messages_backwards_hmm()
-        self.maximize_forwards_hmm(scores,args)
+        return self.maximize_forwards_hmm(scores,args)
 
     def messages_backwards_hmm(self):
         return HMMStatesEigen.messages_backwards(self)
@@ -902,11 +902,14 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     def maximize_forwards_hmm(self,scores,args):
         ret = HMMStatesEigen.maximize_forwards(self,scores,args)
-        self.unmapped_stateseq = self.stateseq.copy() # TODO
         self._map_states()
         return ret
 
 class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
+    def clear_caches(self):
+        super(HSMMStatesIntegerNegativeBinomialVariant,self).clear_caches()
+        self._hmm_trans = None
+
     def generate_states(self):
         ret = super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
         dur = self.durations[-1]
@@ -928,7 +931,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     @property
     def trans_matrix(self):
-        if self._hmm_trans is None: # TODO
+        if self._hmm_trans is None or True:
             rs = self.rs
             ps = np.array([d.p for d in self.dur_distns])
 
@@ -1025,6 +1028,9 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         # TODO instead of 3*T, use log_sf
         self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
 
+        for state, r in enumerate(self.rs):
+            assert np.all(self.durations[self.stateseq_norep == state] >= r)
+
     def maxsum_messages_backwards(self):
         global eigen_path
         # these names are dumb
@@ -1056,7 +1062,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     def maximize_forwards(self,scores,args):
         global eigen_path
-        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
+        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards') # same code as intnegbin
 
         T,rtot = scores.shape
 

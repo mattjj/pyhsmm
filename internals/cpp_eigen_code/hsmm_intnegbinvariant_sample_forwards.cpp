@@ -56,7 +56,7 @@ t = 0;
         total = nextstate_distr.sum() * (((double)random())/((double)RAND_MAX));
         for (state=0; (total -= nextstate_distr(state)) > 0; state++) ;
 
-        stateseq[t] = state;
+        stateseq[t] = current_state;
         t += 1;
     }
 }
@@ -90,7 +90,7 @@ while (t < T) {
         total = nextstate_distr.sum() * (((double)random())/((double)RAND_MAX));
         for (state=0; (total -= nextstate_distr(state)) > 0; state++) ;
 
-        stateseq[t] = state;
+        stateseq[t] = current_state;
         t += 1;
     }
 }
