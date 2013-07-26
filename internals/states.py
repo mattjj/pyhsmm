@@ -12,6 +12,7 @@ from ..util import general as util # perhaps a confusing name :P
 
 # TODO using log(A) in message passing can hurt stability a bit, -1000 turns
 # into -inf
+# TODO abstract this cache handling... metaclass and a cached decorator?
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,
