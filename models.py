@@ -612,5 +612,5 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
         assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRDuration or
                    d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
                    for d in dur_distns)
-        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+        super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
 

@@ -692,12 +692,12 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return ret
 
     def messages_backwards(self):
-        return self.messages_backwards_hmm()
+        return self.messages_backwards_hmm(), None # 2nd is a dummy, see sample_forwards
 
     def messages_forwards(self):
         return HMMStatesEigen.messages_forwards(self)
 
-    def sample_forwards(self,betal):
+    def sample_forwards(self,betal,dummy):
         return self.sample_forwards_hmm(betal)
 
     def maxsum_messages_backwards(self):
@@ -904,6 +904,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     # TODO test
     @property
     def binoms(self):
+        raise NotImplementedError, 'theres a bug here' # TODO
         if self._binoms is None:
             self._binoms = []
             for D in self.dur_distns:
