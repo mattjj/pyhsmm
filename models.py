@@ -448,12 +448,12 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
-                    data=[s.durations[s.stateseq_norep == state] \
-                        if not s.left_censoring else \
-                        s.durations[1:][s.stateseq_norep[1:]==state] \
+                    data=
+                    [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                         for s in self.states_list],
-                    truncated_data=[s.durations[0] for s in self.states_list if s.left_censoring]
-                    )
+                    truncated_data=
+                    [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                        for s in self.states_list])
         self._clear_caches()
 
     def copy_sample(self):
@@ -471,28 +471,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     def resample_model_parallel(self,numtoresample='all',**kwargs):
         self.resample_dur_distns()
         super(HSMM,self).resample_model_parallel(numtoresample,**kwargs)
-
-    def _build_states_parallel(self,states_to_resample,temp=None):
-        from pyhsmm import parallel
-        parallel.dv.push(dict(temp=temp),block=False)
-        raw_stateseq_tuples = parallel.dv.map(self._state_builder,
-                [s.data_id for s in states_to_resample],block=True)
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    @staticmethod
-    @util.general.interactive
-    def _state_builder(data_id):
-        # expects globals: global_model, alldata, temp
-        global_model.add_data(alldata[data_id],initialize_from_prior=False,temp=temp)
-        s = global_model.states_list.pop()
-        stateseq, stateseq_norep, durations = s.stateseq, s.stateseq_norep, s.durations
-        return (data_id, stateseq, stateseq_norep, durations)
 
     ### EM
 
@@ -601,17 +579,15 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
         # probably need betastarl too plus some indicator variable magic
         raise NotImplementedError # TODO
 
-    def log_likelihood(self,data=None):
+    def log_likelihood(self,data=None,**kwargs):
         if data is not None:
             s = self._states_class(model=self,data=np.asarray(data),
-                    stateseq=np.zeros(len(data))) # placeholder
-            superbetal = s.messages_backwards()[1]
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + superbetal[0] + s.hsmm_aBl[0])
+                    stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
+            return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
         else:
-            superbetastarls = np.vstack([s.messages_backwards()[1][0] + s.hsmm_aBl[0]
+            all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0)
-                                            + superbetastarls,axis=1).sum()
+            return np.logaddexp.reduce(all_initials,axis=1).sum()
 
     def predictive_likelihoods(self,test_data,forecast_horizons):
         return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
@@ -635,4 +611,5 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
         assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRDuration or
                    d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
                    for d in dur_distns)
-        super(HSMMIntNegBin,self).__init__(obs_distns,dur_distns,*args,**kwargs)
+        super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
+

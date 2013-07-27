@@ -12,6 +12,7 @@ from ..util import general as util # perhaps a confusing name :P
 
 # TODO using log(A) in message passing can hurt stability a bit, -1000 turns
 # into -inf
+# TODO abstract this cache handling... metaclass and a cached decorator?
 
 class HMMStatesPython(object):
     def __init__(self,model,T=None,data=None,stateseq=None,
@@ -325,35 +326,39 @@ class HMMStatesEigen(HMMStatesPython):
 
 
 class HSMMStatesPython(HMMStatesPython):
-    '''
-    HSMM states distribution class. Connects the whole model.
-
-    Parameters include:
-
-    T
-    state_dim
-    obs_distns
-    dur_distns
-    transition_distn
-    initial_distn
-    trunc
-
-    stateseq
-    durations
-    stateseq_norep
-    '''
-
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
-            stateseq=None,stateseq_norep=None,durations=None,
-            **kwargs):
+            stateseq=None,**kwargs):
         self.right_censoring = right_censoring
         self.left_censoring = left_censoring
         self.trunc = trunc
+
         if stateseq is not None:
-            # assert stateseq_norep is not None and durations is not None
-            self.stateseq_norep = stateseq_norep
-            self.durations = durations
+            self.stateseq_norep, self.durations_censored = util.rle(stateseq)
+
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
+
+    @property
+    def durations(self):
+        durs = self.durations_censored.copy()
+        if self.left_censoring:
+            durs[0] = self.dur_distns[self.stateseq_norep[0]].rvs_given_greater_than(durs[0]-1)
+        if self.right_censoring:
+            durs[-1] = self.dur_distns[self.stateseq_norep[-1]].rvs_given_greater_than(durs[-1]-1)
+        return durs
+
+    @property
+    def untrunc_slice(self):
+        return slice(1 if self.left_censoring else 0, -1 if self.right_censoring else None)
+
+    @property
+    def trunc_slice(self):
+        # not really a slice, but this can be passed in to an ndarray
+        trunced = []
+        if self.left_censoring:
+            trunced.append(0)
+        if self.right_censoring:
+            trunced.append(-1)
+        return trunced
 
     @property
     def pi_0(self):
@@ -392,8 +397,7 @@ class HSMMStatesPython(HMMStatesPython):
             idx += duration
 
         self.stateseq = stateseq
-        self.stateseq_norep, _ = util.rle(stateseq)
-        self.durations = np.array(durations,dtype=np.int32) # sum(self.durations) >= self.T
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     ### caching
 
@@ -469,7 +473,7 @@ class HSMMStatesPython(HMMStatesPython):
 
     def copy_sample(self,newmodel):
         new = super(HSMMStatesPython,self).copy_sample(newmodel)
-        new.durations = self.durations.copy()
+        new.durations_censored = self.durations_censored.copy()
         new.stateseq_norep = self.stateseq_norep.copy()
         return new
 
@@ -482,8 +486,6 @@ class HSMMStatesPython(HMMStatesPython):
         T, state_dim = betal.shape
 
         stateseq = self.stateseq = np.zeros(T,dtype=np.int32)
-        stateseq_norep = []
-        durations = []
 
         idx = 0
         nextstate_unsmoothed = self.pi_0
@@ -495,7 +497,6 @@ class HSMMStatesPython(HMMStatesPython):
                 # this is a numerical issue; no good answer, so we'll just follow the messages.
                 nextstate_distr = np.exp(logdomain)
             state = sample_discrete(nextstate_distr)
-            assert len(stateseq_norep) == 0 or state != stateseq_norep[-1]
 
             durprob = random()
             dur = 0 # always incremented at least once
@@ -533,22 +534,21 @@ class HSMMStatesPython(HMMStatesPython):
             assert dur > 0
 
             stateseq[idx:idx+dur] = state
-            stateseq_norep.append(state)
-            assert len(stateseq_norep) < 2 or stateseq_norep[-1] != stateseq_norep[-2]
-            durations.append(dur)
+            # stateseq_norep.append(state)
+            # assert len(stateseq_norep) < 2 or stateseq_norep[-1] != stateseq_norep[-2]
+            # durations.append(dur)
 
             nextstate_unsmoothed = A[state,:]
 
             idx += dur
 
-        self.durations = np.array(durations,dtype=np.int32)
-        self.stateseq_norep = np.array(stateseq_norep,dtype=np.int32)
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     ### plotting
 
     def plot(self,colors_dict=None,**kwargs):
         from matplotlib import pyplot as plt
-        X,Y = np.meshgrid(np.hstack((0,self.durations.cumsum())),(0,1))
+        X,Y = np.meshgrid(np.hstack((0,self.durations_censored.cumsum())),(0,1))
 
         if colors_dict is not None:
             C = np.array([[colors_dict[state] for state in self.stateseq_norep]])
@@ -575,22 +575,457 @@ class HSMMStatesEigen(HSMMStatesPython):
         pi0 = self.pi_0
         aBl = self.aBl / self.temp if self.temp is not None else self.aBl
 
-        stateseq = np.zeros(T,dtype=np.int32)
+        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations = util.rle(stateseq)
-        self.stateseq = stateseq
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
-        # clean up right-censoring
+class HSMMStatesGeoApproximation(HSMMStatesPython):
+    def _get_hmm_transition_matrix(self):
+        trunc = self.trunc if self.trunc is not None else self.T
+        state_dim = self.state_dim
+        hmm_A = self.trans_matrix.copy()
+        hmm_A.flat[::state_dim+1] = 0
+        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.dur_distns])
+        assert (thediag < 1).all(), 'truncation is too small!'
+        hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
+        hmm_A.flat[::state_dim+1] = thediag
+        return hmm_A
 
-        if self.right_censoring:
-            dur = self.durations[-1]
-            dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-            self.durations[-1] = dur_distn.rvs_given_greater_than(dur)
+    def messages_backwards(self):
+        'approximates duration tails at indices > trunc with geometric tails'
+        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
+        trunc = self.trunc if self.trunc is not None else self.T
+        T,state_dim = aDl.shape
+
+        assert trunc > 1
+
+        aBl = self.aBl/self.temp if self.temp is not None else self.aBl
+        hmm_betal = HMMStatesEigen._messages_backwards(self._get_hmm_transition_matrix(),aBl)
+        assert not np.isnan(hmm_betal).any()
+
+        betal = np.zeros((T,state_dim),dtype=np.float64)
+        betastarl = np.zeros_like(betal)
+
+        for t in xrange(T-1,-1,-1):
+            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc)
+                    + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
+            if t+trunc < T:
+                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
+                        + hmm_betal[t+trunc], out=betastarl[t])
+            if T-t < trunc and self.right_censoring:
+                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
+            np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
+        betal[-1] = 0.
+
+        return betal, betastarl
+
+class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
+    def messages_backwards(self):
+        raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
+        super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
+
+class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
+    # NOTE: I'm secretly an HMMStates first! I just shh
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self,*args,**kwargs):
+        HSMMStatesPython.__init__(self,*args,**kwargs)
+
+    def clear_caches(self):
+        HSMMStatesPython.clear_caches(self)
+        self._hmm_trans = None
+        self._rs = None
+        self._hmm_aBl = None
+        # note: we never use aDl or aDsl in this class
+
+    @property
+    def dur_distns(self):
+        return self.model.dur_distns
+
+    @property
+    def hsmm_aBl(self):
+        return super(_HSMMStatesIntegerNegativeBinomialBase,self).aBl
+
+    @property
+    def hsmm_trans_matrix(self):
+        return super(_HSMMStatesIntegerNegativeBinomialBase,self).trans_matrix
+
+    @property
+    def hsmm_pi_0(self):
+        return super(_HSMMStatesIntegerNegativeBinomialBase,self).pi_0
+
+    # the next methods are to override the calls that the parents' methods would
+    # make so that the parent can view us as the effective HMM we are!
+
+    @property
+    def aBl(self):
+        if self._hmm_aBl is None or True:
+            self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
+        return self._hmm_aBl
+
+    @property
+    def rs(self):
+        if True or self._rs is None or True: # TODO
+            self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
+        return self._rs
+
+    @abc.abstractproperty
+    def pi_0(self):
+        pass
+
+    @abc.abstractproperty
+    def trans_matrix(self):
+        pass
+
+    # generic implementation, these could be overridden for efficiency
+    # they act like HMMs, and they're probably called from an HMMStates method
+
+    def generate_states(self):
+        ret = HMMStatesEigen.generate_states(self)
+        self._map_states()
+        return ret
+
+    def messages_backwards(self):
+        return self.messages_backwards_hmm(), None # 2nd is a dummy, see sample_forwards
+
+    def messages_forwards(self):
+        return HMMStatesEigen.messages_forwards(self)
+
+    def sample_forwards(self,betal,dummy):
+        return self.sample_forwards_hmm(betal)
+
+    def maxsum_messages_backwards(self):
+        return self.maxsum_messages_backwards_hmm()
+
+    def maximize_forwards(self,scores,args):
+        return self.maximize_forwards_hmm(scores,args)
+
+    def _map_states(self):
+        themap = np.arange(self.state_dim).repeat(self.rs)
+        self.stateseq = themap[self.stateseq]
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+
+    ### for testing, ensures calling parent HMM methods
+
+    def Viterbi_hmm(self):
+        scores, args = self.maxsum_messages_backwards_hmm()
+        return self.maximize_forwards_hmm(scores,args)
+
+    def messages_backwards_hmm(self):
+        return HMMStatesEigen.messages_backwards(self)
+
+    def sample_forwards_hmm(self,betal):
+        ret = HMMStatesEigen.sample_forwards(self,betal)
+        self._map_states()
+        return ret
+
+    def maxsum_messages_backwards_hmm(self):
+        return HMMStatesEigen.maxsum_messages_backwards(self)
+
+    def maximize_forwards_hmm(self,scores,args):
+        ret = HMMStatesEigen.maximize_forwards(self,scores,args)
+        self._map_states()
+        return ret
+
+class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
+    def clear_caches(self):
+        super(HSMMStatesIntegerNegativeBinomialVariant,self).clear_caches()
+        self._hmm_trans = None
+
+    def generate_states(self):
+        return super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
+
+    @property
+    def pi_0(self):
+        if not self.left_censoring:
+            rs = self.rs
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            pi_0 = np.zeros(rs.sum())
+            pi_0[starts] = self.hsmm_pi_0
+            return pi_0
+        else:
+            return util.top_eigenvector(self.trans_matrix)
+
+    @property
+    def trans_matrix(self):
+        if self._hmm_trans is None or True:
+            rs = self.rs
+            ps = np.array([d.p for d in self.dur_distns])
+
+            trans_matrix = np.zeros((rs.sum(),rs.sum()))
+            trans_matrix += np.diag(np.repeat(ps,rs))
+            trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
+            for z in rs[:-1].cumsum():
+                trans_matrix[z-1,z] = 0
+
+            ends = rs.cumsum()
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,na]):
+                if i != j:
+                    trans_matrix[ends[i]-1,starts[j]] = v
+
+            self._hmm_trans = trans_matrix
+
+        return self._hmm_trans
+
+    @property
+    def _trans_matrix_terms(self):
+        # returns diag part and off-diag part of (hmm) trans matrix, along with
+        # lengths
+        rs = self.rs
+        ps = np.array([d.p for d in self.dur_distns])
+        return np.repeat(ps,rs), (1-ps)[:,na] * self.hsmm_trans_matrix, rs
+
+    def E_step(self):
+        raise NotImplementedError
+
+    ### structure-exploiting methods
+
+    def messages_backwards(self):
+        global eigen_path
+        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_messages_backwards')
+
+        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
+        T,M = aBl.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.dur_distns])
+        AT = self.hsmm_trans_matrix.T.copy() * (1-ps)
+
+        superbetal = np.zeros((T,M))
+        betal = np.zeros((T,rtot))
+
+        scipy.weave.inline(hsmm_intnegbin_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','AT','ps','superbetal','betal','aBl','T','M'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        assert not np.isnan(betal).any() and not np.isnan(superbetal).any()
+
+        return betal, superbetal
+
+    def sample_forwards(self,betal,superbetal):
+        global eigen_path
+        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
+
+        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
+        T,M = aBl.shape
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.dur_distns])
+        A = self.hsmm_trans_matrix * (1-ps[:,na])
+        A.flat[::A.shape[0]+1] = ps
+
+        if self.left_censoring:
+            initial_substate = sample_discrete_from_log(np.log(self.pi_0) + betal[0] + aBl[0].repeat(rs))
+            initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
+        else:
+            initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
+            initial_substate = start_indices[initial_superstate]
+
+        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
+                ['betal','superbetal','aBl','stateseq','A','initial_superstate','initial_substate','M','T','ps','rtot','start_indices','end_indices'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
+
+    def maxsum_messages_backwards(self):
+        global eigen_path
+        # these names are dumb
+        hsmm_intnegbin_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_maxsum_messages_backwards')
+
+        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
+        T,M = aBl.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.dur_distns])
+        logps = np.log(ps)
+        log1mps = np.log1p(-ps)
+        Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
+
+        scores = np.zeros((T,rtot))
+        args = np.zeros((T,rtot),dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_maxsum_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','Al','aBl',
+                    'logps','log1mps','scores','args','T','M'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return scores, args
+
+    def maximize_forwards(self,scores,args):
+        global eigen_path
+        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards') # same code as intnegbin
+
+        T,rtot = scores.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        themap = np.arange(self.state_dim).repeat(rs)
+
+        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
+        stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
+        initial_hmm_state = start_indices[stateseq[0]]
+
+        scipy.weave.inline(hsmm_intnegbin_maximize_forwards_codestr,
+                ['T','rtot','themap','scores','args','stateseq','initial_hmm_state'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+
+class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
+    def clear_caches(self):
+        super(HSMMStatesIntegerNegativeBinomial,self).clear_caches()
+        self._binoms = None
+
+    # TODO test
+    @property
+    def binoms(self):
+        raise NotImplementedError, 'theres a bug here' # TODO
+        if self._binoms is None:
+            self._binoms = []
+            for D in self.dur_distns:
+                if 0 < D.p < 1:
+                    arr = stats.binom.pmf(np.arange(D.r),D.r,1.-D.p)
+                    arr[-1] += stats.binom.pmf(D.r,D.r,1.-D.p)
+                else:
+                    arr = np.zeros(D.r)
+                    arr[0] = 1
+                self._binoms.append(arr)
+        return self._binoms
+
+    # TODO test
+    @property
+    def pi_0(self):
+        if not self.left_censoring:
+            rs = self.rs
+            return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        else:
+            return util.top_eigenvector(self.trans_matrix)
+
+    # TODO test
+    @property
+    def trans_matrix(self):
+        if self._hmm_trans is None:
+            rs = self.rs
+            ps = np.array([d.p for d in self.dur_distns])
+
+            trans_matrix = np.zeros((rs.sum(),rs.sum()))
+            trans_matrix += np.diag(np.repeat(ps,rs))
+            trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
+            for z in rs[:-1].cumsum():
+                trans_matrix[z-1,z] = 0
+
+            ends = rs.cumsum()
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            binoms = self.binoms
+            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,na]):
+                if i != j:
+                    trans_matrix[ends[i]-1,starts[j]:ends[j]] = v * binoms[j]
+
+            self._hmm_trans = trans_matrix
+
+        return self._hmm_trans
+
+    # matrix structure-exploiting methods
+
+    def maxsum_messages_backwards(self):
+        global eigen_path
+        # these names are dumb
+        hsmm_intnegbin_nonvariant_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_maxsum_messages_backwards')
+
+        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
+        T,M = aBl.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        end_indices = crs-1
+        rtot = int(crs[-1])
+        ps = np.array([d.p for d in self.dur_distns])
+        logps = np.log(ps)
+        log1mps = np.log1p(-ps)
+        Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
+        binoms = np.log(np.concatenate(self.binoms))
+
+        scores = np.zeros((T,rtot))
+        args = np.zeros((T,rtot),dtype=np.int32)
+
+        scipy.weave.inline(hsmm_intnegbin_nonvariant_maxsum_messages_backwards_codestr,
+                ['start_indices','end_indices','rtot','Al','aBl',
+                    'logps','log1mps','scores','args','T','M','binoms'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        return scores, args
+
+    def maximize_forwards(self,scores,args):
+        global eigen_path
+        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
+
+        T,rtot = scores.shape
+
+        rs = self.rs
+        crs = rs.cumsum()
+        start_indices = np.concatenate(((0,),crs[:-1]))
+        themap = np.arange(self.state_dim).repeat(rs)
+
+        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
+        initial_hmm_state = (np.concatenate(self.binoms) + scores[0] + np.log(self.pi_0) + self.aBl[0]).argmax()
+        stateseq[0] = themap[initial_hmm_state]
+
+        scipy.weave.inline(hsmm_intnegbin_maximize_forwards_codestr,
+                ['T','rtot','themap','scores','args','stateseq','initial_hmm_state'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
+                extra_compile_args=['-O3','-DNDEBUG'])
+
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+
+#################
+#  eigen stuff  #
+#################
+
+# TODO move away from weave, which is not maintained. numba? ctypes? cffi?
+# cython? probably cython or ctypes.
+
+import os
+eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
+eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
+
+codestrs = {}
+def _get_codestr(name):
+    if name not in codestrs:
+        with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
+            codestrs[name] = infile.read()
+    return codestrs[name]
+
+
+####################
+#  NEEDS UPDATING  #
+####################
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this class
     def __init__(self,model,changepoints,*args,**kwargs):
@@ -643,7 +1078,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this 
         self.stateseq = np.zeros(self.T,dtype=np.int32)
         for state, (start,stop) in zip(blockstateseq,self.changepoints):
             self.stateseq[start:stop] = state
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
         return self.stateseq
 
@@ -751,458 +1186,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython): # TODO TODO update this 
         self.stateseq = np.zeros(self.T,dtype=np.int32)
         for state, (start,stop) in zip(blockstateseq,self.changepoints):
             self.stateseq[start:stop] = state
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
+        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
 # NOTE: these only work with iid-like emissions with aBl (that includes
 # autoregressive but not fancier things)
-
-class HSMMStatesGeoApproximation(HSMMStatesPython):
-    def _get_hmm_transition_matrix(self):
-        trunc = self.trunc if self.trunc is not None else self.T
-        state_dim = self.state_dim
-        hmm_A = self.trans_matrix.copy()
-        hmm_A.flat[::state_dim+1] = 0
-        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.dur_distns])
-        assert (thediag < 1).all(), 'truncation is too small!'
-        hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
-        hmm_A.flat[::state_dim+1] = thediag
-        return hmm_A
-
-    def messages_backwards(self):
-        'approximates duration tails at indices > trunc with geometric tails'
-        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
-        trunc = self.trunc if self.trunc is not None else self.T
-        T,state_dim = aDl.shape
-
-        assert trunc > 1
-
-        aBl = self.aBl/self.temp if self.temp is not None else self.aBl
-        hmm_betal = HMMStatesEigen._messages_backwards(self._get_hmm_transition_matrix(),aBl)
-        assert not np.isnan(hmm_betal).any()
-
-        betal = np.zeros((T,state_dim),dtype=np.float64)
-        betastarl = np.zeros_like(betal)
-
-        for t in xrange(T-1,-1,-1):
-            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc)
-                    + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            if t+trunc < T:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
-                        + hmm_betal[t+trunc], out=betastarl[t])
-            if T-t < trunc and self.right_censoring:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
-            np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
-        betal[-1] = 0.
-
-        return betal, betastarl
-
-class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
-    def messages_backwards(self):
-        raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
-        super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
-
-class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
-    # NOTE: I'm secretly an HMMStates first! I just shh
-
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self,*args,**kwargs):
-        HSMMStatesPython.__init__(self,*args,**kwargs)
-
-    def clear_caches(self):
-        HSMMStatesPython.clear_caches(self)
-        self._hmm_trans = None
-        self._rs = None
-        self._hmm_aBl = None
-        # note: we never use aDl or aDsl in this class
-
-    @property
-    def dur_distns(self):
-        return self.model.dur_distns
-
-    @property
-    def hsmm_aBl(self):
-        return super(_HSMMStatesIntegerNegativeBinomialBase,self).aBl
-
-    @property
-    def hsmm_trans_matrix(self):
-        return super(_HSMMStatesIntegerNegativeBinomialBase,self).trans_matrix
-
-    @property
-    def hsmm_pi_0(self):
-        return super(_HSMMStatesIntegerNegativeBinomialBase,self).pi_0
-
-    # the next methods are to override the calls that the parents' methods would
-    # make so that the parent can view us as the effective HMM we are!
-
-    @property
-    def aBl(self):
-        if self._hmm_aBl is None:
-            self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
-        return self._hmm_aBl
-
-    @property
-    def rs(self):
-        if True or self._rs is None: # TODO
-            self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
-        return self._rs
-
-    @abc.abstractproperty
-    def pi_0(self):
-        pass
-
-    @abc.abstractproperty
-    def trans_matrix(self):
-        pass
-
-    # generic implementation, these could be overridden for efficiency
-    # they act like HMMs, and they're probably called from an HMMStates method
-
-    def generate_states(self):
-        ret = HMMStatesEigen.generate_states(self)
-        self._map_states()
-        return ret
-
-    def messages_backwards(self):
-        return self.messages_backwards_hmm()
-
-    def messages_forwards(self):
-        return HMMStatesEigen.messages_forwards(self)
-
-    def sample_forwards(self,betal):
-        return self.sample_forwards_hmm(betal)
-
-    def maxsum_messages_backwards(self):
-        return self.maxsum_messages_backwards_hmm()
-
-    def maximize_forwards(self,scores,args):
-        return self.maximize_forwards_hmm(scores,args)
-
-    def _map_states(self):
-        themap = np.arange(self.state_dim).repeat(self.rs)
-        self.stateseq = themap[self.stateseq]
-        self.stateseq_norep, self.durations = util.rle(self.stateseq) # TODO this truncates on the end!
-
-    ### for testing, ensures calling parent HMM methods
-
-    def Viterbi_hmm(self):
-        scores, args = self.maxsum_messages_backwards_hmm()
-        self.maximize_forwards_hmm(scores,args)
-
-    def messages_backwards_hmm(self):
-        return HMMStatesEigen.messages_backwards(self)
-
-    def sample_forwards_hmm(self,betal):
-        ret = HMMStatesEigen.sample_forwards(self,betal)
-        self._map_states()
-        return ret
-
-    def maxsum_messages_backwards_hmm(self):
-        return HMMStatesEigen.maxsum_messages_backwards(self)
-
-    def maximize_forwards_hmm(self,scores,args):
-        ret = HMMStatesEigen.maximize_forwards(self,scores,args)
-        self.unmapped_stateseq = self.stateseq.copy() # TODO
-        self._map_states()
-        return ret
-
-class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
-    def generate_states(self):
-        ret = super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
-        dur = self.durations[-1]
-        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-        # TODO instead of 3*T, use log_sf
-        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
-        return ret
-
-    @property
-    def pi_0(self):
-        if not self.left_censoring:
-            rs = self.rs
-            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-            pi_0 = np.zeros(rs.sum())
-            pi_0[starts] = self.hsmm_pi_0
-            return pi_0
-        else:
-            return util.top_eigenvector(self.trans_matrix)
-
-    @property
-    def trans_matrix(self):
-        if self._hmm_trans is None: # TODO
-            rs = self.rs
-            ps = np.array([d.p for d in self.dur_distns])
-
-            trans_matrix = np.zeros((rs.sum(),rs.sum()))
-            trans_matrix += np.diag(np.repeat(ps,rs))
-            trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
-            for z in rs[:-1].cumsum():
-                trans_matrix[z-1,z] = 0
-
-            ends = rs.cumsum()
-            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,na]):
-                if i != j:
-                    trans_matrix[ends[i]-1,starts[j]] = v
-
-            self._hmm_trans = trans_matrix
-
-        return self._hmm_trans
-
-    @property
-    def _trans_matrix_terms(self):
-        # returns diag part and off-diag part of (hmm) trans matrix, along with
-        # lengths
-        rs = self.rs
-        ps = np.array([d.p for d in self.dur_distns])
-        return np.repeat(ps,rs), (1-ps)[:,na] * self.hsmm_trans_matrix, rs
-
-    def E_step(self):
-        raise NotImplementedError
-
-    ### structure-exploiting methods
-
-    def messages_backwards(self):
-        global eigen_path
-        hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_messages_backwards')
-
-        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
-        T,M = aBl.shape
-
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        end_indices = crs-1
-        rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.dur_distns])
-        AT = self.hsmm_trans_matrix.T.copy() * (1-ps)
-
-        superbetal = np.zeros((T,M))
-        betal = np.zeros((T,rtot))
-
-        scipy.weave.inline(hsmm_intnegbin_messages_backwards_codestr,
-                ['start_indices','end_indices','rtot','AT','ps','superbetal','betal','aBl','T','M'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        assert not np.isnan(betal).any() and not np.isnan(superbetal).any()
-
-        return betal, superbetal
-
-    def sample_forwards(self,betal,superbetal):
-        global eigen_path
-        hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
-
-        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
-        T,M = aBl.shape
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        end_indices = crs-1
-        rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.dur_distns])
-        A = self.hsmm_trans_matrix * (1-ps[:,na])
-        A.flat[::A.shape[0]+1] = ps
-
-        if self.left_censoring:
-            initial_substate = sample_discrete_from_log(np.log(self.pi_0) + betal[0] + aBl[0].repeat(rs))
-            initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
-        else:
-            initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
-            initial_substate = start_indices[initial_superstate]
-
-        stateseq = np.zeros(T,dtype=np.int32)
-
-        scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
-                ['betal','superbetal','aBl','stateseq','A','initial_superstate','initial_substate','M','T','ps','rtot','start_indices','end_indices'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        self.stateseq_norep, self.durations = util.rle(stateseq)
-        self.stateseq = stateseq
-
-        dur = self.durations[-1]
-        dur_distn = self.dur_distns[self.stateseq_norep[-1]]
-        # TODO instead of 3*T, use log_sf
-        self.durations[-1] += sample_discrete(dur_distn.pmf(np.arange(dur+1,3*self.T))) + 1
-
-    def maxsum_messages_backwards(self):
-        global eigen_path
-        # these names are dumb
-        hsmm_intnegbin_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_maxsum_messages_backwards')
-
-        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
-        T,M = aBl.shape
-
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        end_indices = crs-1
-        rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.dur_distns])
-        logps = np.log(ps)
-        log1mps = np.log1p(-ps)
-        Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
-
-        scores = np.zeros((T,rtot))
-        args = np.zeros((T,rtot),dtype=np.int32)
-
-        scipy.weave.inline(hsmm_intnegbin_maxsum_messages_backwards_codestr,
-                ['start_indices','end_indices','rtot','Al','aBl',
-                    'logps','log1mps','scores','args','T','M'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return scores, args
-
-    def maximize_forwards(self,scores,args):
-        global eigen_path
-        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
-
-        T,rtot = scores.shape
-
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        themap = np.arange(self.state_dim).repeat(rs)
-
-        stateseq = np.empty(T,dtype=np.int32)
-        stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
-        initial_hmm_state = start_indices[stateseq[0]]
-
-        scipy.weave.inline(hsmm_intnegbin_maximize_forwards_codestr,
-                ['T','rtot','themap','scores','args','stateseq','initial_hmm_state'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        self.stateseq = stateseq
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-
-        for state, distn in enumerate(self.model.dur_distns):
-            assert np.all(distn.r <= self.durations[:-1][self.stateseq_norep[:-1] == state])
-
-class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
-    def clear_caches(self):
-        super(HSMMStatesIntegerNegativeBinomial,self).clear_caches()
-        self._binoms = None
-
-    # TODO test
-    @property
-    def binoms(self):
-        if self._binoms is None:
-            self._binoms = []
-            for D in self.dur_distns:
-                if 0 < D.p < 1:
-                    arr = stats.binom.pmf(np.arange(D.r),D.r,1.-D.p)
-                    arr[-1] += stats.binom.pmf(D.r,D.r,1.-D.p)
-                else:
-                    arr = np.zeros(D.r)
-                    arr[0] = 1
-                self._binoms.append(arr)
-        return self._binoms
-
-    # TODO test
-    @property
-    def pi_0(self):
-        if not self.left_censoring:
-            rs = self.rs
-            return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
-        else:
-            return util.top_eigenvector(self.trans_matrix)
-
-    # TODO test
-    @property
-    def trans_matrix(self):
-        if self._hmm_trans is None:
-            rs = self.rs
-            ps = np.array([d.p for d in self.dur_distns])
-
-            trans_matrix = np.zeros((rs.sum(),rs.sum()))
-            trans_matrix += np.diag(np.repeat(ps,rs))
-            trans_matrix += np.diag(np.repeat(1.-ps,rs)[:-1],k=1)
-            for z in rs[:-1].cumsum():
-                trans_matrix[z-1,z] = 0
-
-            ends = rs.cumsum()
-            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-            binoms = self.binoms
-            for (i,j), v in np.ndenumerate(self.hsmm_trans_matrix * (1-ps)[:,na]):
-                if i != j:
-                    trans_matrix[ends[i]-1,starts[j]:ends[j]] = v * binoms[j]
-
-            self._hmm_trans = trans_matrix
-
-        return self._hmm_trans
-
-    # matrix structure-exploiting methods
-
-    def maxsum_messages_backwards(self):
-        global eigen_path
-        # these names are dumb
-        hsmm_intnegbin_nonvariant_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_maxsum_messages_backwards')
-
-        aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
-        T,M = aBl.shape
-
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        end_indices = crs-1
-        rtot = int(crs[-1])
-        ps = np.array([d.p for d in self.dur_distns])
-        logps = np.log(ps)
-        log1mps = np.log1p(-ps)
-        Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
-        binoms = np.log(np.concatenate(self.binoms))
-
-        scores = np.zeros((T,rtot))
-        args = np.zeros((T,rtot),dtype=np.int32)
-
-        scipy.weave.inline(hsmm_intnegbin_nonvariant_maxsum_messages_backwards_codestr,
-                ['start_indices','end_indices','rtot','Al','aBl',
-                    'logps','log1mps','scores','args','T','M','binoms'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return scores, args
-
-    def maximize_forwards(self,scores,args):
-        global eigen_path
-        hsmm_intnegbin_maximize_forwards_codestr = _get_codestr('hsmm_intnegbin_maximize_forwards')
-
-        T,rtot = scores.shape
-
-        rs = self.rs
-        crs = rs.cumsum()
-        start_indices = np.concatenate(((0,),crs[:-1]))
-        themap = np.arange(self.state_dim).repeat(rs)
-
-        stateseq = np.empty(T,dtype=np.int32)
-        initial_hmm_state = (np.concatenate(self.binoms) + scores[0] + np.log(self.pi_0) + self.aBl[0]).argmax()
-        stateseq[0] = themap[initial_hmm_state]
-
-        scipy.weave.inline(hsmm_intnegbin_maximize_forwards_codestr,
-                ['T','rtot','themap','scores','args','stateseq','initial_hmm_state'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        self.stateseq = stateseq
-        self.stateseq_norep, self.durations = util.rle(self.stateseq)
-
-#################
-#  eigen stuff  #
-#################
-
-# TODO move away from weave, which is not maintained. numba? ctypes? cffi?
-# cython? probably cython or ctypes.
-
-import os
-eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3/')
-eigen_code_dir = os.path.join(os.path.dirname(__file__),'cpp_eigen_code/')
-
-codestrs = {}
-def _get_codestr(name):
-    if name not in codestrs:
-        with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
-            codestrs[name] = infile.read()
-    return codestrs[name]
 
