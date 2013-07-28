@@ -15,7 +15,7 @@ from pyhsmm.util.text import progprint_xrange
 #####################
 
 N = 4
-T = 1000
+T = 200
 obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
@@ -36,10 +36,7 @@ truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
                                dur_distns=true_dur_distns)
 
 # Sample data from the true model
-data0, _ = truemodel.generate(T)
-data1, _ = truemodel.generate(T)
-data2, _ = truemodel.generate(T)
-data3, _ = truemodel.generate(T)
+datas = [truemodel.generate(T)[0] for i in range(4)]
 
 # Plot the truth
 plt.figure()
@@ -50,22 +47,17 @@ plt.gcf().suptitle('True HSMM')
 #  parallel inference  #
 ########################
 
-### boilerplate parallel setup: this 'alldata' dict needs to be present on every engine
-parallel.alldata = {0:data0, 1:data1, 2:data2, 3:data3}
-
-from IPython.parallel import Client
-dv = Client()[:]
-dv['alldata'] = parallel.alldata
-
-### building and running the model looks about the same as it usually does
+# building and running the model looks about the same as it usually does
 
 posteriormodel = pyhsmm.models.HSMM(
         alpha=6,gamma=6,init_state_concentration=6.,
         obs_distns=[distns.Gaussian(**obs_hypparams) for state in xrange(N)],
         dur_distns=[distns.PoissonDuration(**dur_hypparams) for state in xrange(N)])
 
-for data_id in parallel.alldata.keys():
-    posteriormodel.add_data_parallel(data_id) # NOTE: add_data_parallel
+for data in datas:
+    posteriormodel.add_data_parallel(data) # NOTE: add_data_parallel
+
+# and so does resampling!
 
 for itr in progprint_xrange(100):
     posteriormodel.resample_model_parallel() # NOTE: resample_model_parallel

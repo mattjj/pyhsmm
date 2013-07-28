@@ -212,10 +212,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     def _resample_states_parallel(self,temp=None):
         import pyhsmm.parallel
         states = self.states_list
-        del self.states_list # removed because we push the global model
-        raw_tuples = pyhsmm.parallel.call_resampler_with_local_data(
-                resampler_fn=self._state_builder,
-                args=[s.data for s in states],
+        self.states_list = [] # removed because we push the global model
+        raw_tuples = pyhsmm.parallel.call_data_fn(
+                fn=self._state_builder,
+                datas=[s.data for s in states],
                 engine_globals=dict(global_model=self,temp=temp),
                 )
         for data, stateseq in raw_tuples:
@@ -463,14 +463,16 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### parallel
 
-    def add_data_parallel(self,data_id,**kwargs):
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
+    def add_data_parallel(self,data,already_loaded=False,**kwargs):
+        import pyhsmm.parallel
+        self.add_data(data=data,**kwargs)
+        pyhsmm.parallel.add_data(data,already_loaded=already_loaded)
 
     def resample_model_parallel(self,numtoresample='all',**kwargs):
         self.resample_dur_distns()
         super(HSMM,self).resample_model_parallel(numtoresample,**kwargs)
+
+    # TODO need to pass trunc, censoring for each state
 
     ### EM
 
@@ -536,37 +538,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 class HSMMEigen(HSMM):
     _states_class = states.HSMMStatesEigen
 
-class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
-    _states_class = states.HSMMStatesPossibleChangepoints
-
-    def add_data(self,data,changepoints,**kwargs):
-        self.states_list.append(
-                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
-
-    def add_data_parallel(self,data_id,**kwargs):
-        raise NotImplementedError # I broke this!
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
-
-    def _build_states_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    changepoints=parallel.allchangepoints[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    def generate(self,T,changepoints,keep=True):
-        raise NotImplementedError
-
-    def log_likelihood(self,data,trunc=None):
-        raise NotImplementedError
-
 class HSMMGeoApproximation(HSMM):
     _states_class = states.HSMMStatesGeoApproximation
 
@@ -612,4 +583,39 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
                    d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
                    for d in dur_distns)
         super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
+
+####################
+#  NEEDS UPDATING  #
+####################
+
+class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
+    _states_class = states.HSMMStatesPossibleChangepoints
+
+    def add_data(self,data,changepoints,**kwargs):
+        self.states_list.append(
+                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
+
+    def add_data_parallel(self,data_id,**kwargs):
+        raise NotImplementedError # I broke this!
+        from pyhsmm import parallel
+        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
+        self.states_list[-1].data_id = data_id
+
+    def _build_states_parallel(self,states_to_resample):
+        from pyhsmm import parallel
+        raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
+        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
+            self.add_data(
+                    data=parallel.alldata[data_id],
+                    changepoints=parallel.allchangepoints[data_id],
+                    stateseq=stateseq,
+                    stateseq_norep=stateseq_norep,
+                    durations=durations)
+            self.states_list[-1].data_id = data_id
+
+    def generate(self,T,changepoints,keep=True):
+        raise NotImplementedError
+
+    def log_likelihood(self,data,trunc=None):
+        raise NotImplementedError
 
