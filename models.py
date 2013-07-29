@@ -227,7 +227,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     @staticmethod
     @util.general.engine_global_namespace # access to engine globals
     def _state_builder(data,**kwargs):
-        # expects globals: global_model, alldata, temp
+        # expects globals: global_model, temp
         global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
         stateseq = global_model.states_list.pop().stateseq
         return dict(stateseq=stateseq,**kwargs)
