@@ -92,7 +92,6 @@ def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
 def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
     # NOTE: destructive means it alters the input array!
     M,N = scores.shape
-    # scores = scores.copy() # TODO remove
     out = np.empty(M,dtype=np.int)
     scipy.weave.inline(
             '''
@@ -100,17 +99,15 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
             using namespace std;
             for (int i=0; i<M; i++) {
                 Map<ArrayXd> vals(scores + i*N,N);
-                vals -= vals.maxCoeff();
                 vals = vals.exp();
-                vals /= vals.sum();
-                double tot = ((float) rand()) / RAND_MAX;
+                double tot = vals.sum() * (((float) rand()) / RAND_MAX);
                 int j;
-                for (j=0; (tot -= vals(j)) > 0; j++) ;
+                for (j=0; j < N && (tot -= vals(j)) > 1e-6; j++) ;
                 out[i] = j;
             }
             ''',
             ['scores','M','N','out'],
-            headers=['<Eigen/Core>','<math.h>'],include_dirs=[eigen_path],
+            headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
             extra_compile_args=['-O3','-DNDEBUG'])
     assert (0 <= out).all() and (out < scores.shape[1]).all()
     return out
