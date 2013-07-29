@@ -185,11 +185,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         parallel.add_data(self._get_parallel_data(self.states_list[-1]),
-                already_loaded=already_loaded)
+                costfunc=self._parallel_costfunc,already_loaded=already_loaded)
 
     def _get_parallel_data(self,states_obj):
         # this method is broken out so that it can be overridden
         return states_obj.data
+
+    @staticmethod
+    def _parallel_costfunc(data):
+        # this method is broken out so that it can be overridden
+        return data.shape[0]
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         import parallel

@@ -38,7 +38,7 @@ def _data_to_id(data):
 def _id_to_data(data_id):
     return _id_to_data_dict[data_id]
 
-def _send_data_to_an_engine(data,costfunc=len):
+def _send_data_to_an_engine(data,costfunc):
     # NOTE: this is basically a one-by-one scatter with an additive parametric
     # cost function treated greedily
     engine_to_send = np.argmin(_get_engine_costs(costfunc))
@@ -64,10 +64,10 @@ def _call_data_fn(f,data_ids_to_resample,kwargs_for_each_data=None):
 
 # interface
 
-def add_data(data,already_loaded,**kwargs):
+def add_data(data,already_loaded=False,costfunc=len,**kwargs):
     if not already_loaded:
         _id_to_data_dict[_data_to_id(data)] = data
-        return _send_data_to_an_engine(data,**kwargs)
+        return _send_data_to_an_engine(data,costfunc=costfunc,**kwargs)
     else:
         # find data on engines (maybe its name should be passed in?), register
         # it with a global id
