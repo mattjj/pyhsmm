@@ -11,15 +11,10 @@ from util.general import engine_global_namespace
 ### setup
 
 c = Client()
-dv = c.direct_view()
-lbv = c.load_balanced_view()
+dv = c[:]
+# lbv = c.load_balanced_view()
 
-dv.push(dict(mydata={}),block=True)
-
-### util
-
-def get_num_engines():
-    return len(dv)
+dv.push(dict(mydata={}))
 
 ### adding and managing data
 
@@ -35,11 +30,11 @@ def _data_to_id(data):
 def _id_to_data(data_id):
     return _id_to_data_dict[data_id]
 
-def _send_data_to_an_engine(data,costfunc=lambda x: len(x)):
+def _send_data_to_an_engine(data,costfunc=len):
     # NOTE: this is basically a one-by-one scatter with an additive parametric
     # cost function treated greedily
     engine_to_send = np.argmin(_get_engine_costs(costfunc))
-    return c[engine_to_send].apply_async(_update_mydata,_data_to_id(data),data)
+    return c[engine_to_send].apply(_update_mydata,_data_to_id(data),data)
 
 @dv.remote(block=True)
 @engine_global_namespace
@@ -51,9 +46,13 @@ def _update_mydata(data_id,data):
     mydata[data_id] = data
 
 @engine_global_namespace
-def _call_data_fn(f,data_ids_to_resample,**kwargs):
-    return [(data_id,f(data,**kwargs)) for data_id, data in mydata.iteritems()
-            if data_id in data_ids_to_resample]
+def _call_data_fn(f,data_ids_to_resample,kwargs_for_each_data=None):
+    if kwargs_for_each_data is None:
+        return [(data_id,f(data))
+                for data_id, data in mydata.iteritems() if data_id in data_ids_to_resample]
+    else:
+        return [(data_id,f(data,**kwargs_for_each_data[data_id]))
+                for data_id, data in mydata.iteritems() if data_id in data_ids_to_resample]
 
 # interface
 
@@ -62,16 +61,25 @@ def add_data(data,already_loaded,**kwargs):
     if not already_loaded:
         return _send_data_to_an_engine(data,**kwargs)
 
-def broadcast_data(data):
-    return dv.apply_async(_update_mydata,_data_to_id(data),data)
+def call_data_fn(fn,datas,kwargss=None,engine_globals=None):
+    assert all(data in _data_to_id_dict for data in datas)
 
-def call_data_fn(fn,datas,engine_globals={},kwargs={}):
-    dv.push(engine_globals,block=False)
+    if engine_globals is not None:
+        dv.push(engine_globals,block=False)
+
     data_ids_to_resample = set(_data_to_id(data) for data in datas)
-    assert all(data_id in _id_to_data_dict for data_id in data_ids_to_resample)
-    results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample,**kwargs)
+
+    if kwargss is None:
+        results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample)
+    else:
+        kwargs_for_each_data = {_data_to_id(data):kwargs for data,kwargs in zip(datas,kwargss)}
+        results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample,kwargs_for_each_data)
+
     c.purge_results('all')
     return [(_id_to_data(data_id),outs) for result in results for data_id, outs in result]
 
+
 # TODO data-everywhere, dynamic load balancing version
+# def broadcast_data(data):
+#     return dv.apply(_update_mydata,_data_to_id(data),data)
 
