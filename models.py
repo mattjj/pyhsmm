@@ -207,6 +207,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self._resample_states_parallel(temp=temp)
 
         ### add back the held-out states
+        # NOTE: this might shuffle the order of states_list from the order in
+        # which data were added if numtoresample != 'all'
         self.states_list.extend(states_to_hold_out)
 
     def _resample_states_parallel(self,temp=None):
@@ -214,19 +216,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         states = self.states_list
         self.states_list = [] # removed because we push the global model
         raw_tuples = pyhsmm.parallel.call_data_fn(
-                fn=self._state_builder,
+                fn=self._state_sampler,
                 datas=[s.data for s in states],
                 engine_globals=dict(global_model=self,temp=temp),
                 )
         for data, dct in raw_tuples:
             self.add_data(data=data,**dct)
 
-    # TODO add _resample_states_parallel_loadbalanced, where ALL data is on EACH
-    # engine so we can use lbv
-
     @staticmethod
     @util.general.engine_global_namespace # access to engine globals
-    def _state_builder(data,**kwargs):
+    def _state_sampler(data,**kwargs):
         # expects globals: global_model, temp
         global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
         stateseq = global_model.states_list.pop().stateseq
@@ -472,7 +471,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         states = self.states_list
         self.states_list = []
         raw_tuples = pyhsmm.parallel.call_data_fn(
-                fn=self._state_builder,
+                fn=self._state_sampler,
                 datas=[s.data for s in states],
                 # NOTE: only real diff from parent is next line
                 kwargss=[dict(trunc=s.trunc,left_censoring=s.left_censoring,

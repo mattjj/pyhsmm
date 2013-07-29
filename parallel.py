@@ -16,6 +16,16 @@ dv = c[:]
 
 dv.push(dict(mydata={}))
 
+### util
+
+def parallel_hash(d):
+    # NOTE: hash value is based on object addresses in memory on the controller,
+    # not data values.
+    if isinstance(d,np.ndarray):
+        return d.__hash__()
+    else:
+        return hash(tuple(map(parallel_hash,d)))
+
 ### adding and managing data
 
 # internals
@@ -23,9 +33,7 @@ dv.push(dict(mydata={}))
 _data_to_id_dict = defaultdict(count().next)
 _id_to_data_dict = {}
 def _data_to_id(data):
-    # NOTE: keyed by object memory address, not values in data
-    # that's so that the same data array can be added multiple times
-    return _data_to_id_dict[data.__hash__()]
+    return _data_to_id_dict[parallel_hash(data)]
 
 def _id_to_data(data_id):
     return _id_to_data_dict[data_id]
@@ -57,12 +65,16 @@ def _call_data_fn(f,data_ids_to_resample,kwargs_for_each_data=None):
 # interface
 
 def add_data(data,already_loaded,**kwargs):
-    _id_to_data_dict[_data_to_id(data)] = data
     if not already_loaded:
+        _id_to_data_dict[_data_to_id(data)] = data
         return _send_data_to_an_engine(data,**kwargs)
+    else:
+        # find data on engines (maybe its name should be passed in?), register
+        # it with a global id
+        raise NotImplementedError
 
 def call_data_fn(fn,datas,kwargss=None,engine_globals=None):
-    assert all(data.__hash__() in _data_to_id_dict for data in datas)
+    assert all(parallel_hash(data) in _data_to_id_dict for data in datas)
     # assert all(data_exists_on_engine(data) for data in datas) # assumes ndarray
 
     if engine_globals is not None:
