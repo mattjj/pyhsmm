@@ -226,6 +226,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 kwargss=self._get_parallel_kwargss(states),
                 engine_globals=dict(global_model=self,temp=temp),
                 )
+        self._add_back_states_from_parallel(raw_tuples)
+
+    def _add_back_states_from_parallel(self,raw_tuples):
+        # this method is broken out so that it can be overridden
         for data, dct in raw_tuples:
             self.add_data(data=data,**dct)
 
