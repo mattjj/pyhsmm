@@ -182,16 +182,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### parallel
 
     def add_data_parallel(self,data,already_loaded=False,**kwargs):
-        import pyhsmm.parallel
+        import parallel
         self.add_data(data=data,**kwargs)
-        pyhsmm.parallel.add_data(data,already_loaded=already_loaded)
+        parallel.add_data(data,already_loaded=already_loaded)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
-        import pyhsmm.parallel
+        import parallel
         if numtoresample == 'all':
             numtoresample = len(self.states_list)
         elif numtoresample == 'engines':
-            numtoresample = pyhsmm.parallel.get_num_engines()
+            numtoresample = parallel.get_num_engines()
 
         ### resample parameters locally
         self.resample_obs_distns()
@@ -212,10 +212,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.states_list.extend(states_to_hold_out)
 
     def _resample_states_parallel(self,temp=None):
-        import pyhsmm.parallel
+        import parallel
         states = self.states_list
         self.states_list = [] # removed because we push the global model
-        raw_tuples = pyhsmm.parallel.call_data_fn(
+        raw_tuples = parallel.call_data_fn(
                 fn=self._state_sampler,
                 datas=[s.data for s in states],
                 engine_globals=dict(global_model=self,temp=temp),
@@ -467,10 +467,10 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         super(HSMM,self).resample_model_parallel(*args,**kwargs)
 
     def _resample_states_parallel(self,temp=None):
-        import pyhsmm.parallel
+        import parallel
         states = self.states_list
         self.states_list = []
-        raw_tuples = pyhsmm.parallel.call_data_fn(
+        raw_tuples = parallel.call_data_fn(
                 fn=self._state_sampler,
                 datas=[s.data for s in states],
                 # NOTE: only real diff from parent is next line
