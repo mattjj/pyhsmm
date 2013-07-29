@@ -218,19 +218,19 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 datas=[s.data for s in states],
                 engine_globals=dict(global_model=self,temp=temp),
                 )
-        for data, stateseq in raw_tuples:
-            self.add_data(data=data,stateseq=stateseq)
+        for data, dct in raw_tuples:
+            self.add_data(data=data,**dct)
 
     # TODO add _resample_states_parallel_loadbalanced, where ALL data is on EACH
     # engine so we can use lbv
 
     @staticmethod
     @util.general.engine_global_namespace # access to engine globals
-    def _state_builder(data):
+    def _state_builder(data,**kwargs):
         # expects globals: global_model, alldata, temp
-        global_model.add_data(data=data,initialize_from_prior=False,temp=temp)
+        global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
         stateseq = global_model.states_list.pop().stateseq
-        return stateseq
+        return dict(stateseq=stateseq,**kwargs)
 
     ### EM
 
@@ -463,16 +463,24 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### parallel
 
-    def add_data_parallel(self,data,already_loaded=False,**kwargs):
-        import pyhsmm.parallel
-        self.add_data(data=data,**kwargs)
-        pyhsmm.parallel.add_data(data,already_loaded=already_loaded)
-
-    def resample_model_parallel(self,numtoresample='all',**kwargs):
+    def resample_model_parallel(self,*args,**kwargs):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(numtoresample,**kwargs)
+        super(HSMM,self).resample_model_parallel(*args,**kwargs)
 
-    # TODO need to pass trunc, censoring for each state
+    def _resample_states_parallel(self,temp=None):
+        import pyhsmm.parallel
+        states = self.states_list
+        self.states_list = []
+        raw_tuples = pyhsmm.parallel.call_data_fn(
+                fn=self._state_builder,
+                datas=[s.data for s in states],
+                # NOTE: only real diff from parent is next line
+                kwargss=[dict(trunc=s.trunc,left_censoring=s.left_censoring,
+                    right_censoring=s.right_censoring) for s in states],
+                engine_globals=dict(global_model=self,temp=temp),
+                )
+        for data, dct in raw_tuples:
+            self.add_data(data,**dct)
 
     ### EM
 

@@ -62,7 +62,8 @@ def add_data(data,already_loaded,**kwargs):
         return _send_data_to_an_engine(data,**kwargs)
 
 def call_data_fn(fn,datas,kwargss=None,engine_globals=None):
-    assert all(data in _data_to_id_dict for data in datas)
+    assert all(data.__hash__() in _data_to_id_dict for data in datas)
+    # assert all(data_exists_on_engine(data) for data in datas) # assumes ndarray
 
     if engine_globals is not None:
         dv.push(engine_globals,block=False)
@@ -74,8 +75,13 @@ def call_data_fn(fn,datas,kwargss=None,engine_globals=None):
     else:
         kwargs_for_each_data = {_data_to_id(data):kwargs for data,kwargs in zip(datas,kwargss)}
         results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample,kwargs_for_each_data)
-
     c.purge_results('all')
+    results = filter(lambda r: len(r) > 0, results)
+
+    assert set(data_ids_to_resample) == \
+            set(data_id for result in results for data_id,_ in result), \
+            "some data did not exist on any engine"
+
     return [(_id_to_data(data_id),outs) for result in results for data_id, outs in result]
 
 
