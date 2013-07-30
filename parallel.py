@@ -10,11 +10,12 @@ from util.general import engine_global_namespace
 
 ### setup
 
-c = Client()
-dv = c[:]
-# lbv = c.load_balanced_view()
+if 'c' not in globals():
+    c = Client()
+    dv = c[:]
+    # lbv = c.load_balanced_view()
 
-dv.push(dict(mydata={}))
+    dv.push(dict(mydata={}))
 
 ### util
 
