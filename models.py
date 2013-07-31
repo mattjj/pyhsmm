@@ -185,14 +185,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(data,costfunc=self._parallel_costfunc)
+            parallel.broadcast_data(data)
         else:
-            parallel.add_data(data,costfunc=self._parallel_costfunc)
-
-    @staticmethod
-    def _parallel_costfunc(data):
-        # this method is broken out so that it can be overridden
-        return data.shape[0]
+            parallel.add_data(data)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         if numtoresample == 'all':
