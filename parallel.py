@@ -85,7 +85,7 @@ def map_on_each(fn,added_datas,kwargss=None,engine_globals=None):
         return f(my_data[data_id],**kwargs)
 
     if engine_globals is not None:
-        dv.push(engine_globals,block=False)
+        dv.push(engine_globals,block=True)
 
     if kwargss is None:
         kwargss = [{} for data in added_datas] # no communication overhead
@@ -110,12 +110,12 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
         return f([my_data[data_id] for data_id in data_ids],**kwargs)
 
     if engine_globals is not None:
-        dv.push(engine_globals,block=False)
+        dv.push(engine_globals,block=True)
 
     results = lbv.map_sync(
             _call,
-            [fn]*len(broadcasted_datas),
-            [[phash(data) for data in broadcasted_datas]]*len(broadcasted_datas),
+            [fn]*len(kwargss),
+            [[phash(data) for data in broadcasted_datas]]*len(kwargss),
             kwargss)
 
     c.purge_results('all')
