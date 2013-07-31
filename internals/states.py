@@ -332,10 +332,29 @@ class HSMMStatesPython(HMMStatesPython):
         self.left_censoring = left_censoring
         self.trunc = trunc
 
-        if stateseq is not None:
-            self.stateseq_norep, self.durations_censored = util.rle(stateseq)
-
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
+
+    def _get_stateseq(self):
+        return self._stateseq
+
+    def _set_stateseq(self,stateseq):
+        self._stateseq = stateseq
+        self._stateseq_norep = None
+        self._durations_censored = None
+
+    stateseq = property(_get_stateseq,_set_stateseq)
+
+    @property
+    def stateseq_norep(self):
+        if self._stateseq_norep is None:
+            self._stateseq_norep, self._durations_censored = util.rle(self.stateseq)
+        return self._stateseq_norep
+
+    @property
+    def durations_censored(self):
+        if self._durations_censored is None:
+            self._stateseq_norep, self._durations_censored = util.rle(self.stateseq)
+        return self._durations_censored
 
     @property
     def durations(self):
@@ -381,7 +400,7 @@ class HSMMStatesPython(HMMStatesPython):
         A = self.trans_matrix
 
         stateseq = np.empty(self.T,dtype=np.int32)
-        durations = []
+        # durations = []
 
         while idx < self.T:
             # sample a state
@@ -389,7 +408,7 @@ class HSMMStatesPython(HMMStatesPython):
             # sample a duration for that state
             duration = self.dur_distns[state].rvs()
             # save everything
-            durations.append(duration)
+            # durations.append(duration)
             stateseq[idx:idx+duration] = state # this can run off the end, that's okay
             # set up next state distribution
             nextstate_distr = A[state,]
@@ -397,7 +416,6 @@ class HSMMStatesPython(HMMStatesPython):
             idx += duration
 
         self.stateseq = stateseq
-        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
 
     ### caching
 
@@ -473,8 +491,6 @@ class HSMMStatesPython(HMMStatesPython):
 
     def copy_sample(self,newmodel):
         new = super(HSMMStatesPython,self).copy_sample(newmodel)
-        new.durations_censored = self.durations_censored.copy()
-        new.stateseq_norep = self.stateseq_norep.copy()
         return new
 
     def sample_forwards(self,betal,betastarl):
@@ -542,8 +558,6 @@ class HSMMStatesPython(HMMStatesPython):
 
             idx += dur
 
-        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
-
     ### plotting
 
     def plot(self,colors_dict=None,**kwargs):
@@ -575,14 +589,14 @@ class HSMMStatesEigen(HSMMStatesPython):
         pi0 = self.pi_0
         aBl = self.aBl / self.temp if self.temp is not None else self.aBl
 
-        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
+        stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_sample_forwards_codestr,
                 ['betal','betastarl','aBl','stateseq','A','pi0','apmf','M','T'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
+        self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
 class HSMMStatesGeoApproximation(HSMMStatesPython):
     def _get_hmm_transition_matrix(self):
@@ -712,7 +726,6 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def _map_states(self):
         themap = np.arange(self.state_dim).repeat(self.rs)
         self.stateseq = themap[self.stateseq]
-        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
 
     ### for testing, ensures calling parent HMM methods
 
@@ -839,14 +852,14 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
             initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
             initial_substate = start_indices[initial_superstate]
 
-        self.stateseq = stateseq = np.zeros(T,dtype=np.int32)
+        stateseq = np.zeros(T,dtype=np.int32)
 
         scipy.weave.inline(hsmm_intnegbin_sample_forwards_codestr,
                 ['betal','superbetal','aBl','stateseq','A','initial_superstate','initial_substate','M','T','ps','rtot','start_indices','end_indices'],
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations_censored = util.rle(stateseq)
+        self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
     def maxsum_messages_backwards(self):
         global eigen_path
@@ -888,7 +901,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         start_indices = np.concatenate(((0,),crs[:-1]))
         themap = np.arange(self.state_dim).repeat(rs)
 
-        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
+        stateseq = np.empty(T,dtype=np.int32)
         stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
         initial_hmm_state = start_indices[stateseq[0]]
 
@@ -897,7 +910,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+        self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def clear_caches(self):
@@ -996,7 +1009,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         start_indices = np.concatenate(((0,),crs[:-1]))
         themap = np.arange(self.state_dim).repeat(rs)
 
-        self.stateseq = stateseq = np.empty(T,dtype=np.int32)
+        stateseq = np.empty(T,dtype=np.int32)
         initial_hmm_state = (np.concatenate(self.binoms) + scores[0] + np.log(self.pi_0) + self.aBl[0]).argmax()
         stateseq[0] = themap[initial_hmm_state]
 
@@ -1005,7 +1018,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
                 headers=['<Eigen/Core>'],include_dirs=[eigen_path],
                 extra_compile_args=['-O3','-DNDEBUG'])
 
-        self.stateseq_norep, self.durations_censored = util.rle(self.stateseq)
+        self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
 #################
 #  eigen stuff  #

@@ -185,15 +185,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(self._get_parallel_data(self.states_list[-1]),
-                    costfunc=self._parallel_costfunc)
+            parallel.broadcast_data(data,costfunc=self._parallel_costfunc)
         else:
-            parallel.add_data(self._get_parallel_data(self.states_list[-1]),
-                    costfunc=self._parallel_costfunc)
-
-    def _get_parallel_data(self,states_obj):
-        # this method is broken out so that it can be overridden
-        return states_obj.data
+            parallel.add_data(data,costfunc=self._parallel_costfunc)
 
     @staticmethod
     def _parallel_costfunc(data):
@@ -234,19 +228,15 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         states = self.states_list
         self.states_list = [] # removed because we push the global model
-        datas = [self._get_parallel_data(s) for s in states]
         raw = parallel.map_on_each(
-                fn=self._state_sampler,
-                added_datas=datas,
+                self._state_sampler,
+                [s.data for s in states],
                 kwargss=self._get_parallel_kwargss(states),
                 engine_globals=dict(global_model=self,temp=temp),
                 )
-        self._add_back_states_from_parallel(datas,raw)
-
-    def _add_back_states_from_parallel(self,datas,raw):
-        # this method is broken out so that it can be overridden
-        for data, dct in zip(datas,raw):
-            self.add_data(data=data,**dct)
+        self.states_list = states
+        for s, stateseq in zip(self.states_list,raw):
+            s.stateseq = stateseq
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -257,8 +247,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     def _state_sampler(data,**kwargs):
         # expects globals: global_model, temp
         global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
-        stateseq = global_model.states_list.pop().stateseq
-        return dict(stateseq=stateseq,**kwargs)
+        return global_model.states_list.pop().stateseq
 
     ### EM
 
