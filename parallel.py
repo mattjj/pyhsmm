@@ -1,7 +1,5 @@
 from __future__ import division
 import numpy as np
-from collections import defaultdict
-from itertools import count
 from IPython.parallel import Client
 
 from util.general import engine_global_namespace
@@ -10,95 +8,121 @@ from util.general import engine_global_namespace
 
 ### setup
 
-if 'c' not in globals():
-    c = Client()
-    dv = c[:]
-    # lbv = c.load_balanced_view()
+c = Client()
+dv = c[:]
+lbv = c.load_balanced_view()
 
-    dv.push(dict(mydata={}))
+dv.push(dict(my_data={},broadcasted_data={}))
+
+# added_data_ids = set()
+# broadcasted_data_ids = set()
 
 ### util
 
-def parallel_hash(d):
-    # NOTE: hash value is based on object addresses in memory on the controller,
-    # not data values.
+def get_num_engines():
+    return len(dv)
+
+def phash(d):
+    'hash based on object address in memory, not data values'
+    assert isinstance(d,np.ndarray) or isinstance(d,tuple)
     if isinstance(d,np.ndarray):
         return d.__hash__()
     else:
-        return hash(tuple(map(parallel_hash,d)))
+        return hash(tuple(map(phash,d)))
+
+def vhash(d):
+    'hash based on data values'
+    assert isinstance(d,np.ndarray) or isinstance(d,tuple)
+    if isinstance(d,np.ndarray):
+        d.flags.writeable = False
+        return hash(d.data)
+    else:
+        return hash(tuple(map(vhash,d)))
 
 ### adding and managing data
 
 # internals
 
-_data_to_id_dict = defaultdict(count().next)
-_id_to_data_dict = {}
-def _data_to_id(data):
-    return _data_to_id_dict[parallel_hash(data)]
+# NOTE: data_id (and everything else that doesn't have to do with preloading) is
+# based on phash, which should only be called on the controller
 
-def _id_to_data(data_id):
-    return _id_to_data_dict[data_id]
-
-def _send_data_to_an_engine(data,costfunc):
-    # NOTE: this is basically a one-by-one scatter with an additive parametric
-    # cost function treated greedily
-    engine_to_send = np.argmin(_get_engine_costs(costfunc))
-    return c[engine_to_send].apply(_update_mydata,_data_to_id(data),data)
+data_residency = {}
 
 @dv.remote(block=True)
 @engine_global_namespace
-def _get_engine_costs(costfunc):
-    return sum([costfunc(d) for d in mydata.values()])
+def get_engine_costs(costfunc):
+    return sum([costfunc(d) for d in my_data.values()])
 
 @engine_global_namespace
-def _update_mydata(data_id,data):
-    mydata[data_id] = data
+def update_my_data(data_id,data):
+    my_data[data_id] = data
 
 @engine_global_namespace
-def _call_data_fn(f,data_ids_to_resample,kwargs_for_each_data=None):
-    if kwargs_for_each_data is None:
-        return [(data_id,f(data))
-                for data_id, data in mydata.iteritems() if data_id in data_ids_to_resample]
-    else:
-        return [(data_id,f(data,**kwargs_for_each_data[data_id]))
-                for data_id, data in mydata.iteritems() if data_id in data_ids_to_resample]
+def update_broadcasted_data(data_id,data):
+    broadcasted_data[data_id] = data
 
 # interface
 
-def add_data(data,already_loaded=False,costfunc=len,**kwargs):
-    if not already_loaded:
-        _id_to_data_dict[_data_to_id(data)] = data
-        return _send_data_to_an_engine(data,costfunc=costfunc,**kwargs)
-    else:
-        # find data on engines (maybe its name should be passed in?), register
-        # it with a global id
-        raise NotImplementedError
+def add_data(data,costfunc=len):
+    # NOTE: this is basically a one-by-one scatter with an additive parametric
+    # cost function treated greedily
+    ph = phash(data)
+    engine_to_send = np.argmin(get_engine_costs(costfunc))
+    data_residency[ph] = engine_to_send
+    return c[engine_to_send].apply(update_my_data,ph,data)
 
-def call_data_fn(fn,datas,kwargss=None,engine_globals=None):
-    assert all(parallel_hash(data) in _data_to_id_dict for data in datas)
-    # assert all(data_exists_on_engine(data) for data in datas) # assumes ndarray
+def broadcast_data(data):
+    ph = phash(data)
+    return dv.apply(update_my_data,ph,data)
+
+
+def register_added_data(data):
+    raise NotImplementedError # TODO
+
+def register_broadcasted_data(data):
+    raise NotImplementedError # TODO
+
+
+def map_on_each(fn,added_datas,kwargss=None,engine_globals=None):
+    @engine_global_namespace
+    def _call(f,data_id,**kwargs):
+        return f(my_data[data_id],**kwargs)
 
     if engine_globals is not None:
         dv.push(engine_globals,block=False)
 
-    data_ids_to_resample = set(_data_to_id(data) for data in datas)
-
     if kwargss is None:
-        results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample)
-    else:
-        kwargs_for_each_data = {_data_to_id(data):kwargs for data,kwargs in zip(datas,kwargss)}
-        results = dv.apply_sync(_call_data_fn,fn,data_ids_to_resample,kwargs_for_each_data)
+        kwargss = [{} for data in added_datas] # no communication overhead
+
+    indata = [(phash(data),data,kwargs) for data,kwargs in zip(added_datas,kwargss)]
+    ars = [c[data_residency[data_id]].apply_async(_call,fn,data_id,**kwargs)
+                    for data_id, data, kwargs in indata]
+    dv.wait(ars)
+    results = [ar.get() for ar in ars]
+
     c.purge_results('all')
-    results = filter(lambda r: len(r) > 0, results)
 
-    assert set(data_ids_to_resample) == \
-            set(data_id for result in results for data_id,_ in result), \
-            "some data did not exist on any engine"
+    return results
 
-    return [(_id_to_data(data_id),outs) for result in results for data_id, outs in result]
+def map_on_each_broadcasted(fn,broadcasted_datas,kwargss=None,engine_globals=None):
+    raise NotImplementedError # TODO lbv version
 
+def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
+    # one call for each element of kwargss
+    @engine_global_namespace
+    def _call(f,data_ids,kwargs):
+        return f([my_data[data_id] for data_id in data_ids],**kwargs)
 
-# TODO data-everywhere, dynamic load balancing version
-# def broadcast_data(data):
-#     return dv.apply(_update_mydata,_data_to_id(data),data)
+    if engine_globals is not None:
+        dv.push(engine_globals,block=False)
+
+    results = lbv.map_sync(
+            _call,
+            [fn]*len(broadcasted_datas),
+            [[phash(data) for data in broadcasted_datas]]*len(broadcasted_datas),
+            kwargss)
+
+    c.purge_results('all')
+
+    return results
 

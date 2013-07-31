@@ -181,11 +181,11 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### parallel
 
-    def add_data_parallel(self,data,already_loaded=False,**kwargs):
+    def add_data_parallel(self,data,**kwargs):
         import parallel
         self.add_data(data=data,**kwargs)
         parallel.add_data(self._get_parallel_data(self.states_list[-1]),
-                costfunc=self._parallel_costfunc,already_loaded=already_loaded)
+                costfunc=self._parallel_costfunc)
 
     def _get_parallel_data(self,states_obj):
         # this method is broken out so that it can be overridden
@@ -197,10 +197,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         return data.shape[0]
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
-        import parallel
         if numtoresample == 'all':
             numtoresample = len(self.states_list)
         elif numtoresample == 'engines':
+            import parallel
             numtoresample = parallel.get_num_engines()
 
         ### resample parameters locally
@@ -225,17 +225,18 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         states = self.states_list
         self.states_list = [] # removed because we push the global model
-        raw_tuples = parallel.call_data_fn(
+        datas = [self._get_parallel_data(s) for s in states]
+        raw = parallel.map_on_each(
                 fn=self._state_sampler,
-                datas=[self._get_parallel_data(s) for s in states],
+                added_datas=datas,
                 kwargss=self._get_parallel_kwargss(states),
                 engine_globals=dict(global_model=self,temp=temp),
                 )
-        self._add_back_states_from_parallel(raw_tuples)
+        self._add_back_states_from_parallel(datas,raw)
 
-    def _add_back_states_from_parallel(self,raw_tuples):
+    def _add_back_states_from_parallel(self,datas,raw):
         # this method is broken out so that it can be overridden
-        for data, dct in raw_tuples:
+        for data, dct in zip(datas,raw):
             self.add_data(data=data,**dct)
 
     def _get_parallel_kwargss(self,states_objs):
