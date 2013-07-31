@@ -12,10 +12,7 @@ c = Client()
 dv = c[:]
 lbv = c.load_balanced_view()
 
-dv.push(dict(my_data={},broadcasted_data={}))
-
-# added_data_ids = set()
-# broadcasted_data_ids = set()
+dv.push(dict(my_data={}))
 
 ### util
 
@@ -47,19 +44,11 @@ def vhash(d):
 # based on phash, which should only be called on the controller
 
 data_residency = {}
-
-@dv.remote(block=True)
-@engine_global_namespace
-def get_engine_costs(costfunc):
-    return sum([costfunc(d) for d in my_data.values()])
+costs = np.zeros(len(dv))
 
 @engine_global_namespace
 def update_my_data(data_id,data):
     my_data[data_id] = data
-
-@engine_global_namespace
-def update_broadcasted_data(data_id,data):
-    broadcasted_data[data_id] = data
 
 # interface
 
@@ -67,13 +56,20 @@ def add_data(data,costfunc=len):
     # NOTE: this is basically a one-by-one scatter with an additive parametric
     # cost function treated greedily
     ph = phash(data)
-    engine_to_send = np.argmin(get_engine_costs(costfunc))
+    engine_to_send = np.argmin(costs)
     data_residency[ph] = engine_to_send
-    return c[engine_to_send].apply(update_my_data,ph,data)
+    costs[engine_to_send] += costfunc(data)
+    return c[engine_to_send].apply_async(update_my_data,ph,data)
 
-def broadcast_data(data):
+def broadcast_data(data,costfunc=len):
     ph = phash(data)
-    return dv.apply(update_my_data,ph,data)
+    # sets data residency so that other functions can be used (one engine,
+    # chosen by greedy static balancing, has responsibility)
+    # NOTE: not blocking above assumes linear cost function
+    engine_to_send = np.argmin(costs)
+    data_residency[ph] = engine_to_send
+    costs[engine_to_send] += costfunc(data)
+    return dv.apply_async(update_my_data,ph,data)
 
 
 def register_added_data(data):

@@ -181,11 +181,15 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### parallel
 
-    def add_data_parallel(self,data,**kwargs):
+    def add_data_parallel(self,data,broadcast=False,**kwargs):
         import parallel
         self.add_data(data=data,**kwargs)
-        parallel.add_data(self._get_parallel_data(self.states_list[-1]),
-                costfunc=self._parallel_costfunc)
+        if broadcast:
+            parallel.broadcast_data(self._get_parallel_data(self.states_list[-1]),
+                    costfunc=self._parallel_costfunc)
+        else:
+            parallel.add_data(self._get_parallel_data(self.states_list[-1]),
+                    costfunc=self._parallel_costfunc)
 
     def _get_parallel_data(self,states_obj):
         # this method is broken out so that it can be overridden
@@ -201,10 +205,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             numtoresample = len(self.states_list)
         elif numtoresample == 'engines':
             import parallel
-            numtoresample = parallel.get_num_engines()
+            numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
         ### resample parameters locally
-        self.resample_obs_distns()
+        self.resample_obs_distns_parallel()
         self.resample_trans_distn()
         self.resample_init_state_distn()
 
@@ -220,6 +224,11 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # NOTE: this might shuffle the order of states_list from the order in
         # which data were added if numtoresample != 'all'
         self.states_list.extend(states_to_hold_out)
+
+    def resample_obs_distns_parallel(self):
+        # this method is broken out so that it can be overridden
+        # data probably needs to be broadcasted to resample in parallel
+        self.resample_obs_distns()
 
     def resample_states_parallel(self,temp=None):
         import parallel
