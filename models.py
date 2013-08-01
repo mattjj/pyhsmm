@@ -76,10 +76,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal = s.messages_backwards()
             return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
         else:
-            betastarls = np.vstack([s.messages_backwards()[0] + s.aBl[0]
+            initials = np.vstack([
+                s.messages_backwards()[0] + s.aBl[0] + np.log(s.pi_0)
                 for s in self.states_list])
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0)
-                                            + betastarls,axis=1).sum()
+            return np.logaddexp.reduce(initials,axis=1).sum()
 
     def predictive_likelihoods(self,test_data,forecast_horizons):
         s = self._states_class(model=self,data=np.asarray(test_data),
@@ -439,11 +439,18 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             trunc=trunc,
             **kwargs))
 
-    def log_likelihood(self,data,trunc=None,**kwargs):
-        s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
-                stateseq=np.zeros(len(data)),**kwargs)
-        betal, _ = s.messages_backwards()
-        return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
+    def log_likelihood(self,data=None,trunc=None,**kwargs):
+        # NOTE: this only works with iid emissions
+        if data is not None:
+            s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
+                    stateseq=np.zeros(len(data)),**kwargs)
+            betal, _ = s.messages_backwards()
+            return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
+        else:
+            initials = np.vstack([
+                s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
+                for s in self.states_list])
+            return np.logaddexp.reduce(initials,axis=1).sum()
 
     ### generation
 

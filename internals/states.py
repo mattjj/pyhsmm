@@ -81,6 +81,7 @@ class HMMStatesPython(object):
 
     def clear_caches(self):
         self._aBl = None
+        self._betal = None
 
     @property
     def aBl(self):
@@ -106,8 +107,11 @@ class HMMStatesPython(object):
         return betal
 
     def messages_backwards(self):
+        if self._betal is not None:
+            return self._betal
         aBl = self.aBl/self.temp if self.temp is not None else self.aBl
-        return self._messages_backwards(self.trans_matrix,aBl)
+        self._betal = self._messages_backwards(self.trans_matrix,aBl)
+        return self._betal
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
@@ -423,6 +427,7 @@ class HSMMStatesPython(HMMStatesPython):
         self.temp = 1
         self._aDl = None
         self._aDsl = None
+        self._betal, self._betastarl = None, None
         super(HSMMStatesPython,self).clear_caches()
 
     @property
@@ -450,6 +455,9 @@ class HSMMStatesPython(HMMStatesPython):
     ### message passing
 
     def messages_backwards(self):
+        if self._betal is not None and self._betastarl is not None:
+            return self._betal, self._betastarl
+
         aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
         T,state_dim = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
@@ -463,6 +471,8 @@ class HSMMStatesPython(HMMStatesPython):
                 np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
             np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
         betal[-1] = 0.
+
+        self._betal, self._betastarl = betal, betastarl
 
         return betal, betastarl
 
@@ -753,6 +763,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
     def clear_caches(self):
         super(HSMMStatesIntegerNegativeBinomialVariant,self).clear_caches()
         self._hmm_trans = None
+        self._betal, self._superbetal = None, None
 
     def generate_states(self):
         return super(HSMMStatesIntegerNegativeBinomialVariant,self).generate_states()
@@ -804,6 +815,9 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
     ### structure-exploiting methods
 
     def messages_backwards(self):
+        if self._betal is not None and self._superbetal is not None:
+            return self._betal, self._superbetal
+
         global eigen_path
         hsmm_intnegbin_messages_backwards_codestr = _get_codestr('hsmm_intnegbinvariant_messages_backwards')
 
@@ -827,6 +841,8 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         assert not np.isnan(betal).any() and not np.isnan(superbetal).any()
+
+        self._betal, self._superbetal = betal, superbetal
 
         return betal, superbetal
 
