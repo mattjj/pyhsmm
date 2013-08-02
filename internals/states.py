@@ -699,7 +699,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     @property
     def rs(self):
         if True or self._rs is None or True: # TODO
-            self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int)
+            self._rs = np.array([d.r for d in self.dur_distns],dtype=np.int32)
         return self._rs
 
     @abc.abstractproperty
