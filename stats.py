@@ -68,14 +68,14 @@ def cov(a):
 
 ### Sampling functions
 
-def sample_discrete(distn,size=[],dtype=np.int):
+def sample_discrete(distn,size=[],dtype=np.int32):
     'samples from a one-dimensional finite pmf'
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
-def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
+def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
     'samples log probability array along specified axis'
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
     thesize = np.array(p_log.shape)
