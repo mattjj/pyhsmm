@@ -99,7 +99,7 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
             using namespace std;
             for (int i=0; i<M; i++) {
                 Map<ArrayXd> vals(scores + i*N,N);
-                vals = vals.exp();
+                vals = (vals - vals.maxCoeff()).exp();
                 double tot = vals.sum() * (((float) rand()) / RAND_MAX);
                 int j;
                 for (j=0; j < N && (tot -= vals(j)) > 1e-6; j++) ;
