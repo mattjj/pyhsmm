@@ -669,7 +669,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         # note: we never use aDl or aDsl in this class
 
     def copy_sample(self,*args,**kwargs):
-        return HSMMStatesPython.copy_sample(*args,**kwargs)
+        return HSMMStatesPython.copy_sample(self,*args,**kwargs)
 
     @property
     def dur_distns(self):
