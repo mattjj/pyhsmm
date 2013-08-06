@@ -585,20 +585,8 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
 class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
 
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRVariantDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRVariantDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBinVariant,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
-
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
-
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
 
 ####################
 #  NEEDS UPDATING  #
