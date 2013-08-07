@@ -76,6 +76,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal = s.messages_backwards()
             return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0] + s.aBl[0] + np.log(s.pi_0)
                 for s in self.states_list])
@@ -149,6 +151,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
+        self._last_resample_used_temp = temp is not None and temp != 1
         self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -447,6 +450,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal, _ = s.messages_backwards()
             return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
         else:
+            if self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
@@ -572,6 +577,8 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
                     stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
             return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
             return np.logaddexp.reduce(all_initials,axis=1).sum()
