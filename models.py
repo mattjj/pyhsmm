@@ -83,9 +83,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 for s in self.states_list])
             return np.logaddexp.reduce(initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         cmaxes = alphal.max(axis=1)
@@ -108,9 +109,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         return outs
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         outs = []
@@ -583,11 +585,11 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
                 for s in self.states_list])
             return np.logaddexp.reduce(all_initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
-        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons,**kwargs)
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
-        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens) # TODO improve speed
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
+        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens,**kwargs)
 
 class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
