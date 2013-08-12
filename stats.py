@@ -144,13 +144,13 @@ def sample_mniw(dof,lmbda,M,K):
 ### Entropy
 def invwishart_entropy(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - 2*np.log(chol.diagonal()).sum()
     return invwishart_log_partitionfunction(sigma,nu,chol)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
 
 def invwishart_log_partitionfunction(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     return -1*(nu*np.log(chol.diagonal()).sum() - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
             + special.gammaln((nu-np.arange(D))/2).sum()))
 
