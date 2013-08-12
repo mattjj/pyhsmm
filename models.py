@@ -76,14 +76,17 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal = s.messages_backwards()
             return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0] + s.aBl[0] + np.log(s.pi_0)
                 for s in self.states_list])
             return np.logaddexp.reduce(initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         cmaxes = alphal.max(axis=1)
@@ -106,9 +109,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         return outs
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         outs = []
@@ -149,6 +153,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
+        self._last_resample_used_temp = temp is not None and temp != 1
         self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -447,6 +452,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal, _ = s.messages_backwards()
             return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
         else:
+            if self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
@@ -572,33 +579,23 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
                     stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
             return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
             return np.logaddexp.reduce(all_initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
-        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons,**kwargs)
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
-        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens) # TODO improve speed
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
+        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens,**kwargs)
 
 class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
 
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRVariantDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRVariantDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBinVariant,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
-
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
-
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
 
 ####################
 #  NEEDS UPDATING  #
