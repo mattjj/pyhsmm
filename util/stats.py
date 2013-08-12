@@ -72,14 +72,14 @@ def cov(a):
 
 ### Sampling functions
 
-def sample_discrete(distn,size=[],dtype=np.int):
+def sample_discrete(distn,size=[],dtype=np.int32):
     'samples from a one-dimensional finite pmf'
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
     return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
-def sample_discrete_from_log(p_log,axis=0,dtype=np.int):
+def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
     'samples log probability array along specified axis'
     cumvals = np.exp(p_log - np.expand_dims(p_log.max(axis),axis)).cumsum(axis) # cumlogaddexp
     thesize = np.array(p_log.shape)
@@ -171,13 +171,13 @@ def sample_mniw(dof,lmbda,M,K):
 ### Entropy
 def invwishart_entropy(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - 2*np.log(chol.diagonal()).sum()
     return invwishart_log_partitionfunction(sigma,nu,chol)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
 
 def invwishart_log_partitionfunction(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     return -1*(nu*np.log(chol.diagonal()).sum() - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
             + special.gammaln((nu-np.arange(D))/2).sum()))
 

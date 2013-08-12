@@ -3,28 +3,14 @@ import numpy as np
 import scipy.linalg
 import copy, itertools, collections
 
-### these are significantly faster than the wrappers provided in scipy.linalg
-potrs, potrf, trtrs = scipy.linalg.lapack.get_lapack_funcs(('potrs','potrf','trtrs'),arrays=False) # arrays=false means type=d
-
 def solve_psd(A,b,overwrite_b=False,overwrite_A=False,chol=None):
-    assert A.dtype == b.dtype == np.float64
     if chol is None:
-        chol = potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
-    return potrs(chol,b,lower=0,overwrite_b=overwrite_b)[0]
-
-def cholesky(A,overwrite_A=False):
-    assert A.dtype == np.float64
-    return potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
-
-def solve_triangular(L,b,overwrite_b=False):
-    assert L.dtype == b.dtype == np.float64
-    return trtrs(L,b,lower=0,trans=1,overwrite_b=overwrite_b)[0]
+        chol = np.linalg.cholesky(A)
+    return scipy.linalg.solve_triangular(A,b,lower=True,overwrite_b=overwrite_b)
 
 def solve_chofactor_system(A,b,overwrite_b=False,overwrite_A=False):
-    assert A.dtype == b.dtype == np.float64
-    L = cholesky(A,overwrite_A=overwrite_A)
-    return solve_triangular(L,b,overwrite_b=overwrite_b), L
-
+    L = np.linalg.cholesky(A)
+    return scipy.linalg.solve_triangular(L,b,overwrite_b=overwrite_b,lower=True), L
 
 def interleave(*iterables):
     return list(itertools.chain.from_iterable(zip(*iterables)))
@@ -172,3 +158,5 @@ def engine_global_namespace(f):
     f.__module__ = '__main__'
     return f
 
+=======
+>>>>>>> a40871de94563fcd07056ba5eb22c266bb5369d2
