@@ -158,5 +158,3 @@ def engine_global_namespace(f):
     f.__module__ = '__main__'
     return f
 
-=======
->>>>>>> a40871de94563fcd07056ba5eb22c266bb5369d2

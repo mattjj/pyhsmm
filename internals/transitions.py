@@ -7,7 +7,7 @@ np.seterr(invalid='raise')
 import operator
 import copy
 
-from ..basic.distributions import DirGamma
+from ..basic.distributions import GammaCompoundDirichlet
 from ..util.general import rle
 
 ##########
@@ -22,8 +22,8 @@ from ..util.general import rle
 
 class ConcentrationResampling(object):
     def __init__(self,state_dim,alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
-        self.gamma_obj = DirGamma(state_dim,gamma_a_0,gamma_b_0)
-        self.alpha_obj = DirGamma(state_dim,alpha_a_0,alpha_b_0)
+        self.gamma_obj = GammaCompoundDirichlet(state_dim,gamma_a_0,gamma_b_0)
+        self.alpha_obj = GammaCompoundDirichlet(state_dim,alpha_a_0,alpha_b_0)
 
     def resample(self):
         # multiply by state_dim because the trans objects divide by it (since
