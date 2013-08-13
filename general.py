@@ -8,10 +8,6 @@ def solve_psd(A,b,overwrite_b=False,overwrite_A=False,chol=None):
         chol = np.linalg.cholesky(A)
     return scipy.linalg.solve_triangular(A,b,lower=True,overwrite_b=overwrite_b)
 
-def solve_chofactor_system(A,b,overwrite_b=False,overwrite_A=False):
-    L = np.linalg.cholesky(A)
-    return scipy.linalg.solve_triangular(L,b,overwrite_b=overwrite_b,lower=True), L
-
 def interleave(*iterables):
     return list(itertools.chain.from_iterable(zip(*iterables)))
 
