@@ -187,9 +187,10 @@ def multivariate_t_loglik(y,nu,mu,lmbda):
     # returns the log value
     d = len(mu)
     yc = np.array(y-mu,ndmin=2)
-    ys, LT = general.solve_chofactor_system(lmbda,yc.T,overwrite_b=True)
+    L = np.linalg.cholesky(lmbda)
+    ys = scipy.linalg.solve_triangular(L,yc.T,overwrite_b=True,lower=True)
     return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) \
-            - (d/2.)*np.log(nu*np.pi) - np.log(LT.diagonal()).sum() \
+            - (d/2.)*np.log(nu*np.pi) - np.log(L.diagonal()).sum() \
             - (nu+d)/2.*np.log1p(1./nu*inner1d(ys.T,ys.T))
 
 def beta_predictive(priorcounts,newcounts):
