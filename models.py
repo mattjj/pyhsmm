@@ -121,7 +121,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True):
-        tempstates = self._states_class(self,T=T,initialize_from_prior=True)
+        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -455,7 +455,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True,**kwargs):
-        tempstates = self._states_class(self,T=T,initialize_from_prior=True,**kwargs)
+        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True,**kwargs)
         return self._generate(tempstates,keep)
 
     ### Gibbs sampling
