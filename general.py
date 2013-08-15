@@ -3,10 +3,16 @@ import numpy as np
 import scipy.linalg
 import copy, itertools, collections
 
-def solve_psd(A,b,overwrite_b=False,overwrite_A=False,chol=None):
-    if chol is None:
-        chol = np.linalg.cholesky(A)
-    return scipy.linalg.solve_triangular(A,b,lower=True,overwrite_b=overwrite_b)
+def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
+    if A.shape[0] < 5000 and chol is None:
+        return np.linalg.solve(A,b)
+    else:
+        if chol is None:
+            chol = np.linalg.cholesky(A)
+        return scipy.linalg.solve_triangular(
+                chol.T,
+                scipy.linalg.solve_triangular(chol,b,lower=True,overwrite_b=overwrite_b),
+                lower=False,overwrite_b=True)
 
 def interleave(*iterables):
     return list(itertools.chain.from_iterable(zip(*iterables)))
