@@ -299,6 +299,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
+    @property
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
 
@@ -516,6 +517,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
+    @property
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) \
                 + sum(d.num_parameters() for d in self.dur_distns) \
