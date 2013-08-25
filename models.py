@@ -9,12 +9,11 @@ import basic.distributions
 from internals import states, initial_state, transitions
 import util.general
 
-# TODO TODO treat right censoring like left censoring (and pass as explicit
-# truncation to tudration resample method)
+# TODO rename state_dim to num_states.
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
-# TODO generate_obs should be here, not in states.py
+# TODO generate_obs should be here, not in states.py. maybe.
 
 class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     _states_class = states.HMMStatesPython

@@ -169,11 +169,18 @@ class HMMStatesPython(object):
     def E_step(self):
         alphal = self.alphal = self.messages_forwards()
         betal = self.betal = self.messages_backwards()
-        expectations = self.expectations = alphal + betal
+        aBl = self.aBl
+        Al = np.log(self.trans_matrix)
 
+        expectations = self.expectations = alphal + betal
         expectations -= expectations.max(1)[:,na]
         np.exp(expectations,out=expectations)
         expectations /= expectations.sum(1)[:,na]
+
+        pairwise_expectations = alphal[:-1,:,na] + (betal[1:,na,:] + aBl[1:,na,:]) + Al[na,...]
+        pairwise_expectations -= pairwise_expectations.max((1,2))[:,na,na]
+        np.exp(pairwise_expectations,out=pairwise_expectations)
+        pairwise_expectations /= pairwise_expectations.sum((1,2))[:,na,na]
 
         self.stateseq = expectations.argmax(1)
 

@@ -160,3 +160,11 @@ def engine_global_namespace(f):
     f.__module__ = '__main__'
     return f
 
+def count_transitions(stateseq,minlength=None):
+    if minlength is None:
+        minlength = stateseq.max() + 1
+    out = np.zeros((minlength,minlength),dtype=np.int32)
+    for a,b in itertools.izip(stateseq[:-1],stateseq[1:]):
+        out[a,b] += 1
+    return out
+
