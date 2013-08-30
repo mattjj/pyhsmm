@@ -273,8 +273,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
 
-    def Viterbi_EM_fit(self):
-        return self.MAP_EM_fit()
+    def Viterbi_EM_fit(self, tol=0.1, maxiter=20):
+        return self.MAP_EM_fit(tol, maxiter)
 
     def MAP_EM_step(self):
         return self.Viterbi_EM_step()
