@@ -54,7 +54,7 @@ obs_distns = \
 dur_distns = \
         [pyhsmm.distributions.NegativeBinomialIntegerRVariantDuration(
             np.r_[0,0,0,0,0,1.,1.,1.], # discrete distribution uniform over {6,7,8}
-            9,1, # average geometric success probability 1/(9+1)
+            alpha_0=9,beta_0=1, # average geometric success probability 1/(9+1)
             ) for state in range(Nmax)]
 
 model  = pyhsmm.models.HSMMIntNegBinVariant(
@@ -85,3 +85,4 @@ plt.figure()
 model.plot()
 
 plt.show()
+

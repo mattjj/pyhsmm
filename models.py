@@ -453,7 +453,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal, _ = s.messages_backwards()
             return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
         else:
-            if self._last_resample_used_temp:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
                 self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
