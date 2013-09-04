@@ -73,7 +73,7 @@ def sample_discrete(distn,size=[],dtype=np.int32):
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
-    return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
+    return np.sum(np.array(random(size))[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
     'samples log probability array along specified axis'
