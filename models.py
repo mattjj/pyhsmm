@@ -65,6 +65,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         'a convenient reference to the state sequence arrays'
         return [s.stateseq for s in self.states_list]
 
+    @property
+    def Viterbi_stateseqs(self):
+        current_stateseqs = [s.stateseq for s in self.states_list]
+        for s in self.states_list:
+            s.Viterbi()
+        ret = [s.stateseq for s in self.states_list]
+        for s,seq in zip(self.states_list,current_stateseqs):
+            s.stateseq = seq
+        return ret
+
     def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
