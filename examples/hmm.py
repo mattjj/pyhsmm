@@ -86,3 +86,4 @@ posteriormodel.plot()
 plt.gcf().suptitle('Sticky HDP-HMM sampled model after 100 iterations')
 
 plt.show()
+

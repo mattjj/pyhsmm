@@ -109,7 +109,7 @@ class HMMStatesPython(object):
     def messages_backwards(self):
         if self._betal is not None:
             return self._betal
-        aBl = self.aBl/self.temp if self.temp is not None else self.aBl
+        aBl = self.aBl/self.temp if hasattr(self,'temp') and self.temp is not None else self.aBl
         self._betal = self._messages_backwards(self.trans_matrix,aBl)
         return self._betal
 

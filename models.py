@@ -63,6 +63,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         'a convenient reference to the state sequence arrays'
         return [s.stateseq for s in self.states_list]
 
+    @property
+    def Viterbi_stateseqs(self):
+        current_stateseqs = [s.stateseq for s in self.states_list]
+        for s in self.states_list:
+            s.Viterbi()
+        ret = [s.stateseq for s in self.states_list]
+        for s,seq in zip(self.states_list,current_stateseqs):
+            s.stateseq = seq
+        return ret
+
     def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
@@ -271,8 +281,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood(None,[s.expected_transcounts for s in self.states_list])
 
-    def Viterbi_EM_fit(self):
-        return self.MAP_EM_fit()
+    def Viterbi_EM_fit(self, tol=0.1, maxiter=20):
+        return self.MAP_EM_fit(tol, maxiter)
 
     def MAP_EM_step(self):
         return self.Viterbi_EM_step()
@@ -445,7 +455,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal, _ = s.messages_backwards()
             return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
         else:
-            if self._last_resample_used_temp:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
                 self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
