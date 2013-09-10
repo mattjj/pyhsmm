@@ -61,7 +61,8 @@ class HMMTransitions(object):
     ### max likelihood
 
     def max_likelihood(self,stateseqs=None,expected_transcounts=None):
-        trans_counts = sum(expected_transcounts) or self._count_transitions(stateseqs)
+        trans_counts = sum(expected_transcounts) if stateseqs is None \
+                else self._count_transitions(stateseqs)
 
         # could just call max_likelihood on each trans row, but this way it
         # handles a few lazy-initialization cases (e.g. if _row_distns aren't

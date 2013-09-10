@@ -9,7 +9,7 @@ import basic.distributions
 from internals import states, initial_state, transitions
 import util.general
 
-# TODO think about factoring out base classes for HMMs and HSMMs
+# TODO factor out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
 # TODO generate_obs should be here, not in states.py. maybe.
@@ -269,7 +269,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
-        self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
+        self.trans_distn.max_likelihood(None,[s.expected_transcounts for s in self.states_list])
 
     def Viterbi_EM_fit(self):
         return self.MAP_EM_fit()
