@@ -6,36 +6,31 @@ from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
 class InitialState(Categorical):
-    def __init__(self,state_dim,rho,pi_0=None):
-        super(InitialState,self).__init__(alpha_0=rho,K=state_dim,weights=pi_0)
+    def __init__(self,num_states=None,rho=None,pi_0=None):
+        super(InitialState,self).__init__(alpha_0=rho,K=num_states,weights=pi_0)
 
     @property
     def pi_0(self):
         return self.weights
 
 class StartInZero(GibbsSampling,MaxLikelihood):
-    def __init__(self,state_dim,**kwargs):
-        self.pi_0 = np.zeros(state_dim)
+    def __init__(self,num_states,**kwargs):
+        self.pi_0 = np.zeros(num_states)
         self.pi_0[0] = 1.
+
+    @property
+    def params(self):
+        return dict(pi_0=self.pi_0)
+
+    @property
+    def hypparams(self):
+        return dict()
 
     def resample(self,init_states=np.array([])):
         pass
 
     def rvs(self,size=[]):
         return np.zeros(size)
-
-    def max_likelihood(*args,**kwargs):
-        pass
-
-class Uniform(GibbsSampling,MaxLikelihood):
-    def __init__(self,state_dim,**kwargs):
-        self.pi_0 = np.ones(state_dim)
-
-    def resample(self,init_states=np.array([])):
-        pass
-
-    def rvs(self,size=[]):
-        return np.random.random_integers(self.pi_0.shape[0],size=size)
 
     def max_likelihood(*args,**kwargs):
         pass

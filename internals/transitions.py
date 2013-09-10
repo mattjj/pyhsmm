@@ -42,8 +42,8 @@ class HMMTransitions(object):
     trans_matrix = property(_get_trans_matrix,_set_trans_matrix)
 
     def _count_transitions(self,stateseqs):
-        if isinstance(stateseqs,np.ndarray) or isinstance(stateseqs[0],int) \
-                or isinstance(stateseqs[0],float):
+        if len(stateseqs) == 0 or isinstance(stateseqs,np.ndarray) \
+                or isinstance(stateseqs[0],int) or isinstance(stateseqs[0],float):
             return count_transitions(stateseqs,minlength=self.N)
         else:
             return sum(count_transitions(stateseq,minlength=self.N)
@@ -253,27 +253,6 @@ class WeakLimitHDPHMMTransitions(HMMTransitions):
         raise NotImplementedError
 
 
-class WeakLimitStickyHDPHMMTransitions(WeakLimitHDPHMMTransitions):
-    # NOTE: kappa is NOT resampled in this class; that's rolled in with the
-    # concentration resampling class below
-    def __init__(self,kappa,**kwargs):
-        self.kappa = kappa
-        super(WeakLimitStickyHDPHMMTransitions,self).__init__(**kwargs)
-
-    def _get_m(self,trans_counts):
-        ms = super(WeakLimitStickyHDPHMMTransitions,self)._get_m(trans_counts)
-        # need to thin the m's, then use those thinned counts to resample kappa
-        newms = ms.copy()
-        if ms.sum() > 0:
-            # np.random.binomial fails when n=0, so pull out nonzero indices
-            indices = np.nonzero(newms.flat[::ms.shape[0]+1])
-            newms.flat[::ms.shape[0]+1][indices] = np.array(np.random.binomial(
-                    ms.flat[::ms.shape[0]+1][indices],
-                    self.beta[indices]*self.alpha/(self.beta[indices]*self.alpha + self.kappa)),
-                    dtype=np.int32)
-        return newms
-
-
 class WeakLimitHDPHMMTransitionsConc(HMMTransitions):
     # NOTE: this class handles both gamma and alpha resampling because alpha
     # resampling is affected by beta. inheriting from WeakLimitHDPHMMTransitions
@@ -353,14 +332,40 @@ class WeakLimitHDPHMMTransitionsConc(HMMTransitions):
         raise NotImplementedError
 
 
-class WeakLimitHDPHSMMTransitions(WeakLimitHDPHMMTransitions,HSMMTransitions):
+class WeakLimitStickyHDPHMMTransitions(WeakLimitHDPHMMTransitions):
+    # NOTE: kappa is NOT resampled in this class; that's rolled in with the
+    # concentration resampling class below
+    def __init__(self,kappa,**kwargs):
+        self.kappa = kappa
+        super(WeakLimitStickyHDPHMMTransitions,self).__init__(**kwargs)
+
+    def _get_m(self,trans_counts):
+        ms = super(WeakLimitStickyHDPHMMTransitions,self)._get_m(trans_counts)
+        # need to thin the m's, then use those thinned counts to resample kappa
+        newms = ms.copy()
+        if ms.sum() > 0:
+            # np.random.binomial fails when n=0, so pull out nonzero indices
+            indices = np.nonzero(newms.flat[::ms.shape[0]+1])
+            newms.flat[::ms.shape[0]+1][indices] = np.array(np.random.binomial(
+                    ms.flat[::ms.shape[0]+1][indices],
+                    self.beta[indices]*self.alpha/(self.beta[indices]*self.alpha + self.kappa)),
+                    dtype=np.int32)
+        return newms
+
+class WeakLimitStickyHDPPHMMTransitionsConc(
+        WeakLimitStickyHDPHMMTransitions,WeakLimitHDPHMMTransitionsConc):
+    pass
+
+
+class WeakLimitHDPHSMMTransitions(HSMMTransitions,WeakLimitHDPHMMTransitions):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
     pass
 
 
-class WeakLimitHDPHSMMTransitionsConc(WeakLimitHDPHMMTransitionsConc,HSMMTransitions):
+class WeakLimitHDPHSMMTransitionsConc(HSMMTransitions,WeakLimitHDPHMMTransitionsConc):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
     pass
+
 
 # TODO update HDP left-to-right classes, old versions in scrap.py
 

@@ -9,7 +9,6 @@ import basic.distributions
 from internals import states, initial_state, transitions
 import util.general
 
-# TODO rename state_dim to num_states.
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
@@ -17,8 +16,8 @@ import util.general
 
 class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     _states_class = states.HMMStatesPython
-    _trans_class = transitions.HDPHMMTransitions
-    _trans_class_conc_class = transitions.HDPHMMTransitionsConcResampling
+    _trans_class = transitions.WeakLimitHDPHMMTransitions
+    _trans_class_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
     _init_steady_state_class = initial_state.SteadyState
 
     def __init__(self,
@@ -28,7 +27,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
             init_state_distn=None,init_state_concentration=None):
 
-        self.state_dim = len(obs_distns)
+        self.num_states = len(obs_distns)
         self.obs_distns = obs_distns
         self.states_list = []
 
@@ -40,11 +39,11 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             self.trans_distn = trans_distn
         elif alpha is not None:
             self.trans_distn = self._trans_class(
-                    state_dim=self.state_dim,
+                    num_states=self.num_states,
                     alpha=alpha,gamma=gamma)
         else:
             self.trans_distn = self._trans_class_conc_class(
-                    state_dim=self.state_dim,
+                    num_states=self.num_states,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
 
@@ -52,7 +51,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             self.init_state_distn = init_state_distn
         elif init_state_concentration is not None:
             self.init_state_distn = initial_state.InitialState(
-                    state_dim=self.state_dim,
+                    num_states=self.num_states,
                     rho=init_state_concentration)
         else:
             # in this case, the initial state distribution is just the
@@ -266,7 +265,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         # initial distribution parameters
         self.init_state_distn.max_likelihood(
-                None, # placeholder, "should" be np.arange(self.state_dim)
+                None, # placeholder, "should" be np.arange(self.num_states)
                 [s.expectations[0] for s in self.states_list])
 
         # transition parameters (requiring more than just the marginal expectations)
@@ -300,7 +299,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     @property
     def num_parameters(self):
-        return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
+        return sum(o.num_parameters() for o in self.obs_distns) + self.num_states**2
 
     def BIC(self,data=None):
         '''
@@ -386,12 +385,12 @@ class StickyHMM(HMM, ModelGibbsSampling):
         if trans_distn is not None:
             self.trans_distn = trans_distn
         elif kappa is not None:
-            self.trans_distn = transitions.StickyHDPHMMTransitions(
-                    state_dim=len(obs_distns),
+            self.trans_distn = transitions.WeakLimitStickyHDPHMMTransitions(
+                    num_states=len(obs_distns),
                     alpha=alpha,gamma=gamma,kappa=kappa)
         else:
-            self.trans_distn = transitions.StickyHDPHMMTransitionsConcResampling(
-                    state_dim=len(obs_distns),
+            self.trans_distn = transitions.WeakLimitStickyHDPHMMTransitionsConc(
+                    num_states=len(obs_distns),
                     rho_a_0=rho_a_0,rho_b_0=rho_b_0,
                     alphakappa_a_0=alphakappa_a_0,alphakappa_b_0=alphakappa_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0)
@@ -410,8 +409,8 @@ class StickyHMMEigen(StickyHMM):
 
 class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     _states_class = states.HSMMStatesPython
-    _trans_class = transitions.HDPHSMMTransitions
-    _trans_class_conc_class = transitions.HDPHSMMTransitionsConcResampling
+    _trans_class = transitions.WeakLimitHDPHSMMTransitions
+    _trans_class_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
     _init_steady_state_class = initial_state.HSMMSteadyState
 
     def __init__(self,dur_distns,**kwargs):
@@ -520,7 +519,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) \
                 + sum(d.num_parameters() for d in self.dur_distns) \
-                + self.state_dim**2 - self.state_dim
+                + self.num_states**2 - self.num_states
 
     ### plotting
 
