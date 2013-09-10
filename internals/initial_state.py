@@ -46,7 +46,7 @@ class SteadyState(object):
     @property
     def pi_0(self):
         if self._pi is None:
-            self._pi = top_eigenvector(self.model.trans_distn.A)
+            self._pi = top_eigenvector(self.model.trans_distn.trans_matrix)
         return self._pi
 
     def resample(self,*args,**kwargs):
