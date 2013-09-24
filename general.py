@@ -4,28 +4,16 @@ import scipy.linalg
 import copy, itertools, collections
 from numpy.lib.stride_tricks import as_strided as ast
 
-### these are significantly faster than the wrappers provided in scipy.linalg
-potrs, potrf, trtrs = scipy.linalg.lapack.get_lapack_funcs(('potrs','potrf','trtrs'),arrays=False) # arrays=false means type=d
-
-def solve_psd(A,b,overwrite_b=False,overwrite_A=False,chol=None):
-    assert A.dtype == b.dtype == np.float64
-    if chol is None:
-        chol = potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
-    return potrs(chol,b,lower=0,overwrite_b=overwrite_b)[0]
-
-def cholesky(A,overwrite_A=False):
-    assert A.dtype == np.float64
-    return potrf(A,lower=0,overwrite_a=overwrite_A,clean=0)[0]
-
-def solve_triangular(L,b,overwrite_b=False):
-    assert L.dtype == b.dtype == np.float64
-    return trtrs(L,b,lower=0,trans=1,overwrite_b=overwrite_b)[0]
-
-def solve_chofactor_system(A,b,overwrite_b=False,overwrite_A=False):
-    assert A.dtype == b.dtype == np.float64
-    L = cholesky(A,overwrite_A=overwrite_A)
-    return solve_triangular(L,b,overwrite_b=overwrite_b), L
-
+def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
+    if A.shape[0] < 5000 and chol is None:
+        return np.linalg.solve(A,b)
+    else:
+        if chol is None:
+            chol = np.linalg.cholesky(A)
+        return scipy.linalg.solve_triangular(
+                chol.T,
+                scipy.linalg.solve_triangular(chol,b,lower=True,overwrite_b=overwrite_b),
+                lower=False,overwrite_b=True)
 
 def interleave(*iterables):
     return list(itertools.chain.from_iterable(zip(*iterables)))
