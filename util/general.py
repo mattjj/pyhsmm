@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import scipy.linalg
 import copy, itertools, collections
+from numpy.lib.stride_tricks import as_strided as ast
 
 def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
     if A.shape[0] < 5000 and chol is None:
@@ -159,4 +160,9 @@ def engine_global_namespace(f):
     # name
     f.__module__ = '__main__'
     return f
+
+def block_view(a,block_shape):
+    shape = (a.shape[0]/block_shape[0],a.shape[1]/block_shape[1]) + block_shape
+    strides = (a.strides[0]*block_shape[0],a.strides[1]*block_shape[1]) + a.strides
+    return ast(a,shape=shape,strides=strides)
 
