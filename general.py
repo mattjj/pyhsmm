@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import scipy.linalg
 import copy, itertools, collections
+from numpy.lib.stride_tricks import as_strided as ast
 
 ### these are significantly faster than the wrappers provided in scipy.linalg
 potrs, potrf, trtrs = scipy.linalg.lapack.get_lapack_funcs(('potrs','potrf','trtrs'),arrays=False) # arrays=false means type=d
@@ -137,3 +138,9 @@ def _sieve(stream):
 
 def primes():
     return _sieve(itertools.count(2))
+
+def block_view(a,block_shape):
+    shape = (a.shape[0]/block_shape[0],a.shape[1]/block_shape[1]) + block_shape
+    strides = (a.strides[0]*block_shape[0],a.strides[1]*block_shape[1]) + a.strides
+    return ast(a,shape=shape,strides=strides)
+
