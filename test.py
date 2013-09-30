@@ -74,7 +74,9 @@ def rand_init(n):
 
 
 def log_messages_backwards(A,aBl):
+    errs = np.seterr(divide='ignore')
     Al = np.log(A)
+    np.seterr(**errs)
 
     betal = np.zeros_like(aBl)
 
@@ -83,8 +85,6 @@ def log_messages_backwards(A,aBl):
 
     return betal
 
-# TODO messages forwards would stay normalized automatically... maybe I can just
-# normalize the columns of A and add in those factors?
 def normalized_messages_backwards(A,aBl):
     betan = np.empty_like(aBl)
     logtot = 0.
@@ -122,19 +122,21 @@ if __name__ == '__main__':
 
     print np.allclose(out,A.dot(v))
 
-    print ''
 
-    # TODO true loglikes need the first term
-
-    aBl = np.log(np.random.rand(100,A.shape[0]))
+    aBls = [np.log(np.random.rand(100,sub_trans.shape[0])) for sub_trans in sub_transs]
+    aBl = np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(aBls,rs)],axis=1)
     betal = log_messages_backwards(A,aBl)
-    print np.logaddexp.reduce(betal[0])
 
     betan, logtot = normalized_messages_backwards(A,aBl)
-    print logtot
+
+    print np.isclose(np.logaddexp.reduce(betal[0]),logtot)
+
+    betan2, logtot2 = test2.messages_backwards_normalized(
+            super_trans,np.array(rs,dtype='int32'),np.array(ps),sub_transs,sub_initstates,aBls)
+
+    print np.isclose(logtot2, logtot)
+    print np.allclose(betan2,betan)
+
 
 # TODO map_states
-# TODO full message passing... python first!
-# get log likelihoods, subtract max and exp, mult in, normalize, add normalizer
-# and subtracted max and set that aside
 
