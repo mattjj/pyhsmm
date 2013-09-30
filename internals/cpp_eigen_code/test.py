@@ -63,12 +63,12 @@ def mult(v,super_trans,negbin_params,sub_transs,sub_initstates):
 
 
 def rand_trans(n):
-    A = np.random.rand(n,n)
+    A = np.random.rand(n,n).astype('float32')
     A /= A.sum(1)[:,None]
     return A
 
 def rand_init(n):
-    pi = np.random.rand(n)
+    pi = np.random.rand(n,).astype('float32')
     pi /= pi.sum()
     return pi
 
@@ -112,18 +112,18 @@ if __name__ == '__main__':
 
     A = construct_trans(super_trans,negbin_params,sub_transs,sub_initstates)
 
-    v = np.random.rand(A.shape[0])
+    v = np.random.rand(A.shape[0],).astype('float32')
 
     print np.allclose(A.dot(v),mult(v,super_trans,negbin_params,sub_transs,sub_initstates))
     print np.allclose(A.sum(1),1.)
 
     rs, ps = zip(*negbin_params)
-    out = test2.fast_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps),sub_transs,sub_initstates)
+    out = test2.fast_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates)
 
     print np.allclose(out,A.dot(v))
 
 
-    aBls = [np.log(np.random.rand(100,sub_trans.shape[0])) for sub_trans in sub_transs]
+    aBls = [np.log(np.random.rand(100,sub_trans.shape[0]).astype('float32')) for sub_trans in sub_transs]
     aBl = np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(aBls,rs)],axis=1)
     betal = log_messages_backwards(A,aBl)
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     print np.isclose(np.logaddexp.reduce(betal[0]),logtot)
 
     betan2, logtot2 = test2.messages_backwards_normalized(
-            super_trans,np.array(rs,dtype='int32'),np.array(ps),sub_transs,sub_initstates,aBls)
+            super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls)
 
     print np.isclose(logtot2, logtot)
     print np.allclose(betan2,betan)
