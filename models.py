@@ -633,38 +633,3 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                     )
                 for obs_distns in obs_distnss]
 
-####################
-#  NEEDS UPDATING  #
-####################
-
-class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
-    _states_class = states.HSMMStatesPossibleChangepoints
-
-    def add_data(self,data,changepoints,**kwargs):
-        self.states_list.append(
-                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
-
-    def add_data_parallel(self,data_id,**kwargs):
-        raise NotImplementedError # I broke this!
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
-
-    def _build_states_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    changepoints=parallel.allchangepoints[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    def generate(self,T,changepoints,keep=True):
-        raise NotImplementedError
-
-    def log_likelihood(self,data,trunc=None):
-        raise NotImplementedError
-
