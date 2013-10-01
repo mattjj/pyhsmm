@@ -137,6 +137,3 @@ if __name__ == '__main__':
     print np.isclose(logtot2, logtot)
     print np.allclose(betan2,betan)
 
-
-# TODO map_states
-
