@@ -612,24 +612,26 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
 
-    # TODO allow passing in subhmms
     def __init__(self,
             obs_distnss,
+            subHMMs=None,
             sub_alpha=None,sub_gamma=None,
             sub_alpha_a_0=None,sub_alpha_b_0=None,sub_gamma_a_0=None,sub_gamma_b_0=None,
             sub_init_state_concentration=None,
             **kwargs):
         super(HSMMIntNegBinVariantSubHMMs,self).__init__(obs_distns=[None for o in obs_distnss],**kwargs)
         del self.obs_distns
-        # NOTE: don't need HMMEigen because we're going to sample the state
-        # sequences elsewhere
-        self.HMMs = [
-                HMM(
-                    obs_distns=obs_distns,
-                    alpha=sub_alpha,gamma=sub_gamma,
-                    alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
-                    gamma_a_0=sub_gamma_a_0,gamma_b_0=sub_gamma_b_0,
-                    init_state_concentration=sub_init_state_concentration,
-                    )
-                for obs_distns in obs_distnss]
+        self.obs_distnss = obs_distnss
+        if subHMMs is None:
+            self.HMMs = [
+                    HMMEigen(
+                        obs_distns=obs_distns,
+                        alpha=sub_alpha,gamma=sub_gamma,
+                        alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
+                        gamma_a_0=sub_gamma_a_0,gamma_b_0=sub_gamma_b_0,
+                        init_state_concentration=sub_init_state_concentration,
+                        )
+                    for obs_distns in obs_distnss]
+        else:
+            self.HMMs = subHMMs
 

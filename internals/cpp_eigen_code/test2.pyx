@@ -78,7 +78,6 @@ def messages_backwards_normalized(
         list sub_initstates,
         list aBls,
         np.ndarray[np.float32_t,ndim=2,mode='c'] betan = None):
-    pass
 
     # create Nsubs array
     cdef np.ndarray[np.int32_t,ndim=1,mode='c'] Nsubs
