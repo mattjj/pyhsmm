@@ -10,6 +10,8 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
+from cpp_eigen_code import test2
+
 # TODO using log(A) in message passing can hurt stability a bit, -1000 turns
 # into -inf
 # TODO abstract this cache handling... metaclass and a cached decorator?
@@ -129,6 +131,57 @@ class HMMStatesPython(object):
     def messages_forwards(self):
         return self._messages_forwards(self.trans_matrix,self.pi_0,self.aBl)
 
+    @staticmethod
+    def _messages_backwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
+        aBl = log_likelihoods
+        A = trans_matrix
+        T = aBl.shape[0]
+
+        betan = np.empty_like(aBl)
+        logtot = 0.
+
+        betan[-1] = 1.
+        for t in xrange(T-2,-1,-1):
+            cmax = aBl[t+1].max()
+            betan[t] = A.dot(betan[t+1] * np.exp(aBl[t+1] - cmax))
+            norm = betan[t].sum()
+            logtot += cmax + np.log(norm)
+            betan[t] /= norm
+
+        cmax = aBl[0].max()
+        logtot += cmax + np.log((np.exp(aBl[0] - cmax) * init_state_distn * betan[0]).sum())
+
+        return betan, logtot
+
+    def messages_backwards_normalized(self):
+        return self._messages_backwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+
+    @staticmethod
+    def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
+        aBl = log_likelihoods
+        A = trans_matrix
+        T = aBl.shape[0]
+
+        alphan = np.empty_like(aBl)
+        logtot = 0.
+
+        cmax = aBl[0].max()
+        alphan[0] = init_state_distn * np.exp(aBl[0] - cmax)
+        norm = alphan[0].sum()
+        alphan[0] /= norm
+        logtot += np.log(norm) + cmax
+        for t in xrange(T-1):
+            cmax = aBl[t+1].max()
+            alphan[t+1] = alphan[t].dot(A) * np.exp(aBl[t+1] - cmax)
+            norm = alphan[t+1].sum()
+            alphan[t+1] /= norm
+            logtot += np.log(norm) + cmax
+
+        return alphan, logtot
+
+    def messages_forwards_normalized(self):
+        return self._messages_forwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+
     ### Gibbs sampling
 
     def resample(self,temp=None):
@@ -163,6 +216,46 @@ class HMMStatesPython(object):
     def sample_forwards(self,betal):
         aBl = self.aBl/self.temp if self.temp is not None else self.aBl
         self.stateseq = self._sample_forwards(betal,self.trans_matrix,self.pi_0,aBl)
+
+    @staticmethod
+    def _sample_forwards_normalized(betan,trans_matrix,init_state_distn,log_likelihoods):
+        A = trans_matrix
+        aBl = log_likelihoods
+        T = aBl.shape[0]
+
+        stateseq = np.empty(T,dtype=np.int32)
+
+        nextstate_unsmoothed = init_state_distn
+        for idx in xrange(T):
+            logdomain = aBl[idx]
+            logdomain[nextstate_unsmoothed == 0] = -np.inf
+            stateseq[idx] = sample_discrete(nextstate_unsmoothed * betan * np.exp(logdomain - np.amax(logdomain)))
+            nextstate_unsmoothed = A[stateseq[idx]]
+
+        return stateseq
+
+    def sample_forwards_normalized(self,betan):
+        self.stateseq = self._sample_forwards_normalized(
+                betan,self.trans_matrix,self.pi_0,self.aBl)
+
+    @staticmethod
+    def _sample_backwards_normalized(alphan,trans_matrix,init_state_distn):
+        A = trans_matrix
+        pi_0 = init_state_distn
+        T = alphan.shape[0]
+
+        stateseq = np.empty(T,dtype=np.int32)
+
+        next_potential = np.ones(A.shape[0])
+        for t in xrange(T-1,-1,-1):
+            stateseq[t] = sample_discrete(next_potential * alphan[t])
+            next_potential = A[:,stateseq[t]]
+
+        return stateseq
+
+    def sample_backwards_normalized(self,alphan):
+        self.stateseq = self._sample_backwards_normalized(
+                alphan,self.trans_matrix,self.pi_0)
 
     ### EM
 
@@ -673,7 +766,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def dur_distns(self):
-        return self.model.dur_distns
+        return self.model.dur_distns # TODO this method is superfluous
 
     @property
     def hsmm_aBl(self):
@@ -1035,6 +1128,129 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
                 extra_compile_args=['-O3','-DNDEBUG'])
 
         self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
+
+class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
+    def __init__(self):
+        raise NotImplementedError # TODO
+        self._betan = None
+        self._substatemap = np.concatenate([np.arange(len(obs_distns))
+            for obs_distns in self.model.obs_distnss])
+        self._superstatemap = np.concatente([np.repeat(i,len(obs_distns))
+            for i,obs_distns in enumerate(self.model.obs_distnss)])
+
+    def copy_sample(self,*args,**kwargs):
+        return HSMMStatesPython.copy_sample(self,*args,**kwargs)
+
+    @property
+    def dur_distns(self):
+        return self.model.dur_distns
+
+    @property
+    def aBls(self):
+        data = self.data
+        obs_distnss = self.model.obs_distnss
+        if len(set(map(tuple,obs_distnss))) == 1:
+            aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
+            for idx, o in enumerate(obs_distnss[0]):
+                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32')
+            aBls = [aBl] * len(obs_distnss)
+        else:
+            aBls = []
+            for obs_distns in obs_distnss:
+                aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
+                for idx, o in enumerate(obs_distns):
+                    aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32')
+                aBls.append(aBl)
+        return aBls
+
+    @property
+    def aBl(self):
+        return np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(self.aBls,self.rs)],axis=1)
+
+    @property
+    def hsmm_trans_matrix(self):
+        return super(_HSMMStatesIntegerNegativeBinomialBase,self).trans_matrix
+
+    @property
+    def pi_0(self):
+        if not self.left_censoring:
+            rs = self.rs
+            return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
+        else:
+            return util.top_eigenvector(self.trans_matrix)
+
+    @property
+    def hsmm_pi_0(self):
+        return super(_HSMMStatesIntegerNegativeBinomialBase,self).pi_0
+
+    @property
+    def subhmm_pi_0s(self):
+        return [hmm.init_state_distn.pi_0.astype('float32') for hmm in self.model.HMMs]
+
+    @property
+    def subhmm_trans_matrices(self):
+        return [hmm.trans_distn.A.astype('float32') for hmm in self.model.HMMs]
+
+    @property
+    def rs(self):
+        return np.array([d.r for d in self.dur_distns],dtype=np.int)
+
+    @property
+    def ps(self):
+        return np.array([d.p for d in self.dur_distns],dtype='float32')
+
+    @property
+    def trans_matrix(self):
+        # NOTE: for use with HMM methods
+        rs, ps = self.rs, self.ps
+        super_trans = self.hsmm_trans_matrix
+        sub_initstates = self.subhmm_pi_0s
+        sub_transs = self.subhmm_trans_matrices
+
+        Nsubs = [pi_sub.shape[0] for pi_sub in sub_initstates]
+        N = super_trans.shape[0]
+
+        blocksizes = [r*Nsub for r, Nsub in zip(rs,Nsubs)]
+        blockstarts = np.concatenate(((0,),np.cumsum(blocksizes)[:-1]))
+
+        out = np.zeros((sum(blocksizes),sum(blocksizes)))
+
+        # blocks are kron(clockmatrix,subtrans)
+        for r, p, subtrans, blockstart, blocksize in zip(rs, ps, sub_transs, blockstarts, blocksizes):
+            out[blockstart:blockstart+blocksize,blockstart:blockstart+blocksize] = \
+                    np.kron(clockmatrix(r,p),subtrans)
+
+        # off-blocks are init states scaled by super_trans
+        for i, (iblockstart, iblocksize, p, Nsub) in enumerate(zip(blockstarts, blocksizes, ps, Nsubs)):
+            for j, (init_distn,jNsub,jblockstart) in enumerate(zip(sub_initstates,Nsubs,blockstarts)):
+                if i != j:
+                    out[iblockstart+iblocksize-Nsub:iblockstart+iblocksize,jblockstart:jblockstart+jNsub] = \
+                            np.outer(np.repeat(p,Nsub),init_distn) * super_trans[i,j]
+
+        return out
+
+    def messages_backwards(self):
+        # allocate messages array
+        if self._betan is None:
+            self._betan = np.empty((len(self.data),sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
+        test2.messages_backwards_normalized(self.hsmm_trans,self.rs,self.ps,self.subhmm_trans_matrices,self.subhmm_pi_0s,self.aBls,self._betan)
+        return self._betan
+
+    def sample_forwards(self,betan):
+        test2.sample_forwards_normalized(self.aBls,betan)
+        raise NotImplementedError # TODO call cython code, map states, push substates
+
+    def log_likelihood(self):
+        raise NotImplementedError # TODO just need to return value of test2 messages fn
+
+    def generate(self):
+        raise NotImplementedError # TODO
+
+    # TODO HMM parent-calling methods
+
+    def _map_states(self,bigstates):
+        return self._statemaps[0][bigstates], self._statemaps[1][bigstates]
+
 
 #################
 #  eigen stuff  #
