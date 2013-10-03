@@ -77,7 +77,7 @@ def sample_discrete(distn,size=[],dtype=np.int32):
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
-    return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
+    return np.sum(np.array(random(size))[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
     'samples log probability array along specified axis'
@@ -99,7 +99,7 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int32):
             using namespace std;
             for (int i=0; i<M; i++) {
                 Map<ArrayXd> vals(scores + i*N,N);
-                vals = vals.exp();
+                vals = (vals - vals.maxCoeff()).exp();
                 double tot = vals.sum() * (((float) rand()) / RAND_MAX);
                 int j;
                 for (j=0; j < N && (tot -= vals(j)) > 1e-6; j++) ;
@@ -110,6 +110,39 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int32):
             headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
             extra_compile_args=['-O3','-DNDEBUG'])
     assert (0 <= out).all() and (out < scores.shape[1]).all()
+    return out
+
+def sample_markov(T,trans_matrix,init_state_distn=None):
+    if init_state_distn is None and T > 0:
+        init_state_distn = general.top_eigenvector(trans_matrix)
+    out = np.empty(T,dtype=np.int32)
+    N = trans_matrix.shape[0]
+    scipy.weave.inline(
+            '''
+            using namespace std;
+            double val;
+            int i;
+            if (T > 0) {
+                for (
+                    i=0,val=((float)rand())/RAND_MAX;
+                    i < N-1 && (val -= init_state_distn[i]) > 1e-6;
+                    i++
+                    ) ;
+                out[0] = i;
+
+                for (int t=1; t<T; t++) {
+                    for (
+                        i=0,val=((float)rand())/RAND_MAX;
+                        i < N-1 && (val -= trans_matrix[N*out[t-1]+i]) > 1e-6;
+                        i++
+                        ) ;
+                    out[t] = i;
+                }
+            }
+            ''',
+            ['T','N','trans_matrix','init_state_distn','out'],
+            headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
+            extra_compile_args=['-O3','-DNDEBUG'])
     return out
 
 def sample_niw(mu,lmbda,kappa,nu):
@@ -171,13 +204,13 @@ def sample_mniw(dof,lmbda,M,K):
 ### Entropy
 def invwishart_entropy(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     Elogdetlmbda = special.digamma((nu-np.arange(D))/2).sum() + D*np.log(2) - 2*np.log(chol.diagonal()).sum()
     return invwishart_log_partitionfunction(sigma,nu,chol)-(nu-D-1)/2*Elogdetlmbda + nu*D/2
 
 def invwishart_log_partitionfunction(sigma,nu,chol=None):
     D = sigma.shape[0]
-    chol = general.cholesky(sigma) if chol is None else chol
+    chol = np.linalg.cholesky(sigma) if chol is None else chol
     return -1*(nu*np.log(chol.diagonal()).sum() - (nu*D/2*np.log(2) + D*(D-1)/4*np.log(np.pi) \
             + special.gammaln((nu-np.arange(D))/2).sum()))
 
@@ -187,9 +220,10 @@ def multivariate_t_loglik(y,nu,mu,lmbda):
     # returns the log value
     d = len(mu)
     yc = np.array(y-mu,ndmin=2)
-    ys, LT = general.solve_chofactor_system(lmbda,yc.T,overwrite_b=True)
+    L = np.linalg.cholesky(lmbda)
+    ys = scipy.linalg.solve_triangular(L,yc.T,overwrite_b=True,lower=True)
     return scipy.special.gammaln((nu+d)/2.) - scipy.special.gammaln(nu/2.) \
-            - (d/2.)*np.log(nu*np.pi) - np.log(LT.diagonal()).sum() \
+            - (d/2.)*np.log(nu*np.pi) - np.log(L.diagonal()).sum() \
             - (nu+d)/2.*np.log1p(1./nu*inner1d(ys.T,ys.T))
 
 def beta_predictive(priorcounts,newcounts):
@@ -219,4 +253,5 @@ def f_statistic(pop1, pop2): # TODO test
     f = var1 / var2
     p = stats.f.sf(f,n1,n2)
     return f,p
+
 

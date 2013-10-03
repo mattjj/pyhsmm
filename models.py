@@ -65,6 +65,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         'a convenient reference to the state sequence arrays'
         return [s.stateseq for s in self.states_list]
 
+    @property
+    def Viterbi_stateseqs(self):
+        current_stateseqs = [s.stateseq for s in self.states_list]
+        for s in self.states_list:
+            s.Viterbi()
+        ret = [s.stateseq for s in self.states_list]
+        for s,seq in zip(self.states_list,current_stateseqs):
+            s.stateseq = seq
+        return ret
+
     def add_data(self,data,stateseq=None,**kwargs):
         self.states_list.append(self._states_class(model=self,data=np.asarray(data),
             stateseq=stateseq,**kwargs))
@@ -76,14 +86,17 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal = s.messages_backwards()
             return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0] + s.aBl[0] + np.log(s.pi_0)
                 for s in self.states_list])
             return np.logaddexp.reduce(initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         cmaxes = alphal.max(axis=1)
@@ -106,9 +119,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         return outs
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
         s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0])) # placeholder
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
         alphal = s.messages_forwards()
 
         outs = []
@@ -121,7 +135,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True):
-        tempstates = self._states_class(self,T=T,initialize_from_prior=True)
+        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -149,6 +163,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
+        self._last_resample_used_temp = temp is not None and temp != 1
         self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -268,8 +283,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood(None,[(s.alphal,s.betal,s.aBl) for s in self.states_list])
 
-    def Viterbi_EM_fit(self):
-        return self.MAP_EM_fit()
+    def Viterbi_EM_fit(self, tol=0.1, maxiter=20):
+        return self.MAP_EM_fit(tol, maxiter)
 
     def MAP_EM_step(self):
         return self.Viterbi_EM_step()
@@ -294,6 +309,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # transition parameters (requiring more than just the marginal expectations)
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
+    @property
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) + self.state_dim**2
 
@@ -447,6 +463,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             betal, _ = s.messages_backwards()
             return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             initials = np.vstack([
                 s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
@@ -455,7 +473,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### generation
 
     def generate(self,T,keep=True,**kwargs):
-        tempstates = self._states_class(self,T=T,initialize_from_prior=True,**kwargs)
+        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True,**kwargs)
         return self._generate(tempstates,keep)
 
     ### Gibbs sampling
@@ -509,6 +527,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
+    @property
     def num_parameters(self):
         return sum(o.num_parameters() for o in self.obs_distns) \
                 + sum(d.num_parameters() for d in self.dur_distns) \
@@ -572,66 +591,47 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
                     stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
             return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
         else:
+            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
+                self._clear_caches()
             all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
                 for s in self.states_list])
             return np.logaddexp.reduce(all_initials,axis=1).sum()
 
-    def predictive_likelihoods(self,test_data,forecast_horizons):
-        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons) # TODO improve speed
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons,**kwargs)
 
-    def block_predictive_likelihoods(self,test_data,blocklens):
-        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens) # TODO improve speed
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
+        return HMMEigen.block_predictive_likelihoods(self,test_data,blocklens,**kwargs)
 
 class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
 
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRVariantDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRVariantDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBinVariant,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
-
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
-    def __init__(self,obs_distns,dur_distns,*args,**kwargs):
-        assert all(d.__class__ == basic.distributions.NegativeBinomialIntegerRDuration or
-                   d.__class__ == basic.distributions.NegativeBinomialFixedRDuration
-                   for d in dur_distns)
-        super(HSMMIntNegBin,self).__init__(obs_distns=obs_distns,dur_distns=dur_distns,*args,**kwargs)
+class HSMMIntNegBinVariantSubHMMs(HSMM):
+    _states_class = states.HSMMIntNegBinVariantSubHMMsStates
 
-####################
-#  NEEDS UPDATING  #
-####################
-
-class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
-    _states_class = states.HSMMStatesPossibleChangepoints
-
-    def add_data(self,data,changepoints,**kwargs):
-        self.states_list.append(
-                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
-
-    def add_data_parallel(self,data_id,**kwargs):
-        raise NotImplementedError # I broke this!
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
-
-    def _build_states_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    changepoints=parallel.allchangepoints[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    def generate(self,T,changepoints,keep=True):
-        raise NotImplementedError
-
-    def log_likelihood(self,data,trunc=None):
-        raise NotImplementedError
+    def __init__(self,
+            obs_distnss,
+            subHMMs=None,
+            sub_alpha=None,sub_gamma=None,
+            sub_alpha_a_0=None,sub_alpha_b_0=None,sub_gamma_a_0=None,sub_gamma_b_0=None,
+            sub_init_state_concentration=None,
+            **kwargs):
+        super(HSMMIntNegBinVariantSubHMMs,self).__init__(obs_distns=[None for o in obs_distnss],**kwargs)
+        del self.obs_distns
+        self.obs_distnss = obs_distnss
+        if subHMMs is None:
+            self.HMMs = [
+                    HMMEigen(
+                        obs_distns=obs_distns,
+                        alpha=sub_alpha,gamma=sub_gamma,
+                        alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
+                        gamma_a_0=sub_gamma_a_0,gamma_b_0=sub_gamma_b_0,
+                        init_state_concentration=sub_init_state_concentration,
+                        )
+                    for obs_distns in obs_distnss]
+        else:
+            self.HMMs = subHMMs
 

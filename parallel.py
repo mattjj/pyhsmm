@@ -52,6 +52,9 @@ def update_my_data(data_id,data):
 
 # interface
 
+def has_data(data):
+    return phash(data) in data_residency
+
 def add_data(data,costfunc=len):
     # NOTE: this is basically a one-by-one scatter with an additive parametric
     # cost function treated greedily

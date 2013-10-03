@@ -50,7 +50,7 @@ data loaded in this example, can be found in `examples/basic.py`.)
 Let's say we have some 2D data in a data.txt file:
 
 ```bash
- head -5 data.txt
+$ head -5 data.txt
 -3.711962552600095444e-02 1.456401745267922598e-01
 7.553818775915704942e-02 2.457422192223903679e-01
 -2.465977987699214502e+00 5.537627981813508793e-01
