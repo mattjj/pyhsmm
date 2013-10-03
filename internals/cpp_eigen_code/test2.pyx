@@ -1,4 +1,4 @@
-# distutils: sources = mult_fast.cpp
+# distutils: sources = cpp_eigen_code/mult_fast.cpp
 # distutils: language = c++
 # distutils: extra_compile_args = -O3 -w -march=native
 # distutils: include_dirs = ../deps/Eigen3/
