@@ -412,9 +412,6 @@ class StickyHMM(HMM, ModelGibbsSampling):
     def EM_step(self):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
-    def MAP_EM_step(self):
-        raise NotImplementedError, "Can't run EM on a StickyHMM"
-
 
 class StickyHMMEigen(StickyHMM):
     _states_class = states.HMMStatesEigen
