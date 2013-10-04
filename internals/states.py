@@ -10,8 +10,6 @@ np.seterr(invalid='raise')
 from ..util.stats import sample_discrete, sample_discrete_from_log
 from ..util import general as util # perhaps a confusing name :P
 
-from cpp_eigen_code import test2
-
 # TODO using log(A) in message passing can hurt stability a bit, -1000 turns
 # into -inf
 # TODO abstract this cache handling... metaclass and a cached decorator?
@@ -239,9 +237,8 @@ class HMMStatesPython(object):
                 betan,self.trans_matrix,self.pi_0,self.aBl)
 
     @staticmethod
-    def _sample_backwards_normalized(alphan,trans_matrix,init_state_distn):
+    def _sample_backwards_normalized(alphan,trans_matrix):
         A = trans_matrix
-        pi_0 = init_state_distn
         T = alphan.shape[0]
 
         stateseq = np.empty(T,dtype=np.int32)
@@ -254,8 +251,7 @@ class HMMStatesPython(object):
         return stateseq
 
     def sample_backwards_normalized(self,alphan):
-        self.stateseq = self._sample_backwards_normalized(
-                alphan,self.trans_matrix,self.pi_0)
+        self.stateseq = self._sample_backwards_normalized(alphan,self.trans_matrix)
 
     ### EM
 
@@ -328,62 +324,44 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
+
     ### common messages (Gibbs, EM, likelihood calculation)
 
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
-        global eigen_path
-        hmm_messages_backwards_codestr = _get_codestr('hmm_messages_backwards')
-
-        T,M = log_likelihoods.shape
-        AT = trans_matrix.T.copy() # because Eigen is fortran/col-major, numpy default C/row-major
-        aBl = log_likelihoods
-
-        betal = np.zeros((T,M))
-
-        scipy.weave.inline(hmm_messages_backwards_codestr,['AT','betal','aBl','T','M'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return betal
+        from hmm_messages_interface import messages_backwards_log
+        return messages_backwards_log(trans_matrix,log_likelihoods)
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
-        global eigen_path
-        hmm_messages_forwards_codestr = _get_codestr('hmm_messages_forwards')
+        from hmm_messages_interface import messages_forwards_log
+        return messages_forwards_log(trans_matrix,log_likelihoods,init_state_distn)
 
-        T,M = log_likelihoods.shape
-        A = trans_matrix
-        aBl = log_likelihoods
+    def messages_backwards_hmm(self):
+        return super(HMMStatesEigen,self).messages_backwards()
 
-        alphal = np.empty((T,M))
-        alphal[0] = np.log(init_state_distn) + aBl[0]
+    def messages_forwards_hmm(self):
+        return super(HMMStatesEigen,self).messages_forwards()
 
-        scipy.weave.inline(hmm_messages_forwards_codestr,['A','alphal','aBl','T','M'],
-                headers=['<Eigen/Core>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
+    @staticmethod
+    def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
+        from hmm_messages_interface import messages_forwards_normalized
+        return messages_forwards_normalized(trans_matrix,log_likelihoods,init_state_distn)
 
-        return alphal
+    def messages_forwards_normalized_hmm(self):
+        return super(HMMStatesEigen,self).messages_forwards_normalized()
 
     ### sampling
 
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
-        global eigen_path
-        hmm_sample_forwards_codestr = _get_codestr('hmm_sample_forwards')
+        from hmm_messages_interface import sample_forwards_log
+        return sample_forwards_log(trans_matrix,log_likelihoods,init_state_distn,betal)
 
-        T,M = betal.shape
-        A = trans_matrix
-        pi0 = init_state_distn
-        aBl = log_likelihoods
-
-        stateseq = np.zeros(T,dtype=np.int32)
-
-        scipy.weave.inline(hmm_sample_forwards_codestr,['A','T','pi0','stateseq','aBl','betal','M'],
-                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return stateseq
+    @staticmethod
+    def _sample_backwards_normalized(alphan,trans_matrix):
+        from hmm_messages_interface import sample_backwards_normalized
+        return sample_backwards_normalized(trans_matrix,alphan)
 
     ### Vitberbi
 
