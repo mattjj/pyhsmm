@@ -1,6 +1,7 @@
 from distutils.core import setup
-from Cython.Build import cythonize
 import numpy
+
+from util.cython import cythonize # my version of Cython.Build.cythonize
 
 setup(
     ext_modules=cythonize('**/*.pyx'),
