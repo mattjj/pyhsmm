@@ -1,10 +1,10 @@
-# distutils: sources = hmm_messages.cpp util.cpp
+# distutils: name = internals.hmm_messages_interface
+# distutils: sources = internals/hmm_messages.cpp internals/util.cpp
 # distutils: language = c++
 # distutils: extra_compile_args = -O3 -w -march=native
-# distutils: include_dirs = ../deps/Eigen3/
+# distutils: include_dirs = deps/Eigen3/
 
 # TODO E step functions
-# TODO normalized messages
 
 import numpy as np
 cimport numpy as np
