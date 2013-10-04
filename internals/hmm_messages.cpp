@@ -6,8 +6,6 @@ using namespace std;
 // worked with each's deafult alignment, so the notion of "row" and "column"
 // get transposed here compared to numpy code
 
-// TODO break out a sample_discrete function
-
 // Messages
 
 void hmm::messages_backwards_log(int M, int T, double *A, double *aBl, double *betal)
@@ -131,6 +129,9 @@ void hmm::sample_backwards_normalized(int M, int T, double *A, double *alphan,
         int32_t *stateseq)
 {
     Map<MatrixXd> eAT(A,M,M);
+    double Aarr[M*M];
+    Map<MatrixXd> eA(Aarr,M,M);
+    eA = eAT.transpose();
     Map<MatrixXd> ealphan(alphan,M,T);
 
     double next_potential[M];
@@ -143,7 +144,7 @@ void hmm::sample_backwards_normalized(int M, int T, double *A, double *alphan,
     for (int t=T-1; t>=0; t--) {
         etemp = enext_potential * ealphan.col(t).array();
         stateseq[t] = util::sample_discrete(M,temp);
-        enext_potential = eAT.row(stateseq[t]);
+        enext_potential = eA.col(stateseq[t]);
     }
 }
 

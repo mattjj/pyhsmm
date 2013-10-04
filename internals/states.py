@@ -1109,8 +1109,8 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
 class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
     def __init__(self):
-        raise NotImplementedError # TODO
-        self._betan = None
+        raise NotImplementedError # TODO call super and stuff
+        self._alphan = None
         self._substatemap = np.concatenate([np.arange(len(obs_distns))
             for obs_distns in self.model.obs_distnss])
         self._superstatemap = np.concatente([np.repeat(i,len(obs_distns))
@@ -1207,16 +1207,15 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
 
         return out
 
-    def messages_backwards(self):
+    def messages_forwards_normalized(self):
         # allocate messages array
-        if self._betan is None:
-            self._betan = np.empty((len(self.data),sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
-        test2.messages_backwards_normalized(self.hsmm_trans,self.rs,self.ps,self.subhmm_trans_matrices,self.subhmm_pi_0s,self.aBls,self._betan)
-        return self._betan
+        if self._alphan is None:
+            self._alphan = np.empty((len(self.data),sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
+        loglike = test2.messages_forwards_normalized(self.hsmm_trans,self.rs,self.ps,self.subhmm_trans_matrices,self.subhmm_pi_0s,self.aBls,self._alphan)
+        return self._alphan
 
-    def sample_forwards(self,betan):
-        test2.sample_forwards_normalized(self.aBls,betan)
-        raise NotImplementedError # TODO call cython code, map states, push substates
+    def sample_backwards_normalized(self,alphan):
+        raise NotImplementedError # TODO just call super appropriately
 
     def log_likelihood(self):
         raise NotImplementedError # TODO just need to return value of test2 messages fn
@@ -1224,10 +1223,12 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
     def generate(self):
         raise NotImplementedError # TODO
 
-    # TODO HMM parent-calling methods
-
     def _map_states(self,bigstates):
         return self._statemaps[0][bigstates], self._statemaps[1][bigstates]
+
+    # TODO remove test2 references
+    # TODO double -> float
+    # TODO put this in another file for gods sake
 
 
 #################
