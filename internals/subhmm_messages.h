@@ -23,7 +23,7 @@
 using namespace Eigen;
 using namespace std;
 
-// NOTE: no doubles here!
+// NOTE: no doubles here! TODO template things
 
 namespace subhmm {
     typedef Map<Matrix<float,Dynamic,Dynamic,RowMajor>,Aligned> NPMatrix;
