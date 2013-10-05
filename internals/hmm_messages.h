@@ -17,13 +17,19 @@
 using namespace Eigen;
 using namespace std;
 
-namespace hmm {
-    // NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
-    // worked with each's deafult alignment, so the notion of "row" and "column"
-    // get transposed here compared to numpy code
+// NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
+// worked with each's deafult alignment, so the notion of "row" and "column"
+// get transposed here compared to numpy code
 
-    // NOTE: I wrote that when I was young and naive; it'd be better just to
-    // use the RowMajor flag with Eigen. TODO
+// NOTE: I wrote that when I was young and naive; it'd be better just to
+// use the RowMajor flag with Eigen. TODO
+
+// NOTE: on my test machine numpy heap arrays were always aligned, but I doubt
+// that's guaranteed. Still, this code assumes alignment!
+
+// NOTE: I assume alignment of stack arrays, too
+
+namespace hmm {
 
     // Messages
 

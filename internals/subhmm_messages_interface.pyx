@@ -1,5 +1,5 @@
 # distutils: name = internals.subhmm_messages_interface
-# distutils: sources = internals/subhmm_messages.cpp internals/util.cpp
+# distutils: sources = internals/subhmm_messages.cpp
 # distutils: language = c++
 # distutils: extra_compile_args = -O3 -w -march=native
 # distutils: include_dirs = deps/Eigen3/
@@ -11,8 +11,8 @@ import cython
 from libc.stdint cimport int32_t
 from libcpp.vector cimport vector
 
-cdef extern from "mult_fast.h" namespace "std":
-    float c_messages_backwards_normalized "subhmm::messages_backwards_normalized" (
+cdef extern from "subhmm_messages.h" namespace "std":
+    float f_messages_backwards_normalized "subhmm::messages_backwards_normalized" (
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans,
         vector[float*]& sub_transs, vector[float*]& sub_inits, vector[float*]& aBls,
@@ -61,7 +61,7 @@ def messages_backwards_normalized(
         betan = np.empty((T,bigN),dtype='float32')
 
     # call the routine
-    loglike = c_messages_backwards_normalized(
+    loglike = f_messages_backwards_normalized(
             T,bigN,super_trans.shape[0],&Nsubs[0],
             &rs[0],&ps[0],&super_trans[0,0],
             sub_transs_vect,sub_initstates_vect,aBls_vect,
