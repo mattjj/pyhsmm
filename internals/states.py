@@ -330,12 +330,15 @@ class HMMStatesEigen(HMMStatesPython):
     @staticmethod
     def _messages_backwards(trans_matrix,log_likelihoods):
         from hmm_messages_interface import messages_backwards_log
-        return messages_backwards_log(trans_matrix,log_likelihoods)
+        return messages_backwards_log(
+                trans_matrix,log_likelihoods,
+                np.empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
-        return messages_forwards_log(trans_matrix,log_likelihoods,init_state_distn)
+        return messages_forwards_log(trans_matrix,log_likelihoods,
+                np.empty_like(log_likelihoods))
 
     def messages_backwards_hmm(self):
         return super(HMMStatesEigen,self).messages_backwards()
@@ -346,7 +349,8 @@ class HMMStatesEigen(HMMStatesPython):
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_normalized
-        return messages_forwards_normalized(trans_matrix,log_likelihoods,init_state_distn)
+        return messages_forwards_normalized(trans_matrix,log_likelihoods,
+                init_state_distn,np.empty_like(log_likelihoods))
 
     def messages_forwards_normalized_hmm(self):
         return super(HMMStatesEigen,self).messages_forwards_normalized()
@@ -356,12 +360,14 @@ class HMMStatesEigen(HMMStatesPython):
     @staticmethod
     def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import sample_forwards_log
-        return sample_forwards_log(trans_matrix,log_likelihoods,init_state_distn,betal)
+        return sample_forwards_log(trans_matrix,log_likelihoods,
+                init_state_distn,betal,np.empty(log_likelihoods.shape[0],dtype='int32'))
 
     @staticmethod
     def _sample_backwards_normalized(alphan,trans_matrix):
         from hmm_messages_interface import sample_backwards_normalized
-        return sample_backwards_normalized(trans_matrix,alphan)
+        return sample_backwards_normalized(trans_matrix,alphan,
+                np.empty(alphan.shape[0],dtype='int32'))
 
     ### Vitberbi
 
@@ -1130,14 +1136,14 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
         if len(set(map(tuple,obs_distnss))) == 1:
             aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
             for idx, o in enumerate(obs_distnss[0]):
-                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32')
+                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32',copy=False)
             aBls = [aBl] * len(obs_distnss)
         else:
             aBls = []
             for obs_distns in obs_distnss:
                 aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
                 for idx, o in enumerate(obs_distns):
-                    aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32')
+                    aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32',copy=False)
                 aBls.append(aBl)
         return aBls
 
@@ -1163,11 +1169,11 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def subhmm_pi_0s(self):
-        return [hmm.init_state_distn.pi_0.astype('float32') for hmm in self.model.HMMs]
+        return [hmm.init_state_distn.pi_0.astype('float32',copy=False) for hmm in self.model.HMMs]
 
     @property
     def subhmm_trans_matrices(self):
-        return [hmm.trans_distn.A.astype('float32') for hmm in self.model.HMMs]
+        return [hmm.trans_distn.A.astype('float32',copy=False) for hmm in self.model.HMMs]
 
     @property
     def rs(self):

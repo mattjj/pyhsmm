@@ -3,5 +3,6 @@
 /tags
 /.tags
 *.lprof
-/internals/cpp_eigen_code/build
-/internals/cpp_eigen_code/*.so
+/build
+*.so
+*.o
