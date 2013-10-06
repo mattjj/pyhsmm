@@ -31,6 +31,23 @@ def construct_trans(super_trans,negbin_params,sub_transs,sub_initstates):
 
     return out
 
+def construct_init_state_distn(negbin_params,init_state_distn,sub_initstates):
+    rs, ps = zip(*negbin_params)
+    Nsubs = [pi_sub.shape[0] for pi_sub in sub_initstates]
+    N = len(sub_initstates)
+
+    blocksizes = [r*Nsub for r, Nsub in zip(rs,Nsubs)]
+    blockstarts = np.concatenate(((0,),np.cumsum(blocksizes)[:-1]))
+
+    Nbig = sum(blocksizes)
+
+    out = np.zeros(Nbig)
+
+    for start, Nsub, super_pi_i, sub_init in zip(blockstarts,Nsubs,init_state_distn,sub_initstates):
+        out[start:start+Nsub] = super_pi_i * sub_init
+
+    return out
+
 def mult(v,super_trans,negbin_params,sub_transs,sub_initstates):
     rs, ps = zip(*negbin_params)
     Nsubs = [pi_sub.shape[0] for pi_sub in sub_initstates]
@@ -115,7 +132,7 @@ def log_messages_backwards(A,aBl):
 
     return betal
 
-def normalized_messages_backwards(A,aBl):
+def normalized_messages_backwards(A,aBl,init_state_distn):
     betan = np.empty_like(aBl)
     logtot = 0.
 
@@ -125,6 +142,9 @@ def normalized_messages_backwards(A,aBl):
         betan[t] = A.dot(betan[t+1] * np.exp(aBl[t+1] - cmax))
         logtot += cmax + np.log(betan[t].sum())
         betan[t] /= betan[t].sum()
+
+    cmax = aBl[0].max()
+    logtot += cmax + np.log((np.exp(aBl[0] - cmax) * init_state_distn * betan[0]).sum())
 
     return betan, logtot
 
@@ -139,6 +159,7 @@ if __name__ == '__main__':
     sub_transs = [rand_trans(Nsub) for i in range(N)]
     sub_initstates = [rand_init(Nsub) for i in range(N)]
     negbin_params = [(2,0.7) for i in range(N)]
+    init_state_distn = construct_init_state_distn(negbin_params,np.repeat(1./N,N),sub_initstates)
 
     A = construct_trans(super_trans,negbin_params,sub_transs,sub_initstates)
 
@@ -157,19 +178,28 @@ if __name__ == '__main__':
     aBl = np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(aBls,rs)],axis=1)
     betal = log_messages_backwards(A,aBl)
 
-    betan, logtot = normalized_messages_backwards(A,aBl)
+    betan, logtot = normalized_messages_backwards(A,aBl,init_state_distn)
 
-    print np.isclose(np.logaddexp.reduce(betal[0]),logtot)
+    errs = np.seterr(divide='ignore')
+    print np.isclose(np.logaddexp.reduce(betal[0] + np.log(init_state_distn) + aBl[0]),logtot)
+    np.seterr(**errs)
 
     betan2, logtot2 = test2.messages_backwards_normalized(
-            super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls)
+            super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls) # TODO init_state_distn
+    del logtot2
 
-    print np.isclose(logtot2, logtot)
+    # print np.isclose(logtot2, logtot)
     print np.allclose(betan2,betan)
 
     print ''
 
     print np.allclose(v.dot(A),left_mult(v,super_trans,negbin_params,sub_transs,sub_initstates))
-    out = test2.fast_left_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates)
+    out = test2.fast_left_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates) # TODO TODO this is destructive somehow!
     print np.allclose(out,v.dot(A))
+
+    alphan, logtot3 = test2.messages_forwards_normalized(
+            super_trans,np.repeat(1./N,N).astype('float32'),np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls)
+
+    print ''
+    print np.isclose(logtot3,logtot)
 

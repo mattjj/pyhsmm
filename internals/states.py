@@ -337,10 +337,10 @@ class HMMStatesEigen(HMMStatesPython):
         return messages_forwards_log(trans_matrix,log_likelihoods,
                 np.empty_like(log_likelihoods))
 
-    def messages_backwards_hmm(self):
+    def messages_backwards_python(self):
         return super(HMMStatesEigen,self).messages_backwards()
 
-    def messages_forwards_hmm(self):
+    def messages_forwards_python(self):
         return super(HMMStatesEigen,self).messages_forwards()
 
     @staticmethod
@@ -349,7 +349,7 @@ class HMMStatesEigen(HMMStatesPython):
         return messages_forwards_normalized(trans_matrix,log_likelihoods,
                 init_state_distn,np.empty_like(log_likelihoods))
 
-    def messages_forwards_normalized_hmm(self):
+    def messages_forwards_normalized_python(self):
         return super(HMMStatesEigen,self).messages_forwards_normalized()
 
     ### sampling

@@ -249,8 +249,10 @@ void subhmm::fast_left_mult(
     // prep work!
     int blocksizes[N];
     int blockstarts[N];
-    NPMatrix esuper_trans_T(super_trans,N,N);
-    esuper_trans_T.transposeInPlace();
+
+    float super_trans_T[N*N];
+    NPMatrix esuper_trans_T(super_trans_T,N,N);
+    esuper_trans_T = NPMatrix(super_trans,N,N).transpose();
 
     vector<NPMatrix> esub_transs;
     vector<NPVector> esub_inits;
