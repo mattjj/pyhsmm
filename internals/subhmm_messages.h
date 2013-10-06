@@ -36,13 +36,16 @@ namespace subhmm {
     typedef Map<Array<float,Dynamic,1>,Aligned> NPVectorArray;
     typedef Map<Array<float,Dynamic,1> > NPSubVectorArray;
 
-    void fast_mult(
+    inline
+    float just_fast_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
-            float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
+            NPMatrix &esuper_trans,
+            vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
+            int *blocksizes, int *blockstarts,
             float *v, float *out);
 
     inline
-    float just_fast_mult(
+    float just_fast_left_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
             NPMatrix &esuper_trans,
             vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
@@ -55,6 +58,25 @@ namespace subhmm {
             vector<float*>& sub_transs, vector<float*>& sub_inits,
             vector<float*>& aBls,
             float *betan);
+
+    float messages_forwards_normalized(
+            int T, int bigN, int N, int32_t *Nsubs,
+            int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
+            std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
+            std::vector<float*>& aBls,
+            float *alphan);
+
+    // these next ones are for testing
+
+    void fast_mult(
+            int N, int32_t *Nsubs, int32_t *rs, float *ps,
+            float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
+            float *v, float *out);
+
+    void fast_left_mult(
+            int N, int32_t *Nsubs, int32_t *rs, float *ps,
+            float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
+            float *v, float *out);
 }
 
 #endif

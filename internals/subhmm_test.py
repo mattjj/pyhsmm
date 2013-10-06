@@ -61,6 +61,36 @@ def mult(v,super_trans,negbin_params,sub_transs,sub_initstates):
 
     return out
 
+def left_mult(v,super_trans,negbin_params,sub_transs,sub_initstates):
+    rs, ps = zip(*negbin_params)
+    Nsubs = [pi_sub.shape[0] for pi_sub in sub_initstates]
+    N = super_trans.shape[0]
+
+    blocksizes = [r*Nsub for r, Nsub in zip(rs,Nsubs)]
+    blockstarts = np.concatenate(((0,),np.cumsum(blocksizes)[:-1]))
+
+    out = np.zeros(sum(blocksizes))
+
+    # collect across parts (do inside other loop in message-passing code)
+    # but still collect as a vector of scalars!
+    incomings = [p * v[blockstart+blocksize-Nsub:blockstart+blocksize].sum()
+            for p,blockstart,blocksize,Nsub in zip(ps,blockstarts,blocksizes,Nsubs)]
+
+    for i, ((r,p), subtrans, blockstart, blocksize) \
+            in enumerate(zip(negbin_params, sub_transs, blockstarts, blocksizes)):
+
+        # within-block
+        block = slice(blockstart,blockstart+blocksize)
+        out[block] = \
+                clockmatrix(r,p).T.dot(v[block].reshape((r,-1))).dot(subtrans).ravel()
+
+        # across block, loop over j
+        Nsub = subtrans.shape[0]
+        start = slice(blockstart,blockstart+Nsub)
+        out[start] += super_trans[:,i].dot(incomings) * sub_initstates[i]
+
+    return out
+
 
 def rand_trans(n):
     A = np.random.rand(n,n).astype('float32')
@@ -136,4 +166,10 @@ if __name__ == '__main__':
 
     print np.isclose(logtot2, logtot)
     print np.allclose(betan2,betan)
+
+    print ''
+
+    print np.allclose(v.dot(A),left_mult(v,super_trans,negbin_params,sub_transs,sub_initstates))
+    out = test2.fast_left_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates)
+    print np.allclose(out,v.dot(A))
 

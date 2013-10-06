@@ -163,17 +163,14 @@ class HMMStatesPython(object):
         alphan = np.empty_like(aBl)
         logtot = 0.
 
-        cmax = aBl[0].max()
-        alphan[0] = init_state_distn * np.exp(aBl[0] - cmax)
-        norm = alphan[0].sum()
-        alphan[0] /= norm
-        logtot += np.log(norm) + cmax
-        for t in xrange(T-1):
-            cmax = aBl[t+1].max()
-            alphan[t+1] = alphan[t].dot(A) * np.exp(aBl[t+1] - cmax)
-            norm = alphan[t+1].sum()
-            alphan[t+1] /= norm
+        in_potential = init_state_distn
+        for t in xrange(T):
+            cmax = aBl[t].max()
+            alphan[t] = in_potential * np.exp(aBl[t] - cmax)
+            norm = alphan[t].sum()
+            alphan[t] /= norm
             logtot += np.log(norm) + cmax
+            in_potential = alphan[t].dot(A)
 
         return alphan, logtot
 
