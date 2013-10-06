@@ -1111,13 +1111,17 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
 class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
-    def __init__(self):
-        raise NotImplementedError # TODO call super and stuff
-        self._alphan = None
+    # TODO remove any unnecessary astypes
+    # TODO put this in another file?
+    # TODO test this class
+    def __init__(self,*args,**kwargs):
+        super(HSMMIntNegBinVariantSubHMMsStates,self).__init__(*args,**kwargs)
         self._substatemap = np.concatenate([np.arange(len(obs_distns))
             for obs_distns in self.model.obs_distnss])
         self._superstatemap = np.concatente([np.repeat(i,len(obs_distns))
             for i,obs_distns in enumerate(self.model.obs_distnss)])
+        self.data = self.data.astype('float32',copy=False)
+        self._alphan = None
 
     def copy_sample(self,*args,**kwargs):
         return HSMMStatesPython.copy_sample(self,*args,**kwargs)
@@ -1131,21 +1135,25 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
         data = self.data
         obs_distnss = self.model.obs_distnss
         if len(set(map(tuple,obs_distnss))) == 1:
+            # only one set of observation distributions shared across HMMs
             aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
             for idx, o in enumerate(obs_distnss[0]):
-                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32',copy=False)
+                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
+                        ).astype('float32',copy=False)
             aBls = [aBl] * len(obs_distnss)
         else:
             aBls = []
             for obs_distns in obs_distnss:
                 aBl = np.empty((data.shape[0],self.state_dim),dtype='float32')
                 for idx, o in enumerate(obs_distns):
-                    aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)).astype('float32',copy=False)
+                    aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
+                            ).astype('float32',copy=False)
                 aBls.append(aBl)
         return aBls
 
     @property
     def aBl(self):
+        # NOTE: this is the big aBl array that we only construct for testing
         return np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(self.aBls,self.rs)],axis=1)
 
     @property
@@ -1174,7 +1182,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def rs(self):
-        return np.array([d.r for d in self.dur_distns],dtype=np.int)
+        return np.array([d.r for d in self.dur_distns],dtype=np.int32_t)
 
     @property
     def ps(self):
@@ -1182,7 +1190,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
 
     @property
     def trans_matrix(self):
-        # NOTE: for use with HMM methods
+        # NOTE: for use with HMM methods (namely sample_backwards_normalized)
         rs, ps = self.rs, self.ps
         super_trans = self.hsmm_trans_matrix
         sub_initstates = self.subhmm_pi_0s
@@ -1197,41 +1205,52 @@ class HSMMIntNegBinVariantSubHMMsStates(HMMStatesEigen, HSMMStatesPython):
         out = np.zeros((sum(blocksizes),sum(blocksizes)))
 
         # blocks are kron(clockmatrix,subtrans)
-        for r, p, subtrans, blockstart, blocksize in zip(rs, ps, sub_transs, blockstarts, blocksizes):
-            out[blockstart:blockstart+blocksize,blockstart:blockstart+blocksize] = \
-                    np.kron(clockmatrix(r,p),subtrans)
+        for r, p, subtrans, blockstart, blocksize \
+                in zip(rs, ps, sub_transs, blockstarts, blocksizes):
+                    out[blockstart:blockstart+blocksize,blockstart:blockstart+blocksize] = \
+                            np.kron(clockmatrix(r,p),subtrans)
 
         # off-blocks are init states scaled by super_trans
-        for i, (iblockstart, iblocksize, p, Nsub) in enumerate(zip(blockstarts, blocksizes, ps, Nsubs)):
-            for j, (init_distn,jNsub,jblockstart) in enumerate(zip(sub_initstates,Nsubs,blockstarts)):
-                if i != j:
-                    out[iblockstart+iblocksize-Nsub:iblockstart+iblocksize,jblockstart:jblockstart+jNsub] = \
-                            np.outer(np.repeat(p,Nsub),init_distn) * super_trans[i,j]
+        for i, (iblockstart, iblocksize, p, Nsub) \
+                in enumerate(zip(blockstarts, blocksizes, ps, Nsubs)):
+                    for j, (init_distn,jNsub,jblockstart) \
+                            in enumerate(zip(sub_initstates,Nsubs,blockstarts)):
+                                if i != j:
+                                    out[iblockstart+iblocksize-Nsub:iblockstart+iblocksize,
+                                            jblockstart:jblockstart+jNsub] = \
+                                                    np.outer(np.repeat(p,Nsub),init_distn) \
+                                                    * super_trans[i,j]
 
         return out
 
     def messages_forwards_normalized(self):
+        from subhmm_messages_interface import messages_forwards_normalized
+
         # allocate messages array
         if self._alphan is None:
-            self._alphan = np.empty((len(self.data),sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
-        loglike = test2.messages_forwards_normalized(self.hsmm_trans,self.rs,self.ps,self.subhmm_trans_matrices,self.subhmm_pi_0s,self.aBls,self._alphan)
-        return self._alphan
+            self._alphan = np.empty((self.data.shape[0],
+                sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
+
+        loglike = messages_forwards_normalized(
+                self.hsmm_trans,self.hsmm_pi_0,
+                self.rs,self.ps,
+                self.subhmm_trans_matrices,self.subhmm_pi_0s,
+                self.aBls,self._alphan)
+
+        return self._alphan, loglike
 
     def sample_backwards_normalized(self,alphan):
-        raise NotImplementedError # TODO just call super appropriately
+        super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
+        # TODO map states
 
     def log_likelihood(self):
         raise NotImplementedError # TODO just need to return value of test2 messages fn
 
     def generate(self):
-        raise NotImplementedError # TODO
+        raise NotImplementedError # TODO just map states
 
     def _map_states(self,bigstates):
         return self._statemaps[0][bigstates], self._statemaps[1][bigstates]
-
-    # TODO remove test2 references
-    # TODO double -> float
-    # TODO put this in another file for gods sake
 
 
 #################
