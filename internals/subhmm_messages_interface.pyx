@@ -24,7 +24,7 @@ cdef extern from "subhmm_messages.h" namespace "std":
 
     float f_messages_backwards_normalized "subhmm::messages_backwards_normalized" (
         int T, int bigN, int N, int32_t *Nsubs,
-        int32_t *rs, float *ps, float *super_trans,
+        int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
         vector[float*]& sub_transs, vector[float*]& sub_inits, vector[float*]& aBls,
         float *betan)
 
@@ -38,6 +38,7 @@ cdef extern from "subhmm_messages.h" namespace "std":
 @cython.wraparound(False)
 def messages_backwards_normalized(
         np.ndarray[np.float32_t,ndim=2,mode='c'] super_trans not None,
+        np.ndarray[np.float32_t,ndim=1,mode='c'] init_state_distn not None,
         np.ndarray[np.int32_t,ndim=1,mode='c'] rs not None,
         np.ndarray[np.float32_t,ndim=1,mode='c'] ps not None,
         list sub_transs,
@@ -79,7 +80,7 @@ def messages_backwards_normalized(
     # call the routine
     loglike = f_messages_backwards_normalized(
             T,bigN,super_trans.shape[0],&Nsubs[0],
-            &rs[0],&ps[0],&super_trans[0,0],
+            &rs[0],&ps[0],&super_trans[0,0],&init_state_distn[0],
             sub_transs_vect,sub_initstates_vect,aBls_vect,
             &betan[0,0])
 

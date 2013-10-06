@@ -104,7 +104,7 @@ float subhmm::just_fast_left_mult(
 
 float subhmm::messages_backwards_normalized(
         int T, int bigN, int N, int32_t *Nsubs,
-        int32_t *rs, float *ps, float *super_trans,
+        int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
         std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
         std::vector<float*>& aBls,
         float *betan)
@@ -133,9 +133,9 @@ float subhmm::messages_backwards_normalized(
     NPArray ebetan(betan,T,bigN);
 
     ebetan.row(T-1).setOnes();
-    float logtot = 0.;
+    float logtot = 0., cmax;
     for (int t=T-2; t>=0; t--) {
-        float cmax = -1.*numeric_limits<float>::infinity();
+        cmax = -1.*numeric_limits<float>::infinity();
         for (int i=0; i<N; i++) {
             cmax = max(cmax, eaBls[i].row(t+1).maxCoeff());
         }
@@ -153,6 +153,22 @@ float subhmm::messages_backwards_normalized(
 
         logtot += cmax + log(tot);
     }
+
+    // NOTE: all this stuff is necessary to compute the log likelihood including
+    // the initial state distribution
+
+    float in_potential[bigN];
+    memset(in_potential,0,sizeof(in_potential));
+    cmax = -1.*numeric_limits<float>::infinity();
+    for (int i=0; i<N; i++) {
+        cmax = max(cmax, eaBls[i].row(0).maxCoeff());
+    }
+    for (int i=0; i<N; i++) {
+        NPSubVectorArray(in_potential + blockstarts[i],Nsubs[i]) =
+            init_state_distn[i] * esub_inits[i].array() * (eaBls[i].row(0) - cmax).exp().transpose();
+    }
+    logtot += cmax + log((NPVectorArray(in_potential,bigN) * ebetan.row(0).transpose()).sum());
+
     return logtot;
 }
 

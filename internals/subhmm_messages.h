@@ -54,7 +54,7 @@ namespace subhmm {
 
     float messages_backwards_normalized(
             int T, int bigN, int N, int32_t *Nsubs,
-            int32_t *rs, float *ps, float *super_trans,
+            int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
             vector<float*>& sub_transs, vector<float*>& sub_inits,
             vector<float*>& aBls,
             float *betan);

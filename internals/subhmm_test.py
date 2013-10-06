@@ -185,16 +185,15 @@ if __name__ == '__main__':
     np.seterr(**errs)
 
     betan2, logtot2 = test2.messages_backwards_normalized(
-            super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls) # TODO init_state_distn
-    del logtot2
+            super_trans,np.repeat(1./N,N).astype('float32'),np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates,aBls)
 
-    # print np.isclose(logtot2, logtot)
+    print np.isclose(logtot2, logtot)
     print np.allclose(betan2,betan)
 
     print ''
 
     print np.allclose(v.dot(A),left_mult(v,super_trans,negbin_params,sub_transs,sub_initstates))
-    out = test2.fast_left_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates) # TODO TODO this is destructive somehow!
+    out = test2.fast_left_mult(v,super_trans,np.array(rs,dtype='int32'),np.array(ps,dtype='float32'),sub_transs,sub_initstates)
     print np.allclose(out,v.dot(A))
 
     alphan, logtot3 = test2.messages_forwards_normalized(
