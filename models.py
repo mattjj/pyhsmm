@@ -9,8 +9,6 @@ import basic.distributions
 from internals import states, initial_state, transitions
 import util.general
 
-# TODO TODO treat right censoring like left censoring (and pass as explicit
-# truncation to tudration resample method)
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
@@ -170,6 +168,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.resample_states(temp=temp)
 
     def resample_obs_distns(self):
+        # TODO TODO get rid of logical indexing! it copies data!
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
@@ -300,6 +299,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         ## M step
         # observation distribution parameters
         for state, distn in enumerate(self.obs_distns):
+            # TODO TODO get rid of logical indexing
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
         # initial distribution parameters
@@ -483,14 +483,15 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         super(HSMM,self).resample_model(**kwargs)
 
     def resample_dur_distns(self):
+        # TODO TODO get rid of logical indexing
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
-                    data=
-                    [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
-                        for s in self.states_list],
-                    truncated_data=
-                    [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
-                        for s in self.states_list])
+            data=
+            [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                for s in self.states_list],
+            truncated_data=
+            [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                for s in self.states_list])
         self._clear_caches()
 
     def copy_sample(self):
@@ -516,14 +517,15 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
-                    None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
-                    [s.expectations[:,state] for s in self.states_list])
+                None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
+                [s.expectations[:,state] for s in self.states_list])
 
     def Viterbi_EM_step(self):
         super(HSMM,self).Viterbi_EM_step()
 
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
+            # TODO TODO get rid of logical indexing
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
@@ -634,4 +636,10 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                     for obs_distns in obs_distnss]
         else:
             self.HMMs = subHMMs
+
+    def resample_obs_distns(self,niter=5):
+        # TODO set this niter somewhere
+        for hmm in self.HMMs:
+            for i in xrange(niter):
+                hmm.resample_model()
 
