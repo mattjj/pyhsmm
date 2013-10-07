@@ -1253,14 +1253,6 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def sample_backwards_normalized(self,alphan):
         super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
         self._map_states()
-        for hmm in self.model.HMMs:
-            hmm.states_list = []
-        superstates, durations = util.rle(self.stateseq)
-        starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
-        for superstate, start, duration in zip(superstates, starts, durations):
-            self.model.HMMs[superstate].add_data(
-                    data=self.data[start:start+duration],
-                    stateseq=self.substates[start:start+duration])
 
     def log_likelihood(self):
         if self._loglike is None:
@@ -1275,10 +1267,21 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def _map_states(self):
         self.substates = self._substatemap[self.stateseq]
         self.stateseq = self._superstatemap[self.stateseq]
+        for hmm in self.model.HMMs:
+            hmm.states_list = []
+        superstates, durations = util.rle(self.stateseq)
+        starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
+        for superstate, start, duration in zip(superstates, starts, durations):
+            self.model.HMMs[superstate].add_data(
+                    data=self.data[start:start+duration],
+                    stateseq=self.substates[start:start+duration])
 
     def clear_caches(self):
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
         self._loglike = None
+
+    def generate_obs(self):
+        raise NotImplementedError # TODO
 
     # these are things we don't want to inherit (yet)
     # could factor out a base class to remove this boilerplate
