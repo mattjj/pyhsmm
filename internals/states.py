@@ -7,7 +7,7 @@ import scipy.stats as stats
 
 np.seterr(invalid='raise')
 
-from ..util.stats import sample_discrete, sample_discrete_from_log
+from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util import general as util # perhaps a confusing name :P
 
 # TODO using log(A) in message passing can hurt stability a bit, -1000 turns
@@ -321,6 +321,12 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
+
+    def generate_states(self):
+        self.stateseq = sample_markov(
+                T=self.T,
+                trans_matrix=self.trans_matrix,
+                init_state_distn=self.pi_0)
 
     ### common messages (Gibbs, EM, likelihood calculation)
 
@@ -1267,21 +1273,25 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def _map_states(self):
         self.substates = self._substatemap[self.stateseq]
         self.stateseq = self._superstatemap[self.stateseq]
+
+        self.substates_list = []
         for hmm in self.model.HMMs:
             hmm.states_list = []
+
         superstates, durations = util.rle(self.stateseq)
         starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
         for superstate, start, duration in zip(superstates, starts, durations):
             self.model.HMMs[superstate].add_data(
-                    data=self.data[start:start+duration],
+                    data=self.data[start:start+duration] if self.data is not None else None,
                     stateseq=self.substates[start:start+duration])
+            self.substates_list.append(self.model.HMMs[superstate].states_list[-1])
 
     def clear_caches(self):
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
         self._loglike = None
 
     def generate_obs(self):
-        raise NotImplementedError # TODO
+        return np.concatenate([s.generate_obs() for s in self.substates_list])
 
     # these are things we don't want to inherit (yet)
     # could factor out a base class to remove this boilerplate
