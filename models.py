@@ -74,7 +74,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         return ret
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(self._states_class(model=self,data=np.asarray(data),
+        self.states_list.append(self._states_class(model=self,data=data,
             stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data=None):

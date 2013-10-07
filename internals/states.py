@@ -1122,18 +1122,22 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant):
     def __init__(self,model,*args,**kwargs):
         self.model = model
-        self._substatemap = np.concatenate([np.tile(np.arange(Nsub),d.r)
-            for Nsub, d in zip(self.Nsubs,self.dur_distns)])
-
-        self._superstatemap = np.concatenate([np.repeat(i,Nsub*d.r)
-            for i,(Nsub,d) in enumerate(zip(self.Nsubs,self.dur_distns))])
-
         super(HSMMIntNegBinVariantSubHMMsStates,self).__init__(model,*args,**kwargs)
-        self.data = self.data.astype('float32',copy=False)
+        self.data = self.data.astype('float32',copy=False) if self.data is not None else None
         self._alphan = None
 
     def copy_sample(self,*args,**kwargs):
         return HSMMStatesPython.copy_sample(self,*args,**kwargs)
+
+    @property
+    def _substatemap(self):
+        return np.concatenate([np.tile(np.arange(Nsub),d.r)
+            for Nsub, d in zip(self.Nsubs,self.dur_distns)])
+
+    @property
+    def _superstatemap(self):
+        return np.concatenate([np.repeat(i,Nsub*d.r)
+            for i,(Nsub,d) in enumerate(zip(self.Nsubs,self.dur_distns))])
 
     @property
     def dur_distns(self):
@@ -1149,7 +1153,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def ps(self):
-        return super(HSMMIntNegBinVariantSubHMMsStates,self).ps.astype('float32',copy=False)
+        # TODO TODO TODO switched p and 1-p in this class.
+        # need to change how trans matrix is generated and cpp code for messages
+        # then get rid of this 1-
+        return 1-super(HSMMIntNegBinVariantSubHMMsStates,self).ps.astype('float32',copy=False)
 
     @property
     def aBls(self):
@@ -1273,15 +1280,20 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def _map_states(self):
         self.substates = self._substatemap[self.stateseq]
         self.stateseq = self._superstatemap[self.stateseq]
+        superstates, durations = self.stateseq_norep, self.durations_censored
+
+        # TODO remove this check once it works!
+        for superstate, dur in zip(self.stateseq_norep, self.durations):
+            assert self.dur_distns[superstate].r <= dur
 
         self.substates_list = []
         for hmm in self.model.HMMs:
             hmm.states_list = []
 
-        superstates, durations = util.rle(self.stateseq)
         starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
         for superstate, start, duration in zip(superstates, starts, durations):
             self.model.HMMs[superstate].add_data(
+                    T=duration if self.data is None else None,
                     data=self.data[start:start+duration] if self.data is not None else None,
                     stateseq=self.substates[start:start+duration])
             self.substates_list.append(self.model.HMMs[superstate].states_list[-1])
