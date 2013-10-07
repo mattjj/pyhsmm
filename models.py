@@ -643,3 +643,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
             for i in xrange(niter):
                 hmm.resample_model()
 
+    # TODO plotting (from old code?)
+
+    # TODO parallel
+
