@@ -611,8 +611,15 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
-class SubHMM(HMMEigen):
+
+
+# TODO add generic SubHMM class here from old repo
+
+
+class IntNegBinSubHMM(HMMEigen):
     def resample_states(self,*args,**kwargs):
+        # NOTE: state resampling is done all at once in the
+        # HSMMIntNegBin*SubHMMsStates class, so it doesn't need to be done here
         pass
 
 class HSMMIntNegBinVariantSubHMMs(HSMM):
@@ -625,12 +632,10 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
             sub_alpha_a_0=None,sub_alpha_b_0=None,sub_gamma_a_0=None,sub_gamma_b_0=None,
             sub_init_state_concentration=None,
             **kwargs):
-        super(HSMMIntNegBinVariantSubHMMs,self).__init__(obs_distns=[None for o in obs_distnss],**kwargs)
-        del self.obs_distns
         self.obs_distnss = obs_distnss
         if subHMMs is None:
             self.HMMs = [
-                    SubHMM(
+                    IntNegBinSubHMM(
                         obs_distns=obs_distns,
                         alpha=sub_alpha,gamma=sub_gamma,
                         alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
@@ -641,16 +646,15 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         else:
             self.HMMs = subHMMs
 
-    def resample_obs_distns(self,niter=1):
-        # TODO set this niter somewhere
-        # TODO parallelize this (sub trans, obs distns, sub init states)
-        # TODO if the HMMs share the same set of obs_distns, they'll resample
-        # the same thing several times
+        super(HSMMIntNegBinVariantSubHMMs,self).__init__(
+                obs_distns=self.HMMs,**kwargs)
+
+    def resample_obs_distns(self):
         for hmm in self.HMMs:
-            for i in xrange(niter):
-                hmm.resample_model()
+            hmm.resample_model()
 
-    # TODO plotting (from old code?)
+    def plot_observations(self,colors=None,states_objs=None):
+        pass # TODO
 
-    # TODO parallel
 
+# TODO library versions in other repo
