@@ -339,16 +339,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 canonical_ids[state]
         return map(operator.itemgetter(0),sorted(canonical_ids.items(),key=operator.itemgetter(1)))
 
-    def _get_colors(self):
-        states = self._get_used_states()
+    def _get_colors(self,states_objs=None):
+        states = self._get_used_states(states_objs)
         numstates = len(states)
         return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
 
     def plot_observations(self,colors=None,states_objs=None):
-        if colors is None:
-            colors = self._get_colors()
         if states_objs is None:
             states_objs = self.states_list
+        if colors is None:
+            colors = self._get_colors(states_objs)
 
         cmap = cm.get_cmap()
         used_states = self._get_used_states(states_objs)
@@ -362,7 +362,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                         label='%d' % state)
         plt.title('Observation Distributions')
 
-    def plot(self,color=None,legend=True):
+    def plot(self,color=None,legend=False):
         plt.gcf() #.set_size_inches((10,10))
         colors = self._get_colors()
 
@@ -373,6 +373,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
             plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
             s.plot(colors_dict=colors)
+
+        if legend:
+            plt.legend()
 
 class HMMEigen(HMM):
     _states_class = states.HMMStatesEigen
@@ -654,7 +657,24 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
             hmm.resample_model()
 
     def plot_observations(self,colors=None,states_objs=None):
-        pass # TODO
+        # NOTE: colors are superstate colors
+        if colors is None:
+            colors = self._get_colors()
+        if states_objs is None:
+            states_objs = self.states_list
 
+        cmap = cm.get_cmap()
+        used_superstates = self._get_used_states(states_objs)
+        for superstate,hmm in enumerate(self.HMMs):
+            if superstate in used_superstates:
+                substates = hmm._get_used_states()
+                num_substates = len(substates)
+                hmm.plot_observations(
+                        colors=dict(
+                            (substate,colors[superstate]+offset)
+                            for substate,offset in zip(substates,
+                                np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
+
+        # TODO sort out labels for each HMM
 
 # TODO library versions in other repo

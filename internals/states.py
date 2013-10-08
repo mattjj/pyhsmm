@@ -1306,7 +1306,11 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._loglike = None
 
     def generate_obs(self):
-        return np.concatenate([s.generate_obs() for s in self.substates_list])
+        alldata = []
+        for s in self.substates_list:
+            s.data = s.generate_obs()
+            alldata.append(s.data)
+        return np.concatenate(alldata)
 
     # these are things we don't want to inherit (yet)
     # could factor out a base class to remove this boilerplate
