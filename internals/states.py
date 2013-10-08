@@ -1251,9 +1251,12 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         from subhmm_messages_interface import messages_forwards_normalized
 
         # allocate messages array
-        if self._alphan is None:
-            self._alphan = np.empty((self.data.shape[0],
-                sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
+        # NOTE: this resizes on most iterations! only a DUMMY would forget that,
+        # and then he'd get invalid opcodes and segfaults and all kinds of
+        # stuff, that was terrible
+        # TODO just allocate max so far, or something
+        self._alphan = np.empty((self.data.shape[0],
+            sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
 
         self._loglike = messages_forwards_normalized(
                 self.hsmm_trans_matrix,self.hsmm_pi_0,

@@ -35,7 +35,7 @@ class DurationDistribution(Distribution):
         tail = self.log_sf(x)
         trunc = 500
         while self.log_sf(x+trunc) - tail > -20:
-            trunc *= 1.5
+            trunc *= 1.1
         logprobs = self.log_pmf(np.arange(x+1,x+trunc+1)) - tail
         return sample_discrete_from_log(logprobs)+x+1
 

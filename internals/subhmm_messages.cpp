@@ -75,7 +75,6 @@ float subhmm::just_fast_left_mult(
 
     for (int i=0; i < N; i++) {
         int blockstart = blockstarts[i];
-        int blocksize = blocksizes[i];
         int32_t Nsub = Nsubs[i];
         int32_t r = rs[i];
         float p = ps[i];
