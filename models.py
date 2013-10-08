@@ -611,6 +611,10 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
+class SubHMM(HMMEigen):
+    def resample_states(self,*args,**kwargs):
+        pass
+
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
 
@@ -626,7 +630,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         self.obs_distnss = obs_distnss
         if subHMMs is None:
             self.HMMs = [
-                    HMMEigen(
+                    SubHMM(
                         obs_distns=obs_distns,
                         alpha=sub_alpha,gamma=sub_gamma,
                         alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
@@ -637,8 +641,11 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         else:
             self.HMMs = subHMMs
 
-    def resample_obs_distns(self,niter=5):
+    def resample_obs_distns(self,niter=1):
         # TODO set this niter somewhere
+        # TODO parallelize this (sub trans, obs distns, sub init states)
+        # TODO if the HMMs share the same set of obs_distns, they'll resample
+        # the same thing several times
         for hmm in self.HMMs:
             for i in xrange(niter):
                 hmm.resample_model()
