@@ -3,3 +3,6 @@
 /tags
 /.tags
 *.lprof
+/build
+*.so
+*.o

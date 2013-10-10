@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import scipy.linalg
 import copy, itertools, collections
+from numpy.lib.stride_tricks import as_strided as ast
 
 def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
     if A.shape[0] < 5000 and chol is None:
@@ -128,22 +129,24 @@ def primes():
 
 def top_eigenvector(A,niter=1000,force_iteration=False):
     '''
-    assuming the invariant subspace of A corresponding to the eigenvalue of
-    largest modulus has geometric multiplicity of 1 (trivial Jordan block),
-    returns the vector at the intersection of that eigenspace and the simplex
+    assuming the LEFT invariant subspace of A corresponding to the LEFT
+    eigenvalue of largest modulus has geometric multiplicity of 1 (trivial
+    Jordan block), returns the vector at the intersection of that eigenspace and
+    the simplex
 
-    A should probably be a row-stochastic matrix
+    A should probably be a ROW-stochastic matrix
 
     probably uses power iteration
     '''
     n = A.shape[0]
+    np.seterr(invalid='raise',divide='raise')
     if n <= 25 and not force_iteration:
-        x = np.repeat(1/n,n)
+        x = np.repeat(1./n,n)
         x = np.linalg.matrix_power(A.T,niter).dot(x)
         x /= x.sum()
         return x
     else:
-        x1 = np.repeat(1/n,n)
+        x1 = np.repeat(1./n,n)
         x2 = x1.copy()
         for itr in xrange(niter):
             np.dot(A.T,x1,out=x2)
@@ -159,4 +162,9 @@ def engine_global_namespace(f):
     # name
     f.__module__ = '__main__'
     return f
+
+def block_view(a,block_shape):
+    shape = (a.shape[0]/block_shape[0],a.shape[1]/block_shape[1]) + block_shape
+    strides = (a.strides[0]*block_shape[0],a.strides[1]*block_shape[1]) + a.strides
+    return ast(a,shape=shape,strides=strides)
 

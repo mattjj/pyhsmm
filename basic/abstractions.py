@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
-from ..util.stats import flattendata, sample_discrete, combinedata
+from ..util.stats import flattendata, sample_discrete_from_log, combinedata
 
 # PLAN: have a resample_with_truncations method default implementation which
 # just samples out the other business using rvs_greater_than
@@ -35,9 +35,9 @@ class DurationDistribution(Distribution):
         tail = self.log_sf(x)
         trunc = 500
         while self.log_sf(x+trunc) - tail > -20:
-            trunc *= 1.5
-        probs = np.exp(self.log_pmf(np.arange(x+1,x+trunc+1)) - tail)
-        return sample_discrete(probs)+x+1
+            trunc *= 1.1
+        logprobs = self.log_pmf(np.arange(x+1,x+trunc+1)) - tail
+        return sample_discrete_from_log(logprobs)+x+1
 
     def resample_with_truncations(self,data=[],truncated_data=[]):
         '''

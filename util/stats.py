@@ -77,7 +77,7 @@ def sample_discrete(distn,size=[],dtype=np.int32):
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
     cumvals = np.cumsum(distn)
-    return np.sum(random(size)[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
+    return np.sum(np.array(random(size))[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
 def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
     'samples log probability array along specified axis'
@@ -89,10 +89,10 @@ def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
                 for i in range(p_log.ndim)]],thesize)
     return np.sum(randvals > cumvals,axis=axis,dtype=dtype)
 
-def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
+def sample_discrete_from_log_2d_destructive(scores,dtype=np.int32):
     # NOTE: destructive means it alters the input array!
     M,N = scores.shape
-    out = np.empty(M,dtype=np.int)
+    out = np.empty(M,dtype=np.int32)
     scipy.weave.inline(
             '''
             using namespace Eigen;
@@ -110,6 +110,39 @@ def sample_discrete_from_log_2d_destructive(scores,dtype=np.int):
             headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
             extra_compile_args=['-O3','-DNDEBUG'])
     assert (0 <= out).all() and (out < scores.shape[1]).all()
+    return out
+
+def sample_markov(T,trans_matrix,init_state_distn=None):
+    if init_state_distn is None and T > 0:
+        init_state_distn = general.top_eigenvector(trans_matrix)
+    out = np.empty(T,dtype=np.int32)
+    N = trans_matrix.shape[0]
+    scipy.weave.inline(
+            '''
+            using namespace std;
+            double val;
+            int i;
+            if (T > 0) {
+                for (
+                    i=0,val=((float)rand())/RAND_MAX;
+                    i < N-1 && (val -= init_state_distn[i]) > 1e-6;
+                    i++
+                    ) ;
+                out[0] = i;
+
+                for (int t=1; t<T; t++) {
+                    for (
+                        i=0,val=((float)rand())/RAND_MAX;
+                        i < N-1 && (val -= trans_matrix[N*out[t-1]+i]) > 1e-6;
+                        i++
+                        ) ;
+                    out[t] = i;
+                }
+            }
+            ''',
+            ['T','N','trans_matrix','init_state_distn','out'],
+            headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
+            extra_compile_args=['-O3','-DNDEBUG'])
     return out
 
 def sample_niw(mu,lmbda,kappa,nu):
@@ -220,4 +253,5 @@ def f_statistic(pop1, pop2): # TODO test
     f = var1 / var2
     p = stats.f.sf(f,n1,n2)
     return f,p
+
 

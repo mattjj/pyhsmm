@@ -9,8 +9,6 @@ import basic.distributions
 from internals import states, initial_state, transitions
 import util.general
 
-# TODO TODO treat right censoring like left censoring (and pass as explicit
-# truncation to tudration resample method)
 # TODO think about factoring out base classes for HMMs and HSMMs
 # TODO maybe states classes should handle log_likelihood and predictive
 # likelihood methods
@@ -76,7 +74,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         return ret
 
     def add_data(self,data,stateseq=None,**kwargs):
-        self.states_list.append(self._states_class(model=self,data=np.asarray(data),
+        self.states_list.append(self._states_class(model=self,data=data,
             stateseq=stateseq,**kwargs))
 
     def log_likelihood(self,data=None):
@@ -170,6 +168,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.resample_states(temp=temp)
 
     def resample_obs_distns(self):
+        # TODO TODO get rid of logical indexing! it copies data!
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
@@ -212,7 +211,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
         ### resample parameters locally
-        self.resample_obs_distns_parallel()
+        self.resample_obs_distns_parallel() # doesn't necessarily run parallel
         self.resample_trans_distn()
         self.resample_init_state_distn()
 
@@ -300,6 +299,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         ## M step
         # observation distribution parameters
         for state, distn in enumerate(self.obs_distns):
+            # TODO TODO get rid of logical indexing
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
         # initial distribution parameters
@@ -339,16 +339,16 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 canonical_ids[state]
         return map(operator.itemgetter(0),sorted(canonical_ids.items(),key=operator.itemgetter(1)))
 
-    def _get_colors(self):
-        states = self._get_used_states()
+    def _get_colors(self,states_objs=None):
+        states = self._get_used_states(states_objs)
         numstates = len(states)
         return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
 
     def plot_observations(self,colors=None,states_objs=None):
-        if colors is None:
-            colors = self._get_colors()
         if states_objs is None:
             states_objs = self.states_list
+        if colors is None:
+            colors = self._get_colors(states_objs)
 
         cmap = cm.get_cmap()
         used_states = self._get_used_states(states_objs)
@@ -362,7 +362,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                         label='%d' % state)
         plt.title('Observation Distributions')
 
-    def plot(self,color=None,legend=True):
+    def plot(self,color=None,legend=False):
         plt.gcf() #.set_size_inches((10,10))
         colors = self._get_colors()
 
@@ -373,6 +373,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
 
             plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
             s.plot(colors_dict=colors)
+
+        if legend:
+            plt.legend()
 
 class HMMEigen(HMM):
     _states_class = states.HMMStatesEigen
@@ -483,6 +486,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         super(HSMM,self).resample_model(**kwargs)
 
     def resample_dur_distns(self):
+        # TODO TODO get rid of logical indexing
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
                     data=
@@ -524,6 +528,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
+            # TODO TODO get rid of logical indexing
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
@@ -608,39 +613,4 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
 
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
-
-####################
-#  NEEDS UPDATING  #
-####################
-
-class HSMMPossibleChangepoints(HSMM, ModelGibbsSampling):
-    _states_class = states.HSMMStatesPossibleChangepoints
-
-    def add_data(self,data,changepoints,**kwargs):
-        self.states_list.append(
-                self._states_class(model=self,changepoints=changepoints,data=np.asarray(data),**kwargs))
-
-    def add_data_parallel(self,data_id,**kwargs):
-        raise NotImplementedError # I broke this!
-        from pyhsmm import parallel
-        self.add_data(data=parallel.alldata[data_id],changepoints=parallel.allchangepoints[data_id],**kwargs)
-        self.states_list[-1].data_id = data_id
-
-    def _build_states_parallel(self,states_to_resample):
-        from pyhsmm import parallel
-        raw_stateseq_tuples = parallel.hsmm_build_states_changepoints.map([s.data_id for s in states_to_resample])
-        for data_id, stateseq, stateseq_norep, durations in raw_stateseq_tuples:
-            self.add_data(
-                    data=parallel.alldata[data_id],
-                    changepoints=parallel.allchangepoints[data_id],
-                    stateseq=stateseq,
-                    stateseq_norep=stateseq_norep,
-                    durations=durations)
-            self.states_list[-1].data_id = data_id
-
-    def generate(self,T,changepoints,keep=True):
-        raise NotImplementedError
-
-    def log_likelihood(self,data,trunc=None):
-        raise NotImplementedError
 
