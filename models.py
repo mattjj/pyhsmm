@@ -627,6 +627,7 @@ class IntNegBinSubHMM(HMMEigen):
 
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
+    _subhmm_class = IntNegBinSubHMM
 
     def __init__(self,
             obs_distnss,
@@ -638,7 +639,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         self.obs_distnss = obs_distnss
         if subHMMs is None:
             self.HMMs = [
-                    IntNegBinSubHMM(
+                    self._subhmm_class(
                         obs_distns=obs_distns,
                         alpha=sub_alpha,gamma=sub_gamma,
                         alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
@@ -674,8 +675,4 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                             (substate,colors[superstate]+offset)
                             for substate,offset in zip(substates,
                                 np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
-
-        # TODO sort out labels for each HMM
-
-# TODO library versions in other repo
 
