@@ -630,7 +630,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
     _subhmm_class = IntNegBinSubHMM
 
     def __init__(self,
-            obs_distnss,
+            obs_distnss=None,
             subHMMs=None,
             sub_alpha=None,sub_gamma=None,
             sub_alpha_a_0=None,sub_alpha_b_0=None,sub_gamma_a_0=None,sub_gamma_b_0=None,
@@ -638,6 +638,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
             **kwargs):
         self.obs_distnss = obs_distnss
         if subHMMs is None:
+            assert obs_distnss is not None
             self.HMMs = [
                     self._subhmm_class(
                         obs_distns=obs_distns,
