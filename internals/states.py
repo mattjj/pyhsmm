@@ -1160,17 +1160,9 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def aBls(self):
-        data = self.data
-        obs_distnss = self.model.obs_distnss
-        if len(set(map(tuple,obs_distnss))) == 1:
-            # only one set of observation distributions shared across HMMs
-            obs_distns = obs_distnss[0]
-            aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
-            for idx, o in enumerate(obs_distns):
-                aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
-                        ).astype('float32',copy=False)
-            aBls = [aBl] * len(obs_distnss)
-        else:
+        if self._aBls is None:
+            data = self.data
+            obs_distnss = self.model.obs_distnss
             aBls = []
             for obs_distns in obs_distnss:
                 aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
@@ -1178,7 +1170,8 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
                     aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
                             ).astype('float32',copy=False)
                 aBls.append(aBl)
-        return aBls
+            self._aBls = aBls
+        return self._aBls
 
     @property
     def aBl(self):
@@ -1304,6 +1297,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def clear_caches(self):
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
         self._loglike = None
+        self._aBls = None
 
     def generate_obs(self):
         alldata = []
