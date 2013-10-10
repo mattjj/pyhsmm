@@ -215,18 +215,22 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.resample_trans_distn()
         self.resample_init_state_distn()
 
-        ### choose which sequences to resample
-        states_to_resample = random.sample(self.states_list,numtoresample)
-        states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
-
         ### resample states in parallel
-        self.states_list = states_to_resample
+
+        # choose which sequences to resample
+        if numtoresample != 'all':
+            added_order = {s:i for i,s in enumerate(self.states_list)}
+            states_to_resample = random.sample(self.states_list,numtoresample)
+            states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
+            self.states_list = states_to_resample
+
+        # actually resample the states
         self.resample_states_parallel(temp=temp)
 
-        ### add back the held-out states
-        # NOTE: this might shuffle the order of states_list from the order in
-        # which data were added if numtoresample != 'all'
-        self.states_list.extend(states_to_hold_out)
+        # add back the held-out states
+        if numtoresample != 'all':
+            self.states_list.extend(states_to_hold_out)
+            self.states_list.sort(key=added_order.__getitem__)
 
     def resample_obs_distns_parallel(self):
         # this method is broken out so that it can be overridden
@@ -413,9 +417,6 @@ class StickyHMM(HMM, ModelGibbsSampling):
         super(StickyHMM,self).__init__(obs_distns,trans_distn=self.trans_distn,**kwargs)
 
     def EM_step(self):
-        raise NotImplementedError, "Can't run EM on a StickyHMM"
-
-    def MAP_EM_step(self):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
 
@@ -615,7 +616,6 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
 
-
 # TODO add generic SubHMM class here from old repo
 
 
@@ -678,3 +678,4 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         # TODO sort out labels for each HMM
 
 # TODO library versions in other repo
+
