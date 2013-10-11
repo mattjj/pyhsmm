@@ -178,6 +178,7 @@ float subhmm::messages_forwards_normalized(
         std::vector<float*>& aBls,
         float *alphan)
 {
+    float in_potential[bigN] __attribute__ ((aligned(16)));
     int blocksizes[N];
     int blockstarts[N];
     NPMatrix esuper_trans_T(super_trans,N,N);
@@ -198,7 +199,6 @@ float subhmm::messages_forwards_normalized(
     }
     NPArray ealphan(alphan,T,bigN);
 
-    float in_potential[bigN];
     NPVectorArray ein_potential(in_potential,bigN);
     ein_potential.setZero();
     for (int i=0; i<N; i++) {

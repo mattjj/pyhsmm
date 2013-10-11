@@ -1,6 +1,6 @@
 # distutils: name = internals.subhmm_messages_interface
 # distutils: sources = internals/subhmm_messages.cpp
-# distutils: extra_compile_args = -O3 -w -march=native
+# distutils: extra_compile_args = -O3 -w -g0 -march=native
 # distutils: language = c++
 # distutils: include_dirs = deps/Eigen3/
 
