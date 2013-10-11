@@ -1163,13 +1163,23 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         if self._aBls is None:
             data = self.data
             obs_distnss = self.model.obs_distnss
-            aBls = []
-            for obs_distns in obs_distnss:
+            obs_distnss = self.model.obs_distnss
+            if len(set(map(tuple,obs_distnss))) == 1:
+                # only one set of observation distributions shared across HMMs
+                obs_distns = obs_distnss[0]
                 aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
                 for idx, o in enumerate(obs_distns):
                     aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
                             ).astype('float32',copy=False)
-                aBls.append(aBl)
+                aBls = [aBl] * len(obs_distnss)
+            else:
+                aBls = []
+                for obs_distns in obs_distnss:
+                    aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
+                    for idx, o in enumerate(obs_distns):
+                        aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
+                                ).astype('float32',copy=False)
+                    aBls.append(aBl)
             self._aBls = aBls
         return self._aBls
 
@@ -1277,10 +1287,6 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self.substates = self._substatemap[self.stateseq]
         self.stateseq = self._superstatemap[self.stateseq]
         superstates, durations = self.stateseq_norep, self.durations_censored
-
-        # TODO remove this check once it works!
-        for superstate, dur in zip(self.stateseq_norep, self.durations):
-            assert self.dur_distns[superstate].r <= dur
 
         self.substates_list = []
         for hmm in self.model.HMMs:
