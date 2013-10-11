@@ -24,6 +24,9 @@ float subhmm::just_fast_mult(
         eincomings(i) = esub_inits[i].dot(NPSubVector(v + blockstarts[i],Nsubs[i]));
     }
 
+    #ifdef _OPENMP
+    #pragma omp parallel for
+    #endif
     for (int i=0; i < N; i++) {
         int blockstart = blockstarts[i];
         int blocksize = blocksizes[i];
