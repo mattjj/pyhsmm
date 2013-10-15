@@ -1273,7 +1273,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         # NOTE: "big" stateseq includes substates and duration pseudostates
         # this call is made explicit for improved clarity, could just call super
         self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
-                self,alphan,self.trans_matrix)
+                alphan,self.trans_matrix)
         self._map_states()
 
     def log_likelihood(self):
@@ -1309,6 +1309,14 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
         self._loglike = None
         self._aBls = None
+
+    def generate_states(self):
+        # NOTE: only need this method to set self.big_stateseq; the rest could
+        # be handled by ancestor methods
+        ret = HMMStatesEigen.generate_states(self)
+        self.big_stateseq = self.stateseq
+        self._map_states()
+        return ret
 
     def generate_obs(self):
         alldata = []
