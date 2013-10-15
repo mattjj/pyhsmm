@@ -211,6 +211,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
         ### resample parameters locally
+
+        # NOTE: these methods will call self._clear_caches()
         self.resample_obs_distns_parallel() # doesn't necessarily run parallel
         self.resample_trans_distn()
         self.resample_init_state_distn()

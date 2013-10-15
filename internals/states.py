@@ -1270,7 +1270,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         return self._alphan
 
     def sample_backwards_normalized(self,alphan):
-        super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
+        # NOTE: "big" stateseq includes substates and duration pseudostates
+        # this call is made explicit for improved clarity, could just call super
+        self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
+                self,alphan,self.trans_matrix)
         self._map_states()
 
     def log_likelihood(self):
@@ -1284,8 +1287,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self.sample_backwards_normalized(alphan)
 
     def _map_states(self):
-        self.substates = self._substatemap[self.stateseq]
-        self.stateseq = self._superstatemap[self.stateseq]
+        # NOTE: "big" stateseq includes substates and duration pseudostates
+        big_stateseq = self.big_stateseq
+        self.substates = self._substatemap[big_stateseq]
+        self.stateseq = self._superstatemap[big_stateseq]
         superstates, durations = self.stateseq_norep, self.durations_censored
 
         self.substates_list = []
