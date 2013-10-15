@@ -64,7 +64,7 @@ float subhmm::just_fast_left_mult(
         float *v, float *out)
 {
     // these two lines just force eincomings to be on the stack
-    float incomings[N]; // NOTE: assuming stack pointer alignment for this guy too
+    float incomings[N] __attribute__ ((aligned(16)));
     NPVector eincomings(incomings,N);
 
     float sum_of_result = 0.;
