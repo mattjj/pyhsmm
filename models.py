@@ -211,6 +211,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
         ### resample parameters locally
+
+        # NOTE: these methods will call self._clear_caches()
         self.resample_obs_distns_parallel() # doesn't necessarily run parallel
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -627,9 +629,10 @@ class IntNegBinSubHMM(HMMEigen):
 
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
+    _subhmm_class = IntNegBinSubHMM
 
     def __init__(self,
-            obs_distnss,
+            obs_distnss=None,
             subHMMs=None,
             sub_alpha=None,sub_gamma=None,
             sub_alpha_a_0=None,sub_alpha_b_0=None,sub_gamma_a_0=None,sub_gamma_b_0=None,
@@ -637,8 +640,9 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
             **kwargs):
         self.obs_distnss = obs_distnss
         if subHMMs is None:
+            assert obs_distnss is not None
             self.HMMs = [
-                    IntNegBinSubHMM(
+                    self._subhmm_class(
                         obs_distns=obs_distns,
                         alpha=sub_alpha,gamma=sub_gamma,
                         alpha_a_0=sub_alpha_a_0,alpha_b_0=sub_alpha_b_0,
@@ -674,8 +678,4 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                             (substate,colors[superstate]+offset)
                             for substate,offset in zip(substates,
                                 np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
-
-        # TODO sort out labels for each HMM
-
-# TODO library versions in other repo
 

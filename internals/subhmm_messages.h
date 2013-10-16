@@ -10,6 +10,11 @@
 #include <Eigen/Core>
 #endif
 
+#if (defined _OPENMP) && (!defined MY_OMP_H)
+#define MY_OMP_H
+#include <omp.h>
+#endif
+
 #ifndef MY_VECTOR_H
 #define MY_VECTOR_H
 #include <vector>

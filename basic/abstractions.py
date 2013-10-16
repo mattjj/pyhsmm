@@ -33,6 +33,8 @@ class DurationDistribution(Distribution):
 
     def rvs_given_greater_than(self,x):
         tail = self.log_sf(x)
+        if np.isinf(tail):
+            return x+1
         trunc = 500
         while self.log_sf(x+trunc) - tail > -20:
             trunc *= 1.1

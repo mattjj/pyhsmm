@@ -1163,13 +1163,23 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         if self._aBls is None:
             data = self.data
             obs_distnss = self.model.obs_distnss
-            aBls = []
-            for obs_distns in obs_distnss:
+            obs_distnss = self.model.obs_distnss
+            if len(set(map(tuple,obs_distnss))) == 1:
+                # only one set of observation distributions shared across HMMs
+                obs_distns = obs_distnss[0]
                 aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
                 for idx, o in enumerate(obs_distns):
                     aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
                             ).astype('float32',copy=False)
-                aBls.append(aBl)
+                aBls = [aBl] * len(obs_distnss)
+            else:
+                aBls = []
+                for obs_distns in obs_distnss:
+                    aBl = np.empty((data.shape[0],len(obs_distns)),dtype='float32')
+                    for idx, o in enumerate(obs_distns):
+                        aBl[:,idx] = np.nan_to_num(o.log_likelihood(data)
+                                ).astype('float32',copy=False)
+                    aBls.append(aBl)
             self._aBls = aBls
         return self._aBls
 
@@ -1244,12 +1254,12 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         from subhmm_messages_interface import messages_forwards_normalized
 
         # allocate messages array
-        # NOTE: this resizes on most iterations! only a DUMMY would forget that,
-        # and then he'd get invalid opcodes and segfaults and all kinds of
-        # stuff, that was terrible
-        # TODO just allocate max so far, or something
-        self._alphan = np.empty((self.data.shape[0],
-            sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs))),dtype='float32')
+        # TODO start with a large size? count how many re-allocations happen?
+        required_shape = (self.data.shape[0],sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
+        required_size = np.prod(required_shape)
+        if not hasattr(self,'_raw_alphan') or self._raw_alphan.size < required_size:
+            self._raw_alphan = np.empty(required_size,dtype='float32')
+        self._alphan = self._raw_alphan[:required_size].reshape(required_shape)
 
         self._loglike = messages_forwards_normalized(
                 self.hsmm_trans_matrix,self.hsmm_pi_0,
@@ -1260,7 +1270,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         return self._alphan
 
     def sample_backwards_normalized(self,alphan):
-        super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
+        # NOTE: "big" stateseq includes substates and duration pseudostates
+        # this call is made explicit for improved clarity, could just call super
+        self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,self.trans_matrix)
         self._map_states()
 
     def log_likelihood(self):
@@ -1274,13 +1287,11 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self.sample_backwards_normalized(alphan)
 
     def _map_states(self):
-        self.substates = self._substatemap[self.stateseq]
-        self.stateseq = self._superstatemap[self.stateseq]
+        # NOTE: "big" stateseq includes substates and duration pseudostates
+        big_stateseq = self.big_stateseq
+        self.substates = self._substatemap[big_stateseq]
+        self.stateseq = self._superstatemap[big_stateseq]
         superstates, durations = self.stateseq_norep, self.durations_censored
-
-        # TODO remove this check once it works!
-        for superstate, dur in zip(self.stateseq_norep, self.durations):
-            assert self.dur_distns[superstate].r <= dur
 
         self.substates_list = []
         for hmm in self.model.HMMs:
@@ -1298,6 +1309,14 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
         self._loglike = None
         self._aBls = None
+
+    def generate_states(self):
+        # NOTE: only need this method to set self.big_stateseq; the rest could
+        # be handled by ancestor methods
+        ret = HMMStatesEigen.generate_states(self)
+        self.big_stateseq = self.stateseq
+        self._map_states()
+        return ret
 
     def generate_obs(self):
         alldata = []

@@ -147,16 +147,15 @@ namespace hmm {
             int32_t *stateseq)
     {
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Type Aarr[M*M];
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(Aarr,M,M);
+        Matrix<Type,Dynamic,Dynamic> eA(M,M);
         eA = eAT.transpose();
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
 
-        Type next_potential[M];
+        Type next_potential[M] __attribute__ ((aligned(16)));
         Map<Array<Type,Dynamic,1>,Aligned> enext_potential(next_potential,M);
         enext_potential.setOnes();
 
-        Type temp[M];
+        Type temp[M] __attribute__ ((aligned(16)));
         Map<Array<Type,Dynamic,1>,Aligned> etemp(temp,M);
 
         for (int t=T-1; t>=0; t--) {
