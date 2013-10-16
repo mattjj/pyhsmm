@@ -192,8 +192,8 @@ itself, since HSMM samplers empirically seem to take fewer iterations to
 converge than comparable HMM samplers.
 
 Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
-Intel's MKL BLAS (which generally outperforms ATLAS for vectorized operations)
-along with the Eigen-backed classes, here's how long the demo iterations took:
+Intel's MKL along with the Eigen-backed classes, here's how long the demo
+iterations took:
 
 ```
 $ python examples/hsmm.py
