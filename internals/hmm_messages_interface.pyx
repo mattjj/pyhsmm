@@ -1,7 +1,6 @@
 # distutils: name = internals.hmm_messages_interface
 # distutils: language = c++
-# distutils: extra_compile_args = -O3 -march=native -g0 -w -fopenmp -DNDEBUG
-# distutils: extra_link_args = -fopenmp
+# distutils: extra_compile_args = -O3 -march=native -g0 -w -DNDEBUG
 # distutils: include_dirs = deps/Eigen3/
 
 # NOTE: afaict, cython doesn't support templated methods (only templated
