@@ -100,6 +100,8 @@ def map_on_each(fn,added_datas,kwargss=None,engine_globals=None):
     results = [ar.get() for ar in ars]
 
     c.purge_results('all')
+    c.results.clear()
+    dv.results.clear()
 
     return results
 
@@ -122,6 +124,8 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
             kwargss)
 
     c.purge_results('all')
+    c.results.clear()
+    dv.results.clear()
 
     return results
 

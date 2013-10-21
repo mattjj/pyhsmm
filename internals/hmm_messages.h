@@ -14,6 +14,8 @@
 #include "util.h"
 #endif
 
+// TODO remove stack alignment trick stuff?
+
 using namespace Eigen;
 using namespace std;
 
@@ -151,16 +153,13 @@ namespace hmm {
         eA = eAT.transpose();
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
 
-        Type next_potential[M] __attribute__ ((aligned(16)));
-        Map<Array<Type,Dynamic,1>,Aligned> enext_potential(next_potential,M);
+        Array<Type,Dynamic,1> enext_potential(M);
         enext_potential.setOnes();
-
-        Type temp[M] __attribute__ ((aligned(16)));
-        Map<Array<Type,Dynamic,1>,Aligned> etemp(temp,M);
+        Array<Type,Dynamic,1> etemp(M);
 
         for (int t=T-1; t>=0; t--) {
             etemp = enext_potential * ealphan.col(t).array();
-            stateseq[t] = util::sample_discrete(M,temp);
+            stateseq[t] = util::sample_discrete(M,etemp.data());
             enext_potential = eA.col(stateseq[t]);
         }
     }
