@@ -8,13 +8,13 @@ import scipy.stats as stats
 np.seterr(invalid='raise')
 
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
-from ..util import general as util # perhaps a confusing name :P
+from ..util.general import rle, top_eigenvector
 
-# TODO using log(A) in message passing can hurt stability a bit, -1000 turns
-# into -inf
-# TODO abstract this cache handling... metaclass and a cached decorator?
+# TODO change HSMM message methods to be called messages_log
 
-class HMMStatesPython(object):
+class _StatesBase(object):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self,model,T=None,data=None,stateseq=None,
             initialize_from_prior=True,**kwargs):
         self.model = model
@@ -33,6 +33,12 @@ class HMMStatesPython(object):
             else:
                 self.generate_states()
 
+    ### model properties
+
+    @property
+    def obs_distns(self):
+        return self.model.obs_distns
+
     @property
     def trans_matrix(self):
         return self.model.trans_distn.A
@@ -40,10 +46,6 @@ class HMMStatesPython(object):
     @property
     def pi_0(self):
         return self.model.init_state_distn.pi_0
-
-    @property
-    def obs_distns(self):
-        return self.model.obs_distns
 
     @property
     def state_dim(self):
@@ -54,6 +56,42 @@ class HMMStatesPython(object):
     def generate(self):
         self.generate_states()
         return self.generate_obs()
+
+    @abc.abstractmethod
+    def generate_states(self):
+        pass
+
+    def generate_obs(self):
+        obs = []
+        for state,dur in zip(*rle(self.stateseq)):
+            obs.append(self.obs_distns[state].rvs(int(dur)))
+        return np.concatenate(obs)
+
+    ### messages and likelihoods
+
+    # some cached things depends on model parameters, so caches should be
+    # cleared when the model changes (e.g. when parameters are updated)
+
+    def clear_caches(self):
+        self._aBl = None
+        self._loglike = None
+
+    @property
+    def aBl(self):
+        if self._aBl is None:
+            data = self.data
+            aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
+            for idx, obs_distn in enumerate(self.obs_distns):
+                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
+        return self._aBl
+
+    @abc.abstractmethod
+    def log_likelihood(self):
+        pass
+
+
+class HMMStatesPython(_StatesBase):
+    ### generation
 
     def generate_states(self):
         T = self.T
@@ -68,34 +106,15 @@ class HMMStatesPython(object):
         self.stateseq = stateseq
         return stateseq
 
-    def generate_obs(self):
-        obs = []
-        for state,dur in zip(*util.rle(self.stateseq)):
-            obs.append(self.obs_distns[state].rvs(int(dur)))
-        return np.concatenate(obs)
-
-    ### caching common computation needed for several methods
-
-    # this stuff depends on model parameters, so it must be cleared when the
-    # model changes
-
-    def clear_caches(self):
-        self._aBl = None
-        self._betal = None
-
-    @property
-    def aBl(self):
-        if self._aBl is None:
-            data = self.data
-            aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
-            for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
-        return self._aBl
-
     ### message passing
 
+    def log_likelihood(self):
+        if self._loglike is None:
+            self.messages_forwards_normalized() # NOTE: sets self._loglike
+        return self._loglike
+
     @staticmethod
-    def _messages_backwards(trans_matrix,log_likelihoods):
+    def _messages_backwards_log(trans_matrix,log_likelihoods):
         Al = np.log(trans_matrix)
         aBl = log_likelihoods
 
@@ -106,15 +125,12 @@ class HMMStatesPython(object):
 
         return betal
 
-    def messages_backwards(self):
-        if self._betal is not None:
-            return self._betal
+    def messages_backwards_log(self):
         aBl = self.aBl/self.temp if hasattr(self,'temp') and self.temp is not None else self.aBl
-        self._betal = self._messages_backwards(self.trans_matrix,aBl)
-        return self._betal
+        return self._messages_backwards_log(self.trans_matrix,aBl)
 
     @staticmethod
-    def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
+    def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         Al = np.log(trans_matrix)
         aBl = log_likelihoods
 
@@ -126,8 +142,8 @@ class HMMStatesPython(object):
 
         return alphal
 
-    def messages_forwards(self):
-        return self._messages_forwards(self.trans_matrix,self.pi_0,self.aBl)
+    def messages_forwards_log(self):
+        return self._messages_forwards_log(self.trans_matrix,self.pi_0,self.aBl)
 
     @staticmethod
     def _messages_backwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
@@ -152,7 +168,9 @@ class HMMStatesPython(object):
         return betan, logtot
 
     def messages_backwards_normalized(self):
-        return self._messages_backwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+        betan, self._loglike = \
+                self._messages_backwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+        return betan
 
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
@@ -175,14 +193,24 @@ class HMMStatesPython(object):
         return alphan, logtot
 
     def messages_forwards_normalized(self):
-        return self._messages_forwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+        alphan, self._loglike = \
+                self._messages_forwards_normalized(self.trans_matrix,self.pi_0,self.aBl)
+        return alphan
 
     ### Gibbs sampling
 
-    def resample(self,temp=None):
+    def resample_log(self,temp=None):
         self.temp = temp
-        betal = self.messages_backwards()
-        self.sample_forwards(betal)
+        betal = self.messages_backwards_log()
+        self.sample_forwards_log(betal)
+
+    def resample_normalized(self,temp=None):
+        self.temp = temp
+        betan = self.messages_forwards_normalized()
+        self.sample_backwards_normalized(betan)
+
+    def resample(self,temp=None):
+        return self.resample_normalized(temp=temp)
 
     def copy_sample(self,newmodel):
         new = copy.copy(self)
@@ -192,7 +220,7 @@ class HMMStatesPython(object):
         return new
 
     @staticmethod
-    def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
+    def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):
         A = trans_matrix
         aBl = log_likelihoods
         T = aBl.shape[0]
@@ -208,9 +236,9 @@ class HMMStatesPython(object):
 
         return stateseq
 
-    def sample_forwards(self,betal):
+    def sample_forwards_log(self,betal):
         aBl = self.aBl/self.temp if self.temp is not None else self.aBl
-        self.stateseq = self._sample_forwards(betal,self.trans_matrix,self.pi_0,aBl)
+        self.stateseq = self._sample_forwards_log(betal,self.trans_matrix,self.pi_0,aBl)
 
     @staticmethod
     def _sample_forwards_normalized(betan,trans_matrix,init_state_distn,log_likelihoods):
@@ -253,8 +281,8 @@ class HMMStatesPython(object):
     ### EM
 
     def E_step(self):
-        alphal = self.alphal = self.messages_forwards()
-        betal = self.betal = self.messages_backwards()
+        alphal = self.alphal = self.messages_forwards_log()
+        betal = self.betal = self.messages_backwards_log()
         expectations = self.expectations = alphal + betal
 
         expectations -= expectations.max(1)[:,na]
@@ -307,7 +335,7 @@ class HMMStatesPython(object):
 
     def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
         from matplotlib import pyplot as plt
-        states,durations = util.rle(self.stateseq)
+        states,durations = rle(self.stateseq)
         X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),vertical_extent)
 
         if colors_dict is not None:
@@ -321,7 +349,6 @@ class HMMStatesPython(object):
         plt.yticks([])
 
 class HMMStatesEigen(HMMStatesPython):
-
     def generate_states(self):
         self.stateseq = sample_markov(
                 T=self.T,
@@ -331,23 +358,23 @@ class HMMStatesEigen(HMMStatesPython):
     ### common messages (Gibbs, EM, likelihood calculation)
 
     @staticmethod
-    def _messages_backwards(trans_matrix,log_likelihoods):
+    def _messages_backwards_log(trans_matrix,log_likelihoods):
         from hmm_messages_interface import messages_backwards_log
         return messages_backwards_log(
                 trans_matrix,log_likelihoods,
                 np.empty_like(log_likelihoods))
 
     @staticmethod
-    def _messages_forwards(trans_matrix,init_state_distn,log_likelihoods):
+    def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
                 np.empty_like(log_likelihoods))
 
     def messages_backwards_python(self):
-        return super(HMMStatesEigen,self).messages_backwards()
+        return super(HMMStatesEigen,self).messages_backwards_log()
 
     def messages_forwards_python(self):
-        return super(HMMStatesEigen,self).messages_forwards()
+        return super(HMMStatesEigen,self).messages_forwards_log()
 
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
@@ -361,7 +388,7 @@ class HMMStatesEigen(HMMStatesPython):
     ### sampling
 
     @staticmethod
-    def _sample_forwards(betal,trans_matrix,init_state_distn,log_likelihoods):
+    def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import sample_forwards_log
         return sample_forwards_log(trans_matrix,log_likelihoods,
                 init_state_distn,betal,np.empty(log_likelihoods.shape[0],dtype='int32'))
@@ -371,6 +398,10 @@ class HMMStatesEigen(HMMStatesPython):
         from hmm_messages_interface import sample_backwards_normalized
         return sample_backwards_normalized(trans_matrix,alphan,
                 np.empty(alphan.shape[0],dtype='int32'))
+
+    ### EM
+
+    # TODO E_step
 
     ### Vitberbi
 
@@ -409,7 +440,7 @@ class HMMStatesEigen(HMMStatesPython):
         return stateseq
 
 
-class HSMMStatesPython(HMMStatesPython):
+class HSMMStatesPython(_StatesBase):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
             stateseq=None,**kwargs):
         self.right_censoring = right_censoring
@@ -431,13 +462,13 @@ class HSMMStatesPython(HMMStatesPython):
     @property
     def stateseq_norep(self):
         if self._stateseq_norep is None:
-            self._stateseq_norep, self._durations_censored = util.rle(self.stateseq)
+            self._stateseq_norep, self._durations_censored = rle(self.stateseq)
         return self._stateseq_norep
 
     @property
     def durations_censored(self):
         if self._durations_censored is None:
-            self._stateseq_norep, self._durations_censored = util.rle(self.stateseq)
+            self._stateseq_norep, self._durations_censored = rle(self.stateseq)
         return self._durations_censored
 
     @property
@@ -504,7 +535,6 @@ class HSMMStatesPython(HMMStatesPython):
     ### caching
 
     def clear_caches(self):
-        self.temp = 1
         self._aDl = None
         self._aDsl = None
         self._betal, self._betastarl = None, None
@@ -533,6 +563,12 @@ class HSMMStatesPython(HMMStatesPython):
         return self._aDsl
 
     ### message passing
+
+    def log_likelihood(self):
+        if self._loglike is None:
+            betal, _ = self.messages_backwards()
+            self._loglike = np.logaddexp.reduce(np.log(self.pi_0) + betal[0] + self.aBl[0])
+        return self._loglike
 
     def messages_backwards(self):
         if self._betal is not None and self._betastarl is not None:
@@ -651,6 +687,8 @@ class HSMMStatesPython(HMMStatesPython):
     ### plotting
 
     def plot(self,colors_dict=None,**kwargs):
+        # TODO almost identical to HMM.plot, but with reference to
+        # stateseq_norep
         from matplotlib import pyplot as plt
         X,Y = np.meshgrid(np.hstack((0,self.durations_censored.cumsum())),(0,1))
 
@@ -688,50 +726,6 @@ class HSMMStatesEigen(HSMMStatesPython):
 
         self.stateseq = stateseq # must have this line at end; it triggers stateseq_norep
 
-class HSMMStatesGeoApproximation(HSMMStatesPython):
-    def _get_hmm_transition_matrix(self):
-        trunc = self.trunc if self.trunc is not None else self.T
-        state_dim = self.state_dim
-        hmm_A = self.trans_matrix.copy()
-        hmm_A.flat[::state_dim+1] = 0
-        thediag = np.array([np.exp(d.log_pmf(trunc+1)-d.log_pmf(trunc))[0] for d in self.dur_distns])
-        assert (thediag < 1).all(), 'truncation is too small!'
-        hmm_A *= ((1-thediag)/hmm_A.sum(1))[:,na]
-        hmm_A.flat[::state_dim+1] = thediag
-        return hmm_A
-
-    def messages_backwards(self):
-        'approximates duration tails at indices > trunc with geometric tails'
-        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
-        trunc = self.trunc if self.trunc is not None else self.T
-        T,state_dim = aDl.shape
-
-        assert trunc > 1
-
-        aBl = self.aBl/self.temp if self.temp is not None else self.aBl
-        hmm_betal = HMMStatesEigen._messages_backwards(self._get_hmm_transition_matrix(),aBl)
-        assert not np.isnan(hmm_betal).any()
-
-        betal = np.zeros((T,state_dim),dtype=np.float64)
-        betastarl = np.zeros_like(betal)
-
-        for t in xrange(T-1,-1,-1):
-            np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc)
-                    + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
-            if t+trunc < T:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,t+trunc+1) + aDsl[trunc -1]
-                        + hmm_betal[t+trunc], out=betastarl[t])
-            if T-t < trunc and self.right_censoring:
-                np.logaddexp(betastarl[t], self.likelihood_block(t,None) + aDsl[T-t -1], betastarl[t])
-            np.logaddexp.reduce(betastarl[t] + Al,axis=1,out=betal[t-1])
-        betal[-1] = 0.
-
-        return betal, betastarl
-
-class HSMMStatesGeoDynamicApproximation(HSMMStatesGeoApproximation):
-    def messages_backwards(self):
-        raise NotImplementedError # figure out trunc based on where log_pmf becomes approximately flat TODO
-        super(HSMMStatesGeoDynamicApproximation,self).messages_backwards()
 
 class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     # NOTE: I'm secretly an HMMStates first! I just shh
@@ -767,15 +761,6 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def hsmm_pi_0(self):
         return super(_HSMMStatesIntegerNegativeBinomialBase,self).pi_0
 
-    # the next methods are to override the calls that the parents' methods would
-    # make so that the parent can view us as the effective HMM we are!
-
-    @property
-    def aBl(self):
-        if self._hmm_aBl is None or True:
-            self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
-        return self._hmm_aBl
-
     @property
     def rs(self):
         if True or self._rs is None:
@@ -787,6 +772,16 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         if True or self._ps is none:
             self._ps = np.array([d.p for d in self.dur_distns])
         return self._ps
+
+
+    # the next methods are to override the calls that the parents' methods would
+    # make so that the parent can view us as the effective HMM we are!
+
+    @property
+    def aBl(self):
+        if self._hmm_aBl is None or True:
+            self._hmm_aBl = self.hsmm_aBl.repeat(self.rs,axis=1)
+        return self._hmm_aBl
 
     @abc.abstractproperty
     def pi_0(self):
@@ -860,7 +855,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
             pi_0[starts] = self.hsmm_pi_0
             return pi_0
         else:
-            return util.top_eigenvector(self.trans_matrix)
+            return top_eigenvector(self.trans_matrix)
 
     @property
     def trans_matrix(self):
@@ -1039,7 +1034,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
             rs = self.rs
             return self.hsmm_pi_0.repeat(rs) * np.concatenate(self.binoms)
         else:
-            return util.top_eigenvector(self.trans_matrix)
+            return top_eigenvector(self.trans_matrix)
 
     # TODO test
     @property
@@ -1254,14 +1249,13 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         from subhmm_messages_interface import messages_forwards_normalized
 
         # allocate messages array
-        # TODO start with a large size? count how many re-allocations happen?
         required_shape = (self.data.shape[0],sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
         required_size = np.prod(required_shape)
         if not hasattr(self,'_raw_alphan') or self._raw_alphan.size < required_size:
             self._raw_alphan = np.empty(required_size,dtype='float32')
         self._alphan = self._raw_alphan[:required_size].reshape(required_shape)
 
-        self._loglike = messages_forwards_normalized(
+        _, self._loglike = messages_forwards_normalized(
                 self.hsmm_trans_matrix,self.hsmm_pi_0,
                 self.rs,self.ps,
                 self.subhmm_trans_matrices,self.subhmm_pi_0s,
@@ -1275,11 +1269,6 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
                 alphan,self.trans_matrix)
         self._map_states()
-
-    def log_likelihood(self):
-        if self._loglike is None:
-            self.messages_forwards_normalized()
-        return self._loglike
 
     def resample(self,temp=None):
         # TODO something with temperature
@@ -1307,7 +1296,6 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     def clear_caches(self):
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
-        self._loglike = None
         self._aBls = None
 
     def generate_states(self):
@@ -1334,13 +1322,13 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def maxsum_messages_backwards(self):
         raise NotImplementedError
 
-    def sample_forwards(self,betal,betastarl):
+    def sample_forwards_log(self,betal,betastarl):
         raise NotImplementedError
 
-    def messages_backwards(self):
+    def messages_backwards_log(self):
         raise NotImplementedError
 
-    def messages_forwards(self):
+    def messages_forwards_log(self):
         raise NotImplementedError
 
     def E_step(self):
