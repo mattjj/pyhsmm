@@ -33,6 +33,13 @@ class _StatesBase(object):
             else:
                 self.generate_states()
 
+    def copy_sample(self,newmodel):
+        new = copy.copy(self)
+        new.clear_caches() # saves space, though may recompute later for likelihoods
+        new.model = newmodel
+        new.stateseq = self.stateseq.copy()
+        return new
+
     ### model properties
 
     @property
@@ -211,13 +218,6 @@ class HMMStatesPython(_StatesBase):
 
     def resample(self,temp=None):
         return self.resample_normalized(temp=temp)
-
-    def copy_sample(self,newmodel):
-        new = copy.copy(self)
-        new.clear_caches() # saves space, though may recompute later for likelihoods
-        new.model = newmodel
-        new.stateseq = self.stateseq.copy()
-        return new
 
     @staticmethod
     def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):
