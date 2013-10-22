@@ -103,7 +103,7 @@ namespace hmm {
         norm = ealphan.col(0).sum();
         ealphan.col(0) /= norm;
         logtot += log(norm) + cmax;
-        for (int t=0; t<T; t++) {
+        for (int t=0; t<T-1; t++) {
             cmax = eaBl.col(t+1).maxCoeff();
             ealphan.col(t+1) = (eAT * ealphan.col(t).matrix()).array()
                 * (eaBl.col(t+1).array() - cmax).exp();
@@ -153,13 +153,16 @@ namespace hmm {
         eA = eAT.transpose();
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
 
-        Array<Type,Dynamic,1> enext_potential(M);
+        Type next_potential[M] __attribute__ ((aligned(16)));
+        Map<Array<Type,Dynamic,1>,Aligned> enext_potential(next_potential,M);
         enext_potential.setOnes();
-        Array<Type,Dynamic,1> etemp(M);
+
+        Type temp[M] __attribute__ ((aligned(16)));
+        Map<Array<Type,Dynamic,1>,Aligned> etemp(temp,M);
 
         for (int t=T-1; t>=0; t--) {
             etemp = enext_potential * ealphan.col(t).array();
-            stateseq[t] = util::sample_discrete(M,etemp.data());
+            stateseq[t] = util::sample_discrete(M,temp);
             enext_potential = eA.col(stateseq[t]);
         }
     }
