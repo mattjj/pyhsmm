@@ -76,6 +76,9 @@ float subhmm::just_fast_left_mult(
                 v + blockstarts[i] + blocksizes[i] - Nsubs[i],Nsubs[i]).sum();
     }
 
+    #ifdef _OPENMP
+    #pragma omp parallel for
+    #endif
     for (int i=0; i < N; i++) {
         int blockstart = blockstarts[i];
         int32_t Nsub = Nsubs[i];
