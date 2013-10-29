@@ -17,7 +17,7 @@ namespace util {
         tot *= ((T) rand()) / ((T) (RAND_MAX));
 
         int sample_idx;
-        for (sample_idx=0; sample_idx < N && (tot -= distn[sample_idx]) > 0; sample_idx++) ;
+        for (sample_idx=0; sample_idx < N-1 && (tot -= distn[sample_idx]) > 0; sample_idx++) ;
 
         return sample_idx;
     }
