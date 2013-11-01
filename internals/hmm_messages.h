@@ -22,7 +22,6 @@ using namespace std;
 // NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
 // worked with each's deafult alignment, so the notion of "row" and "column"
 // get transposed here compared to numpy code
-
 // NOTE: I wrote that when I was young and naive; it'd be better just to
 // use the RowMajor flag with Eigen. TODO
 
@@ -145,12 +144,10 @@ namespace hmm {
     }
 
     template <typename Type>
-    void sample_backwards_normalized(int M, int T, Type *A, Type *alphan,
+    void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
             int32_t *stateseq)
     {
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Matrix<Type,Dynamic,Dynamic> eA(M,M);
-        eA = eAT.transpose();
+        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(AT,M,M);
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
 
         Array<Type,Dynamic,1> enext_potential(M);

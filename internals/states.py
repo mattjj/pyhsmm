@@ -262,21 +262,21 @@ class HMMStatesPython(_StatesBase):
                 betan,self.trans_matrix,self.pi_0,self.aBl)
 
     @staticmethod
-    def _sample_backwards_normalized(alphan,trans_matrix):
-        A = trans_matrix
+    def _sample_backwards_normalized(alphan,trans_matrix_transpose):
+        AT = trans_matrix_transpose
         T = alphan.shape[0]
 
         stateseq = np.empty(T,dtype=np.int32)
 
-        next_potential = np.ones(A.shape[0])
+        next_potential = np.ones(AT.shape[0])
         for t in xrange(T-1,-1,-1):
             stateseq[t] = sample_discrete(next_potential * alphan[t])
-            next_potential = A[:,stateseq[t]]
+            next_potential = AT[stateseq[t]]
 
         return stateseq
 
     def sample_backwards_normalized(self,alphan):
-        self.stateseq = self._sample_backwards_normalized(alphan,self.trans_matrix)
+        self.stateseq = self._sample_backwards_normalized(alphan,self.trans_matrix.T.copy())
 
     ### EM
 
@@ -394,9 +394,9 @@ class HMMStatesEigen(HMMStatesPython):
                 init_state_distn,betal,np.empty(log_likelihoods.shape[0],dtype='int32'))
 
     @staticmethod
-    def _sample_backwards_normalized(alphan,trans_matrix):
+    def _sample_backwards_normalized(alphan,trans_matrix_transpose):
         from hmm_messages_interface import sample_backwards_normalized
-        return sample_backwards_normalized(trans_matrix,alphan,
+        return sample_backwards_normalized(trans_matrix_transpose,alphan,
                 np.empty(alphan.shape[0],dtype='int32'))
 
     ### EM
@@ -1263,12 +1263,8 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
         return self._alphan
 
-    def sample_backwards_normalized(self,alphan):
-        # NOTE: "big" stateseq includes substates and duration pseudostates
-        # this call is made explicit for improved clarity, could just call super
-        self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
-                alphan,self.trans_matrix)
-        self._map_states()
+    # TODO TODO TODO specialized sample_backwards_normalized with sparse column
+    # matrix
 
     def resample(self,temp=None):
         # TODO something with temperature

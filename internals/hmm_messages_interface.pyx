@@ -37,7 +37,7 @@ cdef extern from "hmm_messages.h":
             float *A, float *pi0, float *aBl, float *betal, int32_t *stateseq)
 
     void f_sample_backwards_normalized "hmm::sample_backwards_normalized" (
-            int M, int T, float *A, float *alphan, int32_t *stateseq)
+            int M, int T, float *AT, float *alphan, int32_t *stateseq)
 
     void f_viterbi "hmm::viterbi" (
             int M, int T, float *A, float *pi0, float *aBl, int32_t *stateseq)
@@ -58,7 +58,7 @@ cdef extern from "hmm_messages.h":
             double *A, double *pi0, double *aBl, double *betal, int32_t *stateseq)
 
     void d_sample_backwards_normalized "hmm::sample_backwards_normalized" (
-            int M, int T, double *A, double *alphan, int32_t *stateseq)
+            int M, int T, double *AT, double *alphan, int32_t *stateseq)
 
     void d_viterbi "hmm::viterbi" (
             int M, int T, double *A, double *pi0, double *aBl, int32_t *stateseq)
@@ -128,15 +128,15 @@ def sample_forwards_log(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def sample_backwards_normalized(
-        np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
+        np.ndarray[cython.floating,ndim=2,mode="c"] AT not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] alphan not None,
         np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
         ):
     if cython.floating is double:
-        d_sample_backwards_normalized(A.shape[0],alphan.shape[0],&A[0,0],
+        d_sample_backwards_normalized(AT.shape[0],alphan.shape[0],&AT[0,0],
                 &alphan[0,0],&stateseq[0])
     else:
-        f_sample_backwards_normalized(A.shape[0],alphan.shape[0],&A[0,0],
+        f_sample_backwards_normalized(AT.shape[0],alphan.shape[0],&AT[0,0],
                 &alphan[0,0],&stateseq[0])
     return stateseq
 
