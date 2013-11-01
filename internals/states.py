@@ -1296,6 +1296,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     def clear_caches(self):
         super(HSMMIntNegBinVariantSubHMMsStates,self).clear_caches()
+        self._alphan = self._raw_alphan = None
         self._aBls = None
 
     def generate_states(self):
