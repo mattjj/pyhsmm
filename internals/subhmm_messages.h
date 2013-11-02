@@ -25,10 +25,15 @@
 #include <limits>
 #endif
 
+#ifndef UTIL_H
+#include "util.h"
+#endif
+
 using namespace Eigen;
 using namespace std;
 
-// NOTE: no doubles here! TODO template things
+// NOTE: no doubles here! TODO template things, including the typedefs (type
+// aliases? or just typdefs inside classes without C++11?)
 
 namespace subhmm {
     typedef Map<Matrix<float,Dynamic,Dynamic,RowMajor>,Aligned> NPMatrix;
@@ -70,6 +75,11 @@ namespace subhmm {
             std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
             std::vector<float*>& aBls,
             float *alphan);
+
+    void sample_backwards_normalized(
+        int T, int bigN,
+        float *alphan, int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq);
 
     // these next ones are for testing
 

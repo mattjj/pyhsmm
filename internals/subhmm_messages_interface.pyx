@@ -34,6 +34,11 @@ cdef extern from "subhmm_messages.h" namespace "std":
         vector[float*]& sub_transs, vector[float*]& sub_inits, vector[float*]& aBls,
         float *alphan)
 
+    float f_sample_backwards_normalized "subhmm::sample_backwards_normalized" (
+        int T, int bigN,
+        float *alphan, int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq)
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def messages_backwards_normalized(
@@ -137,6 +142,18 @@ def messages_forwards_normalized(
             &alphan[0,0])
 
     return alphan, loglike
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def sample_backwards_normalized(
+        np.ndarray[np.float32_t,ndim=2,mode='c'] alphan not None,
+        np.ndarray[np.int32_t,ndim=1,mode='c'] indptr not None,
+        np.ndarray[np.int32_t,ndim=1,mode='c'] indices not None,
+        np.ndarray[np.float32_t,ndim=1,mode='c'] bigA_data not None,
+        np.ndarray[np.int32_t,ndim=1,mode='c'] stateseq not None):
+    f_sample_backwards_normalized(alphan.shape[0],alphan.shape[1],&alphan[0,0],
+            &indptr[0],&indices[0],&bigA_data[0],&stateseq[0])
+    return stateseq
 
 # NOTE; these next ones are for testing
 

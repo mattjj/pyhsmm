@@ -233,7 +233,32 @@ float subhmm::messages_forwards_normalized(
     return logtot;
 }
 
-// these next ones are for testing
+void subhmm::sample_backwards_normalized(
+        int T, int bigN,
+        float *alphan, int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq)
+{
+    int sz = 0;
+    for (int j=0; j<bigN; j++) {
+        sz = max(sz,indptr[j+1] - indptr[j]);
+    }
+    float temp[sz];
+
+    stateseq[T-1] = util::sample_discrete(bigN,alphan+bigN*(T-1));
+    for (int t=T-2; t>=0; t--) {
+        int start = indptr[stateseq[t+1]];
+        int end = indptr[stateseq[t+1]+1];
+        for (int i=start; i<end; i++) {
+            temp[i-start] = bigA_data[i] * alphan[t*bigN + indices[i]];
+        }
+        stateseq[t] = indices[start+util::sample_discrete(end-start,temp)];
+    }
+}
+
+/******************
+ *  TESTING CODE  *
+ ******************/
+
 
 void subhmm::fast_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,

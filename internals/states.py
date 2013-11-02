@@ -4,6 +4,7 @@ from numpy.random import random
 import scipy.weave
 import abc, copy, warnings
 import scipy.stats as stats
+import scipy.sparse as sparse
 
 np.seterr(invalid='raise')
 
@@ -1184,7 +1185,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         return np.concatenate([np.tile(aBl,(1,r)) for aBl,r in zip(self.aBls,self.rs)],axis=1)
 
     @property
-    def Nbig(self):
+    def bigN(self):
         return sum(self.blocksizes)
 
     @property
@@ -1201,7 +1202,17 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def trans_matrix(self):
-        # NOTE: for use with HMM methods (namely sample_backwards_normalized)
+        # NOTE: for testing with HMM methods
+        out = np.zeros((self.bigN,self.bigN),dtype='float32')
+        return self._get_trans_matrix(out)
+
+    @property
+    def csc_trans_matrix(self):
+        # NOTE: used in this class's custom sample_backwards_normalized
+        out = sparse.lil_matrix((self.bigN,self.bigN),dtype='float32')
+        return self._get_trans_matrix(out).tocsc()
+
+    def _get_trans_matrix(self,out):
         # TODO shorten the variable names and lines in this method, they dumb
         rs, ps = self.rs, self.ps
         super_trans = self.hsmm_trans_matrix
@@ -1213,8 +1224,6 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
         blocksizes = [r*Nsub for r, Nsub in zip(rs,Nsubs)]
         blockstarts = np.concatenate(((0,),np.cumsum(blocksizes)[:-1]))
-
-        out = np.zeros((sum(blocksizes),sum(blocksizes)),dtype='float32')
 
         for r, p, subtrans, blockstart, blocksize \
                 in zip(rs, ps, sub_transs, blockstarts, blocksizes):
@@ -1231,7 +1240,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def pi_0(self):
-        out = np.zeros(self.Nbig)
+        out = np.zeros(self.bigN)
         for start, Nsub, super_pi_i, sub_init \
                 in zip(self.blockstarts,self.Nsubs,self.hsmm_pi_0,self.subhmm_pi_0s):
             out[start:start+Nsub] = super_pi_i * sub_init
@@ -1251,7 +1260,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         # allocate messages array
         required_shape = (self.data.shape[0],sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
         required_size = np.prod(required_shape)
-        if not hasattr(self,'_raw_alphan') or self._raw_alphan.size < required_size:
+        if self._raw_alphan is None or self._raw_alphan.size < required_size:
             self._raw_alphan = np.empty(required_size,dtype='float32')
         self._alphan = self._raw_alphan[:required_size].reshape(required_shape)
 
@@ -1263,8 +1272,13 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
         return self._alphan
 
-    # TODO TODO TODO specialized sample_backwards_normalized with sparse column
-    # matrix
+    def sample_backwards_normalized(self,alphan):
+        from subhmm_messages_interface import sample_backwards_normalized
+        bigA = self.csc_trans_matrix
+        self.big_stateseq = sample_backwards_normalized(
+                alphan,bigA.indptr,bigA.indices,bigA.data,
+                np.empty(alphan.shape[0],dtype='int32'))
+        self._map_states()
 
     def resample(self,temp=None):
         # TODO something with temperature

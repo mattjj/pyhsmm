@@ -150,14 +150,12 @@ namespace hmm {
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(AT,M,M);
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
 
-        Array<Type,Dynamic,1> enext_potential(M);
-        enext_potential.setOnes();
         Array<Type,Dynamic,1> etemp(M);
 
-        for (int t=T-1; t>=0; t--) {
-            etemp = enext_potential * ealphan.col(t).array();
+        stateseq[T-1] = util::sample_discrete(M,ealphan.col(T-1).data());
+        for (int t=T-2; t>=0; t--) {
+            etemp = eA.col(stateseq[t+1]).array() * ealphan.col(t).array();
             stateseq[t] = util::sample_discrete(M,etemp.data());
-            enext_potential = eA.col(stateseq[t]);
         }
     }
 
