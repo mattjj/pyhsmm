@@ -214,8 +214,8 @@ class HMMStatesPython(_StatesBase):
 
     def resample_normalized(self,temp=None):
         self.temp = temp
-        betan = self.messages_forwards_normalized()
-        self.sample_backwards_normalized(betan)
+        alphan = self.messages_forwards_normalized()
+        self.sample_backwards_normalized(alphan)
 
     def resample(self,temp=None):
         return self.resample_normalized(temp=temp)

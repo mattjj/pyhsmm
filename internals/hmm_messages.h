@@ -102,7 +102,7 @@ namespace hmm {
         norm = ealphan.col(0).sum();
         ealphan.col(0) /= norm;
         logtot += log(norm) + cmax;
-        for (int t=0; t<T; t++) {
+        for (int t=0; t<T-1; t++) {
             cmax = eaBl.col(t+1).maxCoeff();
             ealphan.col(t+1) = (eAT * ealphan.col(t).matrix()).array()
                 * (eaBl.col(t+1).array() - cmax).exp();

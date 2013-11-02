@@ -94,7 +94,7 @@ class HDPHMMTransitions(object):
 
     def _get_m(self,trans_counts):
         N = trans_counts.shape[0]
-        m = np.zeros((N,N),dtype=np.int32)
+        m = np.zeros((N,N),dtype='int32')
         if not (0 == trans_counts).all():
             alpha, beta = self.alpha, self.beta
             scipy.weave.inline(
