@@ -627,13 +627,6 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                 obs_distns=self.HMMs,**kwargs)
 
     def resample_obs_distns(self):
-        self.resample_subHMMs()
-
-    def resample_subHMMs(self):
-        for hmm in self.HMMs:
-            hmm.states_list = []
-        for s in self.states_list:
-            s._add_substates_to_subHMMs()
         for hmm in self.HMMs:
             hmm.resample_model()
 
