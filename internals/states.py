@@ -1290,12 +1290,11 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         big_stateseq = self.big_stateseq
         self.substates = self._substatemap[big_stateseq]
         self.stateseq = self._superstatemap[big_stateseq]
-        superstates, durations = self.stateseq_norep, self.durations_censored
+        self._add_substates_to_subHMMs()
 
+    def _add_substates_to_subHMMs(self):
         self.substates_list = []
-        for hmm in self.model.HMMs:
-            hmm.states_list = []
-
+        superstates, durations = self.stateseq_norep, self.durations_censored
         starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
         for superstate, start, duration in zip(superstates, starts, durations):
             self.model.HMMs[superstate].add_data(

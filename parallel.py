@@ -8,7 +8,7 @@ from util.general import engine_global_namespace
 
 ### setup
 
-c = Client(profile='lsf')
+c = Client(profile='default')
 dv = c[:]
 lbv = c.load_balanced_view()
 

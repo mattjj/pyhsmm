@@ -178,10 +178,13 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             added_order = {s:i for i,s in enumerate(self.states_list)}
             states_to_resample = random.sample(self.states_list,numtoresample)
             states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
-            self.states_list = states_to_resample
+        else:
+            states_to_resample = self.states_list
+            states_to_hold_out = []
 
         # actually resample the states
-        self.resample_states_parallel(temp=temp)
+        self.states_list = self.resample_states_parallel(
+                states_to_resample,states_to_hold_out,temp=temp)
 
         # add back the held-out states
         if numtoresample != 'all':
@@ -193,19 +196,17 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # data probably needs to be broadcasted to resample in parallel
         self.resample_obs_distns()
 
-    def resample_states_parallel(self,temp=None):
+    def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
         import parallel
-        states = self.states_list
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
-                [s.data for s in states],
-                kwargss=self._get_parallel_kwargss(states),
-                engine_globals=dict(global_model=self,temp=temp),
-                )
-        self.states_list = states
-        for s, stateseq in zip(self.states_list,raw):
+                [s.data for s in states_to_resample],
+                kwargss=self._get_parallel_kwargss(states_to_resample),
+                engine_globals=dict(global_model=self,temp=temp))
+        for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
+        return states_to_resample
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -626,6 +627,13 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                 obs_distns=self.HMMs,**kwargs)
 
     def resample_obs_distns(self):
+        self.resample_subHMMs()
+
+    def resample_subHMMs(self):
+        for hmm in self.HMMs:
+            hmm.states_list = []
+        for s in self.states_list:
+            s._add_substates_to_subHMMs()
         for hmm in self.HMMs:
             hmm.resample_model()
 
@@ -647,4 +655,8 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                             (substate,colors[superstate]+offset)
                             for substate,offset in zip(substates,
                                 np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
+
+    # TODO TODO TODO resample_states_parallel wastefully sends subHMM
+    # states_lists
+
 
