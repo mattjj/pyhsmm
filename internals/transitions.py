@@ -377,7 +377,9 @@ class WeakLimitStickyHDPHMMTransitions(WeakLimitHDPHMMTransitions):
 
 class WeakLimitStickyHDPPHMMTransitionsConc(
         WeakLimitStickyHDPHMMTransitions,WeakLimitHDPHMMTransitionsConc):
-    pass
+    # TODO resample kappa
+    def __init__(self,*args,**kwargs):
+        raise NotImplementedError, 'must implement kappa resampling'
 
 
 class WeakLimitHDPHSMMTransitions(HSMMTransitions,WeakLimitHDPHMMTransitions):
