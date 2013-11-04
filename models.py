@@ -10,8 +10,6 @@ from internals import states, initial_state, transitions
 import util.general
 
 # TODO think about factoring out base classes for HMMs and HSMMs
-# TODO maybe states classes should handle log_likelihood and predictive
-# likelihood methods
 # TODO generate_obs should be here, not in states.py
 
 class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
@@ -77,63 +75,20 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.states_list.append(self._states_class(model=self,data=data,
             stateseq=stateseq,**kwargs))
 
-    def log_likelihood(self,data=None):
+    def log_likelihood(self,data=None,**kwargs):
         if data is not None:
-            s = self._states_class(model=self,data=np.asarray(data),
-                    stateseq=np.zeros(len(data))) # placeholder
-            betal = s.messages_backwards()
-            return np.logaddexp.reduce(np.log(self.init_state_distn.pi_0) + betal[0] + s.aBl[0])
+            self.add_data(data=data,
+                    # NOTE: placeholder stateseq to avoid generation
+                    stateseq=np.empty(data.shape[0],dtype='int32'),
+                    **kwargs)
+            return self.states_list.pop().log_likelihood()
         else:
-            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
-                self._clear_caches()
-            initials = np.vstack([
-                s.messages_backwards()[0] + s.aBl[0] + np.log(s.pi_0)
-                for s in self.states_list])
-            return np.logaddexp.reduce(initials,axis=1).sum()
-
-    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
-        s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0]), # placeholder
-                **kwargs)
-        alphal = s.messages_forwards()
-
-        cmaxes = alphal.max(axis=1)
-        scaled_alphal = np.exp(alphal - cmaxes[:,None])
-        prev_k = 0
-
-        outs = []
-        for k in forecast_horizons:
-            step = k - prev_k
-
-            cmaxes = cmaxes[:-step]
-            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
-
-            future_likelihoods = np.logaddexp.reduce(
-                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
-            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
-            outs.append(future_likelihoods - past_likelihoods)
-
-            prev_k = k
-
-        return outs
-
-    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
-        s = self._states_class(model=self,data=np.asarray(test_data),
-                stateseq=np.zeros(test_data.shape[0]), # placeholder
-                **kwargs)
-        alphal = s.messages_forwards()
-
-        outs = []
-        for k in blocklens:
-            outs.append(np.logaddexp.reduce(alphal[k:],axis=1)
-                    - np.logaddexp.reduce(alphal[:-k],axis=1))
-
-        return outs
+            return sum(s.log_likelihood() for s in self.states_list)
 
     ### generation
 
-    def generate(self,T,keep=True,**kwargs):
-        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True,**kwargs)
+    def generate(self,T,keep=True):
+        tempstates = self._states_class(model=self,T=T,initialize_from_prior=True)
         return self._generate(tempstates,keep)
 
     def _generate(self,tempstates,keep):
@@ -161,7 +116,6 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
-        self._last_resample_used_temp = temp is not None and temp != 1
         self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -199,9 +153,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(self.states_list[-1].data)
+            parallel.broadcast_data(data)
         else:
-            parallel.add_data(self.states_list[-1].data)
+            parallel.add_data(data)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         if numtoresample == 'all':
@@ -211,6 +165,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
         ### resample parameters locally
+
+        # NOTE: these methods will call self._clear_caches()
         self.resample_obs_distns_parallel() # doesn't necessarily run parallel
         self.resample_trans_distn()
         self.resample_init_state_distn()
@@ -222,10 +178,13 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             added_order = {s:i for i,s in enumerate(self.states_list)}
             states_to_resample = random.sample(self.states_list,numtoresample)
             states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
-            self.states_list = states_to_resample
+        else:
+            states_to_resample = self.states_list
+            states_to_hold_out = []
 
         # actually resample the states
-        self.resample_states_parallel(temp=temp)
+        self.states_list = self.resample_states_parallel(
+                states_to_resample,states_to_hold_out,temp=temp)
 
         # add back the held-out states
         if numtoresample != 'all':
@@ -237,19 +196,17 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # data probably needs to be broadcasted to resample in parallel
         self.resample_obs_distns()
 
-    def resample_states_parallel(self,temp=None):
+    def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
         import parallel
-        states = self.states_list
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
-                [s.data for s in states],
-                kwargss=self._get_parallel_kwargss(states),
-                engine_globals=dict(global_model=self,temp=temp),
-                )
-        self.states_list = states
-        for s, stateseq in zip(self.states_list,raw):
+                [s.data for s in states_to_resample],
+                kwargss=self._get_parallel_kwargss(states_to_resample),
+                engine_globals=dict(global_model=self,temp=temp))
+        for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
+        return states_to_resample
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -381,6 +338,48 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         if legend:
             plt.legend()
 
+    # TODO clean up the next two prediction methods
+
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        s = self._states_class(model=self,data=np.asarray(test_data),
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
+        alphal = s.messages_forwards()
+
+        cmaxes = alphal.max(axis=1)
+        scaled_alphal = np.exp(alphal - cmaxes[:,None])
+        prev_k = 0
+
+        outs = []
+        for k in forecast_horizons:
+            step = k - prev_k
+
+            cmaxes = cmaxes[:-step]
+            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
+
+            future_likelihoods = np.logaddexp.reduce(
+                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
+            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+            outs.append(future_likelihoods - past_likelihoods)
+
+            prev_k = k
+
+        return outs
+
+    def block_predictive_likelihoods(self,test_data,blocklens,**kwargs):
+        s = self._states_class(model=self,data=np.asarray(test_data),
+                stateseq=np.zeros(test_data.shape[0]), # placeholder
+                **kwargs)
+        alphal = s.messages_forwards()
+
+        outs = []
+        for k in blocklens:
+            outs.append(np.logaddexp.reduce(alphal[k:],axis=1)
+                    - np.logaddexp.reduce(alphal[:-k],axis=1))
+
+        return outs
+
+
 class HMMEigen(HMM):
     _states_class = states.HMMStatesEigen
 
@@ -419,9 +418,9 @@ class StickyHMM(HMM, ModelGibbsSampling):
     def EM_step(self):
         raise NotImplementedError, "Can't run EM on a StickyHMM"
 
-
 class StickyHMMEigen(StickyHMM):
     _states_class = states.HMMStatesEigen
+
 
 class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     _states_class = states.HSMMStatesPython
@@ -459,21 +458,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
             trunc=trunc,
             **kwargs))
 
-    def log_likelihood(self,data=None,trunc=None,**kwargs):
-        # NOTE: this only works with iid emissions
-        if data is not None:
-            s = self._states_class(model=self,data=np.asarray(data),trunc=trunc,
-                    stateseq=np.zeros(len(data)),**kwargs)
-            betal, _ = s.messages_backwards()
-            return np.logaddexp.reduce(np.log(s.pi_0) + betal[0] + s.aBl[0])
-        else:
-            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
-                self._clear_caches()
-            initials = np.vstack([
-                s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
-                for s in self.states_list])
-            return np.logaddexp.reduce(initials,axis=1).sum()
-
     ### generation
 
     def generate(self,T,keep=True,**kwargs):
@@ -490,12 +474,12 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         # TODO TODO get rid of logical indexing
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
-                    data=
-                    [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
-                        for s in self.states_list],
-                    truncated_data=
-                    [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
-                        for s in self.states_list])
+            data=
+            [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                for s in self.states_list],
+            truncated_data=
+            [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                for s in self.states_list])
         self._clear_caches()
 
     def copy_sample(self):
@@ -521,8 +505,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         # M step for duration distributions
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
-                    None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
-                    [s.expectations[:,state] for s in self.states_list])
+                None, # placeholder, "should" be [np.arange(s.T) for s in self.states_list]
+                [s.expectations[:,state] for s in self.states_list])
 
     def Viterbi_EM_step(self):
         super(HSMM,self).Viterbi_EM_step()
@@ -579,8 +563,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 class HSMMEigen(HSMM):
     _states_class = states.HSMMStatesEigen
 
-class HSMMGeoApproximation(HSMM):
-    _states_class = states.HSMMStatesGeoApproximation
 
 class _HSMMIntNegBinBase(HSMM, HMMEigen):
     __metaclass__ = abc.ABCMeta
@@ -590,18 +572,6 @@ class _HSMMIntNegBinBase(HSMM, HMMEigen):
         # on top of that, need to hand things duration distributions... UGH
         # probably need betastarl too plus some indicator variable magic
         raise NotImplementedError # TODO
-
-    def log_likelihood(self,data=None,**kwargs):
-        if data is not None:
-            s = self._states_class(model=self,data=np.asarray(data),
-                    stateseq=np.zeros(len(data)),**kwargs) # stateseq b/c forward gen is slow
-            return np.logaddexp.reduce(np.log(s.pi_0) + s.messages_backwards()[0][0] + s.aBl[0])
-        else:
-            if hasattr(self,'_last_resample_used_temp') and self._last_resample_used_temp:
-                self._clear_caches()
-            all_initials = np.vstack([s.messages_backwards()[0][0] + np.log(s.pi_0) + s.aBl[0]
-                for s in self.states_list])
-            return np.logaddexp.reduce(all_initials,axis=1).sum()
 
     def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
         return HMMEigen.predictive_likelihoods(self,test_data,forecast_horizons,**kwargs)
