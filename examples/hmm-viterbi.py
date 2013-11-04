@@ -53,7 +53,7 @@ posteriormodel = pyhsmm.models.StickyHMMEigen(kappa=50.,alpha=6.,gamma=6.,init_s
 posteriormodel.add_data(data)
 
 print 'Gibbs sampling'
-for idx in progprint_xrange(25):
+for idx in progprint_xrange(50):
     posteriormodel.resample_model()
 
 posteriormodel.Viterbi_EM_fit()

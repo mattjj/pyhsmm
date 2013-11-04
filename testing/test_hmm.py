@@ -21,7 +21,7 @@ def _likelihood_helper(obs_distns,trans_matrix,init_distn,data,target_val):
     hmm = m.HMM(
             alpha=6,gamma=6,init_state_concentration=1, # placeholders
             obs_distns=obs_distns)
-    hmm.trans_distn.A = trans_matrix
+    hmm.trans_distn.trans_matrix = trans_matrix
     hmm.init_state_distn.weights = init_distn
     hmm.add_data(data)
     assert np.isclose(hmm.log_likelihood(), target_val)

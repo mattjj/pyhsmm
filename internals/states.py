@@ -49,7 +49,7 @@ class _StatesBase(object):
 
     @property
     def trans_matrix(self):
-        return self.model.trans_distn.A
+        return self.model.trans_distn.trans_matrix
 
     @property
     def pi_0(self):
@@ -58,6 +58,14 @@ class _StatesBase(object):
     @property
     def state_dim(self):
         return self.model.state_dim
+
+    def obs_distns(self):
+        return self.model.obs_distns
+
+    @property
+    def num_states(self):
+        return self.model.num_states
+>>>>>>> github/dev
 
     ### generation
 
@@ -88,7 +96,7 @@ class _StatesBase(object):
     def aBl(self):
         if self._aBl is None:
             data = self.data
-            aBl = self._aBl = np.empty((data.shape[0],self.state_dim))
+            aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
                 aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
         return self._aBl
@@ -282,13 +290,22 @@ class HMMStatesPython(_StatesBase):
     ### EM
 
     def E_step(self):
-        alphal = self.alphal = self.messages_forwards_log()
-        betal = self.betal = self.messages_backwards_log()
-        expectations = self.expectations = alphal + betal
+        alphal = self.alphal = self.messages_forwards()
+        betal = self.betal = self.messages_backwards()
+        aBl = self.aBl
+        Al = np.log(self.trans_matrix)
 
+        expectations = alphal + betal
         expectations -= expectations.max(1)[:,na]
         np.exp(expectations,out=expectations)
         expectations /= expectations.sum(1)[:,na]
+        self.expectations = expectations
+
+        pairwise_expectations = alphal[:-1,:,na] + (betal[1:,na,:] + aBl[1:,na,:]) + Al[na,...]
+        pairwise_expectations -= pairwise_expectations.max()
+        np.exp(pairwise_expectations,out=pairwise_expectations)
+        self.expected_transcounts = pairwise_expectations.sum(0)
+        self.expected_transcounts *= (self.T-1) / self.expected_transcounts.sum()
 
         self.stateseq = expectations.argmax(1)
 
@@ -544,7 +561,7 @@ class HSMMStatesPython(_StatesBase):
     @property
     def aDl(self):
         if self._aDl is None:
-            self._aDl = aDl = np.empty((self.T,self.state_dim))
+            self._aDl = aDl = np.empty((self.T,self.num_states))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
             for idx, dur_distn in enumerate(self.dur_distns):
                 aDl[:,idx] = dur_distn.log_pmf(possible_durations)
@@ -557,7 +574,7 @@ class HSMMStatesPython(_StatesBase):
     @property
     def aDsl(self):
         if self._aDsl is None:
-            self._aDsl = aDsl = np.empty((self.T,self.state_dim))
+            self._aDsl = aDsl = np.empty((self.T,self.num_states))
             possible_durations = np.arange(1,self.T + 1,dtype=np.float64)
             for idx, dur_distn in enumerate(self.dur_distns):
                 aDsl[:,idx] = dur_distn.log_sf(possible_durations)
@@ -576,11 +593,11 @@ class HSMMStatesPython(_StatesBase):
             return self._betal, self._betastarl
 
         aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
-        T,state_dim = aDl.shape
+        T,num_states = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
 
-        betal = np.zeros((T,state_dim),dtype=np.float64)
-        betastarl = np.zeros((T,state_dim),dtype=np.float64)
+        betal = np.zeros((T,num_states),dtype=np.float64)
+        betastarl = np.zeros((T,num_states),dtype=np.float64)
 
         for t in xrange(T-1,-1,-1):
             np.logaddexp.reduce(betal[t:t+trunc] + self.cumulative_likelihoods(t,t+trunc) + aDl[:min(trunc,T-t)],axis=0, out=betastarl[t])
@@ -626,7 +643,7 @@ class HSMMStatesPython(_StatesBase):
 
         A = self.trans_matrix
         apmf = self.aD
-        T, state_dim = betal.shape
+        T, num_states = betal.shape
 
         stateseq = self.stateseq = np.zeros(T,dtype=np.int32)
 
@@ -816,7 +833,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return self.maximize_forwards_hmm(scores,args)
 
     def _map_states(self):
-        themap = np.arange(self.state_dim).repeat(self.rs)
+        themap = np.arange(self.num_states).repeat(self.rs)
         self.stateseq = themap[self.stateseq]
 
     ### for testing, ensures calling parent HMM methods
@@ -942,7 +959,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         if self.left_censoring:
             initial_substate = sample_discrete_from_log(np.log(self.pi_0) + betal[0] + aBl[0].repeat(rs))
-            initial_superstate = np.arange(self.state_dim).repeat(self.rs)[initial_substate]
+            initial_superstate = np.arange(self.num_states).repeat(self.rs)[initial_substate]
         else:
             initial_superstate = sample_discrete_from_log(np.log(self.hsmm_pi_0) + superbetal[0] + aBl[0])
             initial_substate = start_indices[initial_superstate]
@@ -994,7 +1011,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
-        themap = np.arange(self.state_dim).repeat(rs)
+        themap = np.arange(self.num_states).repeat(rs)
 
         stateseq = np.empty(T,dtype=np.int32)
         stateseq[0] = (scores[0,start_indices] + np.log(self.hsmm_pi_0) + self.hsmm_aBl[0]).argmax()
@@ -1102,7 +1119,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
-        themap = np.arange(self.state_dim).repeat(rs)
+        themap = np.arange(self.num_states).repeat(rs)
 
         stateseq = np.empty(T,dtype=np.int32)
         initial_hmm_state = (np.concatenate(self.binoms) + scores[0] + np.log(self.pi_0) + self.aBl[0]).argmax()
@@ -1132,5 +1149,4 @@ def _get_codestr(name):
         with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
             codestrs[name] = infile.read()
     return codestrs[name]
-
 
