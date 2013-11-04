@@ -199,9 +199,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(data)
+            parallel.broadcast_data(self.states_list[-1].data)
         else:
-            parallel.add_data(data)
+            parallel.add_data(self.states_list[-1].data)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         if numtoresample == 'all':
