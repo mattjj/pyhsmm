@@ -56,16 +56,8 @@ class _StatesBase(object):
         return self.model.init_state_distn.pi_0
 
     @property
-    def state_dim(self):
-        return self.model.state_dim
-
-    def obs_distns(self):
-        return self.model.obs_distns
-
-    @property
     def num_states(self):
         return self.model.num_states
->>>>>>> github/dev
 
     ### generation
 

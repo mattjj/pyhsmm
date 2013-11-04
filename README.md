@@ -16,10 +16,13 @@ excellent `ipython.parallel` module. Someday I might even document how to do
 it!
 
 ## Installing ##
-You can clone this library and its dependencies into your current working directory with
+You can clone this library into your current working directory and build some
+cython parts with
 
 ```bash
 git clone --recursive git://github.com/mattjj/pyhsmm.git
+cd pyhsmm
+python setup.py build_ext --inplace
 ```
 
 For the Python interpreter to be able to import pyhsmm, you'll need it on your
