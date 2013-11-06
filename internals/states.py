@@ -1342,6 +1342,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     def resample(self,temp=None):
         # TODO something with temperature
+        self._remove_substates_from_subHMMs()
         alphan = self.messages_forwards_normalized()
         self.hmm_sample_backwards_normalized(alphan)
 
@@ -1352,7 +1353,13 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self.stateseq = self._superstatemap[big_stateseq]
         self._add_substates_to_subHMMs()
 
+    def _remove_substates_from_subHMMs(self):
+        for superstate, states_obj in zip(self.stateseq_norep, self.substates_list):
+            self.model.HMMs[superstate].states_list.remove(states_obj)
+        self.substates_list = []
+
     def _add_substates_to_subHMMs(self):
+        assert not hasattr(self,'substates_list') or len(self.substates_list) == 0
         self.substates_list = []
         superstates, durations = self.stateseq_norep, self.durations_censored
         starts = np.concatenate(((0,),np.cumsum(durations[:-1])))
