@@ -1344,7 +1344,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         # TODO something with temperature
         self._remove_substates_from_subHMMs()
         alphan = self.messages_forwards_normalized()
-        self.hmm_sample_backwards_normalized(alphan)
+        self.sample_backwards_normalized(alphan)
 
     def _map_states(self):
         # NOTE: "big" stateseq includes substates and duration pseudostates
