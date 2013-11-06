@@ -1354,9 +1354,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._add_substates_to_subHMMs()
 
     def _remove_substates_from_subHMMs(self):
-        for superstate, states_obj in zip(self.stateseq_norep, self.substates_list):
-            self.model.HMMs[superstate].states_list.remove(states_obj)
-        self.substates_list = []
+        if hasattr(self,'substates_list') and len(self.substates_list) > 0:
+            for superstate, states_obj in zip(self.stateseq_norep, self.substates_list):
+                self.model.HMMs[superstate].states_list.remove(states_obj)
+            self.substates_list = []
 
     def _add_substates_to_subHMMs(self):
         assert not hasattr(self,'substates_list') or len(self.substates_list) == 0
