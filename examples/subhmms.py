@@ -77,7 +77,7 @@ model.add_data(data,left_censoring=True)
 ###############
 #  inference  #
 ###############
-for itr in progprint_xrange(5):
+for itr in progprint_xrange(25):
     model.resample_model()
 
 plt.figure()

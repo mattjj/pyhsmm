@@ -1336,14 +1336,14 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._map_states()
 
     def hmm_sample_backwards_normalized(self,alphan):
-        super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
-        self.big_stateseq = self.stateseq
+        self.big_stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,self.trans_matrix.T.copy())
         self._map_states()
 
     def resample(self,temp=None):
         # TODO something with temperature
         alphan = self.messages_forwards_normalized()
-        self.sample_backwards_normalized(alphan)
+        self.hmm_sample_backwards_normalized(alphan)
 
     def _map_states(self):
         # NOTE: "big" stateseq includes substates and duration pseudostates
