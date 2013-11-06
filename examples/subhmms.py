@@ -46,7 +46,6 @@ truemodel = pyhsmm.models.HSMMIntNegBinVariantSubHMMs(
 
 data, _ = truemodel.generate(T)
 
-plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('truth')
 
@@ -78,7 +77,7 @@ model.add_data(data,left_censoring=True)
 ###############
 #  inference  #
 ###############
-for itr in progprint_xrange(50):
+for itr in progprint_xrange(5):
     model.resample_model()
 
 plt.figure()

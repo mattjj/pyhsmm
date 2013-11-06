@@ -11,17 +11,12 @@ import cython
 from libc.stdint cimport int32_t
 from libcpp.vector cimport vector
 
+# TODO instead of passing everything, can I pass the class object directly and
+# unpack it here?
+# TODO can I include Eigen here and construct Eigen types to pass? then I could
+# pack a struct instead of passing all these arguments...
+
 cdef extern from "subhmm_messages.h" namespace "std":
-    void f_fast_mult "subhmm::fast_mult" (
-        int N, int32_t *Nsubs, int32_t *rs, float *ps,
-        float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
-        float *v, float *out)
-
-    void f_fast_left_mult "subhmm::fast_left_mult" (
-        int N, int32_t *Nsubs, int32_t *rs, float *ps,
-        float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
-        float *v, float *out)
-
     float f_messages_backwards_normalized "subhmm::messages_backwards_normalized" (
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
@@ -38,6 +33,26 @@ cdef extern from "subhmm_messages.h" namespace "std":
         int T, int bigN,
         float *alphan, int32_t *indptr, int32_t *indices, float *bigA_data,
         int32_t *stateseq)
+
+    void f_generate_states "subhmm::generate_states" (
+        int T, int bigN, float *pi_0,
+        int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq)
+
+    void f_steady_state "subhmm::steady_state" (
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
+        float *v, int niter)
+
+    void f_test_matrix_vector_mult "subhmm::test_matrix_vector_mult" (
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
+        float *v, float *out)
+
+    void f_test_vector_matrix_mult "subhmm::test_vector_matrix_mult" (
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
+        float *v, float *out)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -155,11 +170,59 @@ def sample_backwards_normalized(
             &indptr[0],&indices[0],&bigA_data[0],&stateseq[0])
     return stateseq
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def generate_states(
+        csr_trans_matrix,
+        np.ndarray[np.float32_t,ndim=1,mode='c'] pi_0 not None,
+        np.ndarray[np.int32_t,ndim=1,mode='c'] big_stateseq not None):
+
+    cdef np.ndarray[np.int32_t,ndim=1,mode='c'] indptr = csr_trans_matrix.indptr
+    cdef np.ndarray[np.int32_t,ndim=1,mode='c'] indices = csr_trans_matrix.indices
+    cdef np.ndarray[np.float32_t,ndim=1,mode='c'] data = csr_trans_matrix.data
+
+    f_generate_states(big_stateseq.shape[0],
+            csr_trans_matrix.shape[0],&pi_0[0],
+            &indptr[0],&indices[0],&data[0],
+            &big_stateseq[0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def steady_state(
+        np.ndarray[np.float32_t,ndim=1,mode='c'] v not None,
+        np.ndarray[np.float32_t,ndim=2,mode='c'] super_trans not None,
+        np.ndarray[np.int32_t,ndim=1,mode='c'] rs not None,
+        np.ndarray[np.float32_t,ndim=1,mode='c'] ps not None,
+        list sub_transs,
+        list sub_initstates,
+        int niter):
+    # create Nsubs array
+    cdef np.ndarray[np.int32_t,ndim=1,mode='c'] Nsubs
+    Nsubs = np.ascontiguousarray([s.shape[0] for s in sub_transs],dtype='int32')
+
+    # pack sub_transs (list of numpy arrays) into a std::vector<float *>
+    cdef vector[float*] sub_transs_vect
+    cdef np.ndarray[np.float32_t,ndim=2,mode='c'] temp
+    for i in xrange(len(sub_transs)):
+        temp = sub_transs[i]
+        sub_transs_vect.push_back(&temp[0,0])
+
+    # pack sub_initstates (list of numpy arrays) into a std::vector
+    cdef vector[float*] sub_initstates_vect
+    cdef np.ndarray[np.float32_t,ndim=1,mode='c'] temp2
+    for i in xrange(len(sub_initstates)):
+        temp2 = sub_initstates[i]
+        sub_initstates_vect.push_back(&temp2[0])
+
+    # call the routine
+    f_steady_state(super_trans.shape[0],&Nsubs[0],&rs[0],&ps[0],&super_trans[0,0],
+            sub_transs_vect,sub_initstates_vect,&v[0],niter)
+
 # NOTE; these next ones are for testing
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def fast_mult(
+def test_matrix_vector_mult(
         np.ndarray[np.float32_t,ndim=1,mode='c'] v not None,
         np.ndarray[np.float32_t,ndim=2,mode='c'] super_trans not None,
         np.ndarray[np.int32_t,ndim=1,mode='c'] rs not None,
@@ -189,14 +252,14 @@ def fast_mult(
     cdef np.ndarray[np.float32_t,ndim=1,mode='c'] out = np.zeros(v.shape[0],dtype='float32')
 
     # call the routine
-    f_fast_mult(super_trans.shape[0],&Nsubs[0],&rs[0],&ps[0],&super_trans[0,0],
+    f_test_matrix_vector_mult(super_trans.shape[0],&Nsubs[0],&rs[0],&ps[0],&super_trans[0,0],
             sub_transs_vect,sub_initstates_vect,&v[0],&out[0])
 
     return out
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def fast_left_mult(
+def test_vector_matrix_mult(
         np.ndarray[np.float32_t,ndim=1,mode='c'] v not None,
         np.ndarray[np.float32_t,ndim=2,mode='c'] super_trans not None,
         np.ndarray[np.int32_t,ndim=1,mode='c'] rs not None,
@@ -226,7 +289,7 @@ def fast_left_mult(
     cdef np.ndarray[np.float32_t,ndim=1,mode='c'] out = np.zeros(v.shape[0],dtype='float32')
 
     # call the routine
-    f_fast_left_mult(super_trans.shape[0],&Nsubs[0],&rs[0],&ps[0],&super_trans[0,0],
+    f_test_vector_matrix_mult(super_trans.shape[0],&Nsubs[0],&rs[0],&ps[0],&super_trans[0,0],
             sub_transs_vect,sub_initstates_vect,&v[0],&out[0])
 
     return out

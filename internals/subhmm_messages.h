@@ -1,28 +1,13 @@
 #ifndef SUBHMM_MESSAGES_H
 #define SUBHMM_MESSAGES_H
 
-#ifndef MY_CSTDINT_H
-#define MY_CSTDINT_H
-#include <stdint.h>
-#endif
-
-#ifndef EIGEN_CORE_H
-#include <Eigen/Core>
-#endif
-
-#if (defined _OPENMP) && (!defined MY_OMP_H)
-#define MY_OMP_H
-#include <omp.h>
-#endif
-
-#ifndef MY_VECTOR_H
-#define MY_VECTOR_H
+#include <inttypes.h>
 #include <vector>
-#endif
-
-#ifndef MY_LIMITS_H
-#define MY_LIMITS_H
 #include <limits>
+#include <Eigen/Core>
+
+#if (defined _OPENMP)
+#include <omp.h>
 #endif
 
 #ifndef UTIL_H
@@ -34,8 +19,14 @@ using namespace std;
 
 // NOTE: no doubles here! TODO template things, including the typedefs (type
 // aliases? or just typdefs inside classes without C++11?)
+// TODO move those nice typedefs to hmm_messages.h
+// TODO make a macro for numpy alignment assumptions
+// TODO make a macro for stack-alignment directive (Julia source has an example)
 
 namespace subhmm {
+
+    // typedef int64_t idx_t; // TODO use this type for indices, esp linear ones
+
     typedef Map<Matrix<float,Dynamic,Dynamic,RowMajor>,Aligned> NPMatrix;
     typedef Map<Matrix<float,Dynamic,Dynamic,RowMajor> > NPSubMatrix;
     typedef Map<Array<float,Dynamic,Dynamic,RowMajor>,Aligned> NPArray;
@@ -46,8 +37,10 @@ namespace subhmm {
     typedef Map<Array<float,Dynamic,1>,Aligned> NPVectorArray;
     typedef Map<Array<float,Dynamic,1> > NPSubVectorArray;
 
+    // fast matrix-vector products, called in the other functions
+
     inline
-    float just_fast_mult(
+    float matrix_vector_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
             NPMatrix &esuper_trans,
             vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
@@ -55,12 +48,14 @@ namespace subhmm {
             float *v, float *out);
 
     inline
-    float just_fast_left_mult(
+    float vector_matrix_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
             NPMatrix &esuper_trans,
             vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
             int *blocksizes, int *blockstarts,
             float *v, float *out);
+
+    // interface called from Python
 
     float messages_backwards_normalized(
             int T, int bigN, int N, int32_t *Nsubs,
@@ -81,14 +76,24 @@ namespace subhmm {
         float *alphan, int32_t *indptr, int32_t *indices, float *bigA_data,
         int32_t *stateseq);
 
-    // these next ones are for testing
+    void generate_states(
+        int T, int bigN, float *pi_0,
+        int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq);
 
-    void fast_mult(
+    void steady_state(
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
+        float *v, int niter);
+
+    // these next functions are for testing from Python
+
+    void test_matrix_vector_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
             float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
             float *v, float *out);
 
-    void fast_left_mult(
+    void test_vector_matrix_mult(
             int N, int32_t *Nsubs, int32_t *rs, float *ps,
             float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
             float *v, float *out);

@@ -1,11 +1,19 @@
 #include "subhmm_messages.h"
 
+#include <iostream>
+
 using namespace Eigen;
 using namespace std;
+
 using namespace subhmm;
 
+// TODO many functions (after the first two) repeat the same "setup" code to
+// wrap things in Eigen types; that should be factored out somehow, I guess by
+// unpacking into a struct. better yet, if i can include Eigen in the pyx file,
+// i could pack the struct in there
+
 inline
-float subhmm::just_fast_mult(
+float subhmm::matrix_vector_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         NPMatrix &esuper_trans,
         vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
@@ -24,9 +32,6 @@ float subhmm::just_fast_mult(
         eincomings(i) = esub_inits[i].dot(NPSubVector(v + blockstarts[i],Nsubs[i]));
     }
 
-    #ifdef _OPENMP
-    #pragma omp parallel for
-    #endif
     for (int i=0; i < N; i++) {
         int blockstart = blockstarts[i];
         int blocksize = blocksizes[i];
@@ -56,7 +61,7 @@ float subhmm::just_fast_mult(
 }
 
 inline
-float subhmm::just_fast_left_mult(
+float subhmm::vector_matrix_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         NPMatrix &esuper_trans_T,
         vector<NPMatrix> &esub_transs, vector<NPVector> &esub_inits,
@@ -76,9 +81,6 @@ float subhmm::just_fast_left_mult(
                 v + blockstarts[i] + blocksizes[i] - Nsubs[i],Nsubs[i]).sum();
     }
 
-    #ifdef _OPENMP
-    #pragma omp parallel for
-    #endif
     for (int i=0; i < N; i++) {
         int blockstart = blockstarts[i];
         int32_t Nsub = Nsubs[i];
@@ -151,7 +153,7 @@ float subhmm::messages_backwards_normalized(
         }
         etemp *= ebetan.row(t+1);
 
-        float tot = just_fast_mult(N,Nsubs,rs,ps,esuper_trans,
+        float tot = matrix_vector_mult(N,Nsubs,rs,ps,esuper_trans,
                 esub_transs,esub_inits,blocksizes,blockstarts,
                 temp,betan + bigN*t);
         ebetan.row(t) /= tot;
@@ -187,7 +189,10 @@ float subhmm::messages_forwards_normalized(
     float in_potential[bigN] __attribute__ ((aligned(16)));
     int blocksizes[N];
     int blockstarts[N];
-    NPMatrix esuper_trans_T(super_trans,N,N);
+
+    float super_trans_T[N*N] __attribute__ ((aligned(16)));
+    NPMatrix esuper_trans_T(super_trans_T,N,N);
+    esuper_trans_T = NPMatrix(super_trans,N,N);
     esuper_trans_T.transposeInPlace();
 
     vector<NPMatrix> esub_transs;
@@ -226,7 +231,7 @@ float subhmm::messages_forwards_normalized(
         ealphan.row(t) = ein_potential / tot;
         logtot += log(tot) + cmax;
 
-        just_fast_left_mult(N,Nsubs,rs,ps,esuper_trans_T,
+        vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
                 esub_transs,esub_inits,blocksizes,blockstarts,
                 alphan + bigN*t,in_potential);
     }
@@ -255,12 +260,64 @@ void subhmm::sample_backwards_normalized(
     }
 }
 
+void subhmm::generate_states(
+        int T, int bigN, float *pi_0,
+        int32_t *indptr, int32_t *indices, float *bigA_data,
+        int32_t *stateseq)
+{
+    stateseq[0] = util::sample_discrete(bigN,pi_0);
+    for (int t=1; t<T; t++) {
+        int start = indptr[stateseq[t-1]];
+        int end = indptr[stateseq[t-1]+1];
+        stateseq[t] = indices[start+util::sample_discrete(end-start,bigA_data + start)];
+    }
+}
+
+void subhmm::steady_state(
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
+        float *v, int niter)
+{
+    int blocksizes[N];
+    int blockstarts[N];
+
+    float super_trans_T[N*N] __attribute__ ((aligned(16)));
+    NPMatrix esuper_trans_T(super_trans_T,N,N);
+    esuper_trans_T = NPMatrix(super_trans,N,N);
+    esuper_trans_T.transposeInPlace();
+
+    vector<NPMatrix> esub_transs;
+    vector<NPVector> esub_inits;
+    int totsize = 0;
+    for (int i=0; i<N; i++) {
+        blockstarts[i] = totsize;
+        blocksizes[i] = Nsubs[i]*rs[i];
+        totsize += blocksizes[i];
+
+        esub_transs.push_back(NPMatrix(sub_transs[i],Nsubs[i],Nsubs[i]));
+        esub_inits.push_back(NPVector(sub_inits[i],Nsubs[i]));
+    }
+
+    NPVector ev(v,totsize);
+    float temp[totsize] __attribute__ ((aligned(16)));
+
+    for (int i=0; i<niter/2; i++) {
+        vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,esub_transs,esub_inits,
+                blocksizes,blockstarts,
+                v,temp);
+        vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,esub_transs,esub_inits,
+                blocksizes,blockstarts,
+                temp,v);
+        ev /= ev.sum();
+    }
+}
+
 /******************
  *  TESTING CODE  *
  ******************/
 
 
-void subhmm::fast_mult(
+void subhmm::test_matrix_vector_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
         float *v, float *out)
@@ -282,12 +339,12 @@ void subhmm::fast_mult(
         esub_inits.push_back(NPVector(sub_inits[i],Nsubs[i]));
     }
 
-    just_fast_mult(N, Nsubs, rs, ps, esuper_trans, esub_transs, esub_inits,
+    matrix_vector_mult(N, Nsubs, rs, ps, esuper_trans, esub_transs, esub_inits,
             blocksizes, blockstarts,
             v, out);
 }
 
-void subhmm::fast_left_mult(
+void subhmm::test_vector_matrix_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
         float *v, float *out)
@@ -296,9 +353,10 @@ void subhmm::fast_left_mult(
     int blocksizes[N];
     int blockstarts[N];
 
-    float super_trans_T[N*N];
+    float super_trans_T[N*N] __attribute__ ((aligned(16)));
     NPMatrix esuper_trans_T(super_trans_T,N,N);
-    esuper_trans_T = NPMatrix(super_trans,N,N).transpose();
+    esuper_trans_T = NPMatrix(super_trans,N,N);
+    esuper_trans_T.transposeInPlace();
 
     vector<NPMatrix> esub_transs;
     vector<NPVector> esub_inits;
@@ -312,7 +370,7 @@ void subhmm::fast_left_mult(
         esub_inits.push_back(NPVector(sub_inits[i],Nsubs[i]));
     }
 
-    just_fast_left_mult(N, Nsubs, rs, ps, esuper_trans_T, esub_transs, esub_inits,
+    vector_matrix_mult(N, Nsubs, rs, ps, esuper_trans_T, esub_transs, esub_inits,
             blocksizes, blockstarts,
             v, out);
 }

@@ -4,6 +4,8 @@ from numpy.core.umath_tests import inner1d
 
 import subhmm_messages_interface as test2
 
+# TODO TODO this needs to be updated with new names
+
 def clockmatrix(r,p):
     return np.diag(np.repeat(p,r-1),k=1) + (1-p)*np.eye(r)
 

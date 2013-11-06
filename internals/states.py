@@ -1202,18 +1202,8 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def trans_matrix(self):
-        # NOTE: for testing with HMM methods
         out = np.zeros((self.bigN,self.bigN),dtype='float32')
-        return self._get_trans_matrix(out)
 
-    @property
-    def csc_trans_matrix(self):
-        # NOTE: used in this class's custom sample_backwards_normalized
-        out = sparse.lil_matrix((self.bigN,self.bigN),dtype='float32')
-        return self._get_trans_matrix(out).tocsc()
-
-    def _get_trans_matrix(self,out):
-        # TODO shorten the variable names and lines in this method, they dumb
         rs, ps = self.rs, self.ps
         super_trans = self.hsmm_trans_matrix
         sub_initstates = self.subhmm_pi_0s
@@ -1237,6 +1227,71 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
                         np.outer(np.repeat(p,Nsub),init_distn) * super_trans[i,j]
 
         return out
+
+    @property
+    def csc_trans_matrix(self):
+        return self.coo_trans_matrix.tocsc()
+
+    @property
+    def csr_trans_matrix(self):
+        return self.coo_trans_matrix.tocsr()
+
+    @property
+    def coo_trans_matrix(self):
+        rs, ps = self.rs, self.ps
+        super_trans = self.hsmm_trans_matrix
+        sub_initstates = self.subhmm_pi_0s
+        sub_transs = self.subhmm_trans_matrices
+
+        Nsubs = self.Nsubs
+        N = super_trans.shape[0]
+
+        blocksizes = [r*Nsub for r, Nsub in zip(rs,Nsubs)]
+        blockstarts = np.concatenate(((0,),np.cumsum(blocksizes)[:-1]))
+
+        numentries = sum((2*r-1)*Nsub**2 for r,Nsub in zip(rs,Nsubs)) \
+                + sum(sum(iNsub*jNsub for j,jNsub in enumerate(Nsubs) if i != j)
+                        for i,iNsub in enumerate(Nsubs))
+        data = np.empty(numentries,dtype='float32')
+        rowindices = np.empty(numentries,dtype='int32')
+        colindices = np.empty(numentries,dtype='int32')
+        ptr = 0
+
+        for i,(r,p,subtrans,blockstart,Nsub) in enumerate(zip(rs,ps,sub_transs,blockstarts,Nsubs)):
+            for blocki in xrange(r):
+                theslice = slice(ptr,ptr+Nsub**2)
+                data[theslice] = (1-p)*subtrans.ravel()
+                rowindices[theslice], colindices[theslice] = \
+                        map(np.ravel,np.meshgrid(
+                                blockstart+Nsub*blocki+np.arange(Nsub),
+                                blockstart+Nsub*blocki+np.arange(Nsub),
+                                indexing='ij'))
+                ptr = theslice.stop
+                if blocki != r-1:
+                    theslice = slice(ptr,ptr+Nsub**2)
+                    data[theslice] = p*subtrans.ravel()
+                    rowindices[theslice], colindices[theslice] = \
+                            map(np.ravel,np.meshgrid(
+                                    blockstart+Nsub*blocki+np.arange(Nsub),
+                                    blockstart+Nsub*(blocki+1)+np.arange(Nsub),
+                                    indexing='ij'))
+                    ptr = theslice.stop
+
+        # off-diagonal trans part
+        for i, (iblockstart, iblocksize, p, iNsub) in enumerate(zip(blockstarts, blocksizes, ps, Nsubs)):
+            for j, (init_distn,jNsub,jblockstart) in enumerate(zip(sub_initstates,Nsubs,blockstarts)):
+                if i != j:
+                    theslice = slice(ptr,ptr+iNsub*jNsub)
+                    data[theslice] = (np.outer(np.repeat(p,iNsub),init_distn) * super_trans[i,j]).ravel()
+                    rowindices[theslice], colindices[theslice] = \
+                            map(np.ravel,np.meshgrid(
+                                    iblockstart+iblocksize-iNsub+np.arange(iNsub),
+                                    jblockstart+np.arange(jNsub),
+                                    indexing='ij'))
+                    ptr = theslice.stop
+
+        # return (data,(rowindices,colindices))
+        return sparse.coo_matrix((data,(rowindices,colindices)),shape=(self.bigN,self.bigN))
 
     @property
     def pi_0(self):
@@ -1280,6 +1335,11 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
                 np.empty(alphan.shape[0],dtype='int32'))
         self._map_states()
 
+    def hmm_sample_backwards_normalized(self,alphan):
+        super(HSMMIntNegBinVariantSubHMMsStates,self).sample_backwards_normalized(alphan)
+        self.big_stateseq = self.stateseq
+        self._map_states()
+
     def resample(self,temp=None):
         # TODO something with temperature
         alphan = self.messages_forwards_normalized()
@@ -1309,12 +1369,20 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._aBls = None
 
     def generate_states(self):
-        # NOTE: only need this method to set self.big_stateseq; the rest could
-        # be handled by ancestor methods
-        ret = HMMStatesEigen.generate_states(self)
+        from subhmm_messages_interface import generate_states
+        # NOTE: clobbers big_stateseq
+        if not hasattr(self,'big_stateseq'):
+            self.big_stateseq = np.empty(self.T,dtype='int32')
+        generate_states(self.csr_trans_matrix,self.pi_0.astype('float32'),self.big_stateseq)
+        self._map_states()
+        return self.stateseq
+
+    def hmm_generate_states(self):
+        # NOTE: for testing
+        HMMStatesEigen.generate_states(self)
         self.big_stateseq = self.stateseq
         self._map_states()
-        return ret
+        return self.stateseq
 
     def generate_obs(self):
         alldata = []
