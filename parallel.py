@@ -96,7 +96,7 @@ def add_data(data,costfunc=len):
     data_residency[ph] = engine_to_send
     costs[engine_to_send] += costfunc(data)
     idx = client_ids
-    return client[idx[engine_to_send]].apply_sync(update_my_data,ph,data)
+    return client[idx[engine_to_send]].apply_async(update_my_data,ph,data)
 
 def broadcast_data(data,costfunc=len):
     global data_residency
