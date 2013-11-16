@@ -589,6 +589,23 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
 
 
+class HSMMPossibleChangepoints(HSMM):
+    _states_class = states.HSMMStatesPossibleChangepoints
+
+    def add_data(self,data,changepoints,**kwargs):
+        super(HSMMPossibleChangepoints,self).add_data(
+                data=data,changepoints=changepoints,**kwargs)
+
+    def _get_parallel_kwargss(self,states_objs):
+        dcts = super(HSMMPossibleChangepoints,self)._get_parallel_kwargss(states_objs)
+        for dct, states_obj in zip(dcts,states_objs):
+            dct.update(dict(changepoints=states_obj.changepoints))
+        return dcts
+
+    def generate(self,*args,**kwargs):
+        raise NotImplementedError
+
+
 # TODO move everything below here to another repo
 
 # TODO add generic SubHMM class here from old repo
