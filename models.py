@@ -153,9 +153,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(data)
+            parallel.broadcast_data(self._get_parallel_data(data))
         else:
-            parallel.add_data(data)
+            parallel.add_data(self._get_parallel_data(data))
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         if numtoresample == 'all':
@@ -204,12 +204,15 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
-                [s.data for s in states_to_resample],
+                [self._get_parallel_data(s) for s in states_to_resample],
                 kwargss=self._get_parallel_kwargss(states_to_resample),
                 engine_globals=dict(global_model=self,temp=temp))
         for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
         return states_to_resample
+
+    def _get_parallel_data(self,states_obj):
+        return states_obj.data
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -608,18 +611,27 @@ class HSMMPossibleChangepoints(HSMM):
 
 # TODO move everything below here to another repo
 
-# TODO add generic SubHMM class here from old repo
 
-
-class IntNegBinSubHMM(HMMEigen):
+class SubHMM(HMMEigen):
     def resample_states(self,*args,**kwargs):
         # NOTE: state resampling is done all at once in the
         # HSMMIntNegBin*SubHMMsStates class, so it doesn't need to be done here
         pass
 
+class HSMMSubHMMs(HSMM):
+    pass # TODO TODO
+
+class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, pyhsmm.models.HSMMPossibleChangepoints):
+    def add_data(self,data,changepoints,**kwargs):
+        self.states_list.append(HSMMSubHMMStatesPossibleChangepoints(
+            changepoints=changepoints,T=len(data),data=data,
+            hmms=self.hmms,dur_distns=self.dur_distns,
+            transition_distn=self.trans_distn,initial_distn=self.init_state_distn,
+            **kwargs))
+
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
-    _subhmm_class = IntNegBinSubHMM
+    _subhmm_class = SubHMM
 
     def __init__(self,
             obs_distnss=None,
@@ -669,7 +681,44 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                             for substate,offset in zip(substates,
                                 np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
 
-    # TODO TODO TODO resample_states_parallel wastefully sends subHMM
-    # states_lists
+    def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
+        import pyhsmm.parallel as parallel
+        # remove things we don't need in parallel
+        self.states_list = []
+        # NOTE: we could also call s._remove_substates_from_subHMMs, but we
+        # don't want to send ANY substates objects, so we remove everything here
+        # and add the un-resampled substates objects back to the HMMs at the end
+        # of this method
+        for s in states_to_resample:
+            s.substates_list = []
+        for hmm in self.HMMs:
+            hmm.states_list = [] # includes held out subseqs, added back below
 
+        raw = parallel.map_on_each(
+                self._state_sampler,
+                [self._get_parallel_data(s) for s in states_to_resample],
+                kwargss=self._get_parallel_kwargss(states_to_resample),
+                engine_globals=dict(global_model=self,temp=temp))
+
+        for s, (big_stateseq,like) in zip(states_to_resample,raw):
+            s.big_stateseq = big_stateseq
+            s._map_states() # NOTE: calls s._add_substates_to_subhmms
+            s._loglike = like
+
+        # these got cleared above, so we add them back
+        for s in states_to_hold_out:
+            s._add_substates_to_subHMMs()
+
+        return states_to_resample
+
+    @staticmethod
+    @engine_global_namespace
+    def _state_sampler(data,**kwargs):
+        # expects globals: global_model, temp
+        global_model.add_data(
+                data=data,
+                initialize_from_prior=False,temp=temp,**kwargs)
+        like = global_model.states_list[-1].log_likelihood()
+        big_stateseq = global_model.states_list.pop().big_stateseq
+        return big_stateseq, like
 
