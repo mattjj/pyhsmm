@@ -44,6 +44,8 @@ cdef extern from "subhmm_messages.h" namespace "std":
         float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,
         float *v, int niter)
 
+    # testing
+
     void f_test_matrix_vector_mult "subhmm::test_matrix_vector_mult" (
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         float *super_trans, vector[float*]& sub_transs, vector[float*]& sub_inits,

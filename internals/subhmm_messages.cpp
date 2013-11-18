@@ -209,6 +209,9 @@ float subhmm::messages_forwards_normalized(
     }
     NPArray ealphan(alphan,T,bigN);
 
+    // TODO TODO this uses init state distns, not steady state over duration
+    // pseudostates. this method should just take a full bigN steady state as an
+    // argument... censoring!
     float in_potential[bigN] __attribute__ ((aligned(16)));
     NPVectorArray ein_potential(in_potential,bigN);
     ein_potential.setZero();
@@ -311,6 +314,69 @@ void subhmm::steady_state(
         ev /= ev.sum();
     }
 }
+
+float subhmm::messages_forwards_normalized_changepoints(
+        int T, int bigN, int N, int32_t *Nsubs,
+        int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
+        std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
+        std::vector<float*>& aBls,
+        int32_t *starts, int32_t *ends, int Tblock,
+        float *alphan)
+{
+    // standard setup
+    int blocksizes[N];
+    int blockstarts[N];
+
+    float super_trans_T[N*N] __attribute__ ((aligned(16)));
+    NPMatrix esuper_trans_T(super_trans_T,N,N);
+    esuper_trans_T = NPMatrix(super_trans,N,N);
+    esuper_trans_T.transposeInPlace();
+
+    vector<NPMatrix> esub_transs;
+    vector<NPVector> esub_inits;
+    vector<NPArray> eaBls;
+    int totsize = 0;
+    for (int i=0; i<N; i++) {
+        blockstarts[i] = totsize;
+        blocksizes[i] = Nsubs[i]*rs[i];
+        totsize += blocksizes[i];
+
+        esub_transs.push_back(NPMatrix(sub_transs[i],Nsubs[i],Nsubs[i]));
+        esub_inits.push_back(NPVector(sub_inits[i],Nsubs[i]));
+        eaBls.push_back(NPArray(aBls[i],T,Nsubs[i]));
+    }
+    NPArray ealphan(alphan,Tblock,bigN);
+
+    // an extra temp vector? TODO
+    float in_potential[2*bigN] __attribute__ ((aligned(16)));
+
+    // TODO just copy in initial state distn
+    float logtot = 0., cmax;
+    for (int tblock=0; tblock<Tblock; tblock++) {
+        for (int t=starts[tblock]; t<ends[tblock]; t++) {
+            cmax = -1.*numeric_limits<float>::infinity();
+            for (int i=0; i<N; i++) {
+                cmax = max(cmax, eaBls[i].row(t).maxCoeff());
+            }
+
+            for (int i=0; i<N; i++) {
+                NPSubArray(in_potential + blockstarts[i],rs[i],Nsubs[i]).rowwise()
+                    *= (eaBls[i].row(t) - cmax).exp();
+            }
+            // TODO declare ein_potential here check allocation
+            float tot = ein_potential.sum();
+            ealphan.row(t) = ein_potential / tot;
+            logtot += log(tot) + cmax;
+
+            vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
+                    esub_transs,esub_inits,blocksizes,blockstarts,
+                    alphan + bigN*t,in_potential); // TODO ping pong
+        }
+    // TODO set into alphan
+    }
+    return logtot;
+}
+
 
 /******************
  *  TESTING CODE  *
