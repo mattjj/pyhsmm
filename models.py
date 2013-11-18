@@ -618,6 +618,21 @@ class SubHMM(HMMEigen):
         # HSMMIntNegBin*SubHMMsStates class, so it doesn't need to be done here
         pass
 
+    def messages_forwards(self,aBl):
+        return self._states_class._messages_forwards_log(
+                self.trans_distn.A,
+                self.init_state_distn.pi_0,
+                aBl)
+
+    def get_aBl(self,data):
+        self.add_data(
+                data=data,
+                stateseq=np.zeros(data.shape[0]), # dummy
+                )
+        return self.states_list.pop().aBl
+
+
+
 class HSMMSubHMMs(HSMM):
     _states_class = states.HSMMSubHMMStates
     _subhmm_class = SubHMM

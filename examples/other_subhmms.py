@@ -6,9 +6,9 @@ import pyhsmm
 from pyhsmm.util.stats import cov
 from pyhsmm.util.text import progprint_xrange
 
-Nsuper = 3
-Nsub = 5
-T = 5000
+Nsuper = 2
+Nsub = 2
+T = 1000
 obs_dim = 2
 
 try:
@@ -53,37 +53,35 @@ plt.gcf().suptitle('truth')
 #  set up model  #
 ##################
 
-# Nmaxsuper = 2*Nsuper
-# Nmaxsub = 2*Nsub
+Nmaxsuper = 2*Nsuper
+Nmaxsub = 2*Nsub
 
-# obs_distnss = \
-#         [[pyhsmm.distributions.Gaussian(**obs_hypparams)
-#             for substate in range(Nmaxsub)] for superstate in range(Nmaxsuper)]
+obs_distnss = \
+        [[pyhsmm.distributions.Gaussian(**obs_hypparams)
+            for substate in range(Nmaxsub)] for superstate in range(Nmaxsuper)]
 
-# dur_distns = \
-#         [pyhsmm.distributions.NegativeBinomialIntegerRVariantDuration(
-#             **dur_hypparams) for superstate in range(Nmaxsuper)]
+dur_distns = \
+        [pyhsmm.distributions.NegativeBinomialIntegerRVariantDuration(
+            **dur_hypparams) for superstate in range(Nmaxsuper)]
 
-# model  = pyhsmm.models.HSMMIntNegBinVariantSubHMMs(
-#         init_state_concentration=6.,
-#         alpha=6.,gamma=6.,
-#         sub_alpha=6,sub_gamma=6,
-#         obs_distnss=obs_distnss,
-#         dur_distns=dur_distns)
+model = pyhsmm.models.HSMMSubHMMs(
+        init_state_concentration=6.,
+        alpha=6.,gamma=6.,
+        sub_alpha=6,sub_gamma=6,
+        obs_distnss=obs_distnss,
+        dur_distns=dur_distns)
 
-# model.add_data(data,left_censoring=True)
+model.add_data(data)
 
-# ###############
-# #  inference  #
-# ###############
-# for itr in progprint_xrange(25):
-#     model.resample_model()
+###############
+#  inference  #
+###############
+for itr in progprint_xrange(25):
+    model.resample_model()
 
-# plt.figure()
-# model.plot()
-# plt.gcf().suptitle('fit')
+plt.figure()
+model.plot()
+plt.gcf().suptitle('fit')
 
-# plt.show()
-
-
+plt.show()
 

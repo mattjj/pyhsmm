@@ -369,7 +369,7 @@ class HMMStatesEigen(HMMStatesPython):
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
-                np.empty_like(log_likelihoods))
+                init_state_distn,np.empty_like(log_likelihoods))
 
     def messages_backwards_python(self):
         return super(HMMStatesEigen,self).messages_backwards_log()
@@ -575,7 +575,9 @@ class HSMMStatesPython(_StatesBase):
         if self._betal is not None and self._betastarl is not None:
             return self._betal, self._betastarl
 
+        errs = np.seterr(divide='ignore')
         aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
+        np.seterr(**errs)
         T,state_dim = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
 
@@ -1328,7 +1330,8 @@ class HSMMSubHMMStates(HSMMStatesPython):
         self._aBls = None
         super(HSMMSubHMMStates,self).clear_caches()
 
-    def resample(self):
+    def resample(self,temp=None):
+        # TODO do something with temp
         self._remove_substates_from_subHMMs()
         super(HSMMSubHMMStates,self).resample() # resamples superstates
         self._resample_substates()
