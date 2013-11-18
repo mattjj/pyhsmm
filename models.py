@@ -770,6 +770,6 @@ class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
         big_stateseq = global_model.states_list.pop().big_stateseq
         return big_stateseq, like
 
-# class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, HSMMPossibleChangepoints):
-#     _states_class = states.HSMMSubHMMStatesPossibleChangepoints
+class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, HSMMPossibleChangepoints):
+    _states_class = states.HSMMSubHMMStatesPossibleChangepoints
 

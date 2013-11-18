@@ -1147,8 +1147,6 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     ### generation
 
     def generate_states(self):
-        # TODO TODO this method can probably call sample_forwards with dummy uniform
-        # aBl/betal/betastarl, but that's just too complicated!
         if self.left_censoring:
             raise NotImplementedError # TODO
         Tblock = self.Tblock
@@ -1199,7 +1197,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         raise NotImplementedType
 
     def messages_backwards(self):
+        errs = np.seterr(divide='ignore')
         aDl, Al = self.aDl, np.log(self.trans_matrix)
+        np.seterr(**errs)
         Tblock = self.Tblock
         state_dim = Al.shape[0]
         trunc = self.trunc if self.trunc is not None else self.T
@@ -1374,7 +1374,6 @@ class HSMMSubHMMStates(HSMMStatesPython):
             self.model.HMMs[state].add_data(
                     self.data[startidx:startidx+dur],stateseq=substateseq)
             self.substates_list.append(self.model.HMMs[state].states_list[-1])
-
 
 class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant):
     def __init__(self,model,*args,**kwargs):
@@ -1681,6 +1680,26 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
     def E_step(self):
         raise NotImplementedError
 
+class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleChangepoints):
+    def messages_backwards(self,*args,**kwargs):
+        return HSMMStatesPossibleChangepoints.messages_backwards(self,*args,**kwargs)
+
+    def sample_forwards(self,betal,betastarl):
+        return HSMMStatesPossibleChangepoints.sample_forwards(self,betal,betastarl)
+
+    def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
+        # could recompute possible_durations given startblock, stopblock,
+        # trunc/truncblock, and self.blocklens, but why redo that effort?
+        return np.vstack([self.block_cumulative_likelihood_state(startblock,stopblock,state,possible_durations) for state in range(self.state_dim)]).T
+
+    def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
+        start = self.startpoints[startblock]
+        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
+        return np.logaddexp.reduce(self.model.HMMs[state].messages_forwards(self.aBls[state][start:stop])[possible_durations-1],axis=1)
+
+    def generate(self):
+        # TODO override generate someday
+        raise NotImplementedError
 
 #################
 #  eigen stuff  #
