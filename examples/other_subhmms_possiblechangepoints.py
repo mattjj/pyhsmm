@@ -6,6 +6,8 @@ import pyhsmm
 from pyhsmm.util.stats import cov
 from pyhsmm.util.text import progprint_xrange
 
+PARALLEL = True
+
 Nsuper = 2
 Nsub = 3
 T = 5000
@@ -76,13 +78,19 @@ model = pyhsmm.models.HSMMSubHMMsPossibleChangepoints(
         obs_distnss=obs_distnss,
         dur_distns=dur_distns)
 
-model.add_data(data,changepoints)
+if PARALLEL:
+    model.add_data_parallel(data=data,changepoints=changepoints)
+else:
+    model.add_data(data=data,changepoints=changepoints)
 
 ###############
 #  inference  #
 ###############
 for itr in progprint_xrange(25):
-    model.resample_model()
+    if PARALLEL:
+        model.resample_model_parallel()
+    else:
+        model.resample_model()
 
 plt.figure()
 model.plot()

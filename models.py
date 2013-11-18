@@ -155,7 +155,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         if broadcast:
             parallel.broadcast_data(self._get_parallel_data(data))
         else:
-            parallel.add_data(self._get_parallel_data(data))
+            parallel.add_data(self._get_parallel_data(self.states_list[-1]))
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
         if numtoresample == 'all':
@@ -706,7 +706,7 @@ class HSMMSubHMMs(HSMM):
                 engine_globals=dict(global_model=self,temp=temp))
 
         for s, (superstateseq,substateseqs,like) in zip(states_to_resample,raw):
-            s.set_stateseqs(superstateseq,substateseqs) # TODO add this method and add to subhmms
+            s.set_stateseq(superstateseq,substateseqs) # TODO add this method and add to subhmms
             s._loglike = like # TODO add s.log_likelihood() method
 
         # these got cleared above, so we add them back
@@ -723,7 +723,7 @@ class HSMMSubHMMs(HSMM):
                 data=data,
                 initialize_from_prior=False,temp=temp,**kwargs)
         s = global_model.states_list.pop()
-        return s.stateseq, s.substates, s.log_likelihood()
+        return s.stateseq, [s.stateseq for s in s.substates_list], s.log_likelihood()
 
 class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates

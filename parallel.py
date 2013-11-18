@@ -5,7 +5,7 @@ import os
 from util.general import engine_global_namespace
 
 # NOTE: the ipcluster should be set up before this file is imported
-profile = None
+profile = 'default'
 dv = []
 costs = np.array([])
 data_residency = {}
@@ -37,10 +37,6 @@ elif os.environ.has_key("PYHSMM_IPYTHON_PARALLEL_PROFILE"):
     profile = os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"]
     setup_engines()
 
-def check_is_ready():
-    if profile == None:
-        raise RuntimeError("set_profile must be run, e.g., pyhsmm.parallel.set_profile(profile='default')")
-
 def set_profile(this_profile):
     global profile
     profile = this_profile
@@ -48,7 +44,6 @@ def set_profile(this_profile):
     setup_engines()
 
 def get_num_engines():
-    check_is_ready()
     return len(dv)
 
 def phash(d):
@@ -86,7 +81,6 @@ def has_data(data):
     return phash(data) in data_residency
 
 def add_data(data,costfunc=len):
-    check_is_ready()
     global data_residency
     global costs
     # NOTE: this is basically a one-by-one scatter with an additive parametric
