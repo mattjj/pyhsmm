@@ -620,6 +620,7 @@ class SubHMM(HMMEigen):
 
 class HSMMSubHMMs(HSMM):
     _states_class = states.HSMMSubHMMStates
+    _subhmm_class = SubHMM
 
     def __init__(self,
             obs_distnss=None,
@@ -643,7 +644,7 @@ class HSMMSubHMMs(HSMM):
         else:
             self.HMMs = subHMMs
 
-        super(HSMMIntNegBinVariantSubHMMs,self).__init__(
+        super(HSMMSubHMMs,self).__init__(
                 obs_distns=self.HMMs,**kwargs)
 
     def resample_obs_distns(self):
@@ -700,7 +701,7 @@ class HSMMSubHMMs(HSMM):
         return states_to_resample
 
     @staticmethod
-    @engine_global_namespace
+    @util.general.engine_global_namespace
     def _state_sampler(data,**kwargs):
         # expects globals: global_model, temp
         global_model.add_data(
@@ -744,7 +745,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
         return states_to_resample
 
     @staticmethod
-    @engine_global_namespace
+    @util.general.engine_global_namespace # access to engine globals
     def _state_sampler(data,**kwargs):
         # expects globals: global_model, temp
         global_model.add_data(
@@ -754,6 +755,6 @@ class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
         big_stateseq = global_model.states_list.pop().big_stateseq
         return big_stateseq, like
 
-class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, pyhsmm.models.HSMMPossibleChangepoints):
-    _states_class = states.HSMMSubHMMStatesPossibleChangepoints
+# class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, HSMMPossibleChangepoints):
+#     _states_class = states.HSMMSubHMMStatesPossibleChangepoints
 

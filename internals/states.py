@@ -1293,7 +1293,7 @@ class HSMMSubHMMStates(HSMMStatesPython):
         self.model = model
         if substateseqs is not None:
             raise NotImplementedError
-        super(HSMMIntNegBinVariantSubHMMsStates,self).__init__(model,*args,**kwargs)
+        super(HSMMSubHMMStates,self).__init__(model,**kwargs)
         self.data = self.data.astype('float32',copy=False) if self.data is not None else None
 
     def generate_states(self):
@@ -1304,9 +1304,10 @@ class HSMMSubHMMStates(HSMMStatesPython):
         super(HSMMSubHMMStates,self).generate_states()
 
     def _generate_substates(self):
+        self.substates_list = []
         for state, dur in zip(self.stateseq_norep,self.durations_censored):
-            self.HMMs[state].generate(dur)
-            self.substates_list.append(self.HMMs[state].states_list[-1])
+            self.model.HMMs[state].generate(dur)
+            self.substates_list.append(self.model.HMMs[state].states_list[-1])
 
     def generate_obs(self):
         # NOTE: already generated in HMMs, so this is a little weird
@@ -1320,7 +1321,7 @@ class HSMMSubHMMStates(HSMMStatesPython):
     @property
     def aBls(self):
         if self._aBls is None:
-            self._aBls = [hmm.get_aBl(self.data) for hmm in self.HMMs]
+            self._aBls = [hmm.get_aBl(self.data) for hmm in self.model.HMMs]
         return self._aBls
 
     def clear_caches(self):
@@ -1333,14 +1334,14 @@ class HSMMSubHMMStates(HSMMStatesPython):
         self._resample_substates()
 
     def cumulative_likelihood_state(self,start,stop,state):
-        return np.logaddexp.reduce(self.HMMs[state].messages_forwards(self.aBls[state][start:stop]),axis=1)
+        return np.logaddexp.reduce(self.model.HMMs[state].messages_forwards(self.aBls[state][start:stop]),axis=1)
 
     def cumulative_likelihoods(self,start,stop):
         return np.hstack([self.cumulative_likelihood_state(start,stop,state)[:,na]
             for state in range(self.state_dim)])
 
     def likelihood_block_state(self,start,stop,state):
-        return np.logaddexp.reduce(self.HMMs[state].messages_forwards(self.aBls[state][start:stop])[-1])
+        return np.logaddexp.reduce(self.model.HMMs[state].messages_forwards(self.aBls[state][start:stop])[-1])
 
     def likelihood_block(self,start,stop):
         return np.array([self.likelihood_block_state(start,stop,state)
@@ -1351,9 +1352,9 @@ class HSMMSubHMMStates(HSMMStatesPython):
         self.substates_list = []
         indices = np.concatenate(((0,),np.cumsum(self.durations_censored[:-1])))
         for state, startidx, dur in zip(self.stateseq_norep,indices,self.durations_censored):
-            self.HMMs[state].add_data(
+            self.model.HMMs[state].add_data(
                     self.data[startidx:startidx+dur],initialize_from_prior=False)
-            self.substates_list.append(self.HMMs[state].states_list[-1])
+            self.substates_list.append(self.model.HMMs[state].states_list[-1])
 
     def _remove_substates_from_subHMMs(self):
         # TODO shared method with other subhmm states class, factor it out?
@@ -1367,9 +1368,9 @@ class HSMMSubHMMStates(HSMMStatesPython):
         indices = np.concatenate(((0,),np.cumsum(self.durations_censored[:-1])))
         for state, startidx, dur, substateseq in zip(self.stateseq_norep,indices,
                 self.durations_censored,substateseqs):
-            self.HMMs[state].add_data(
+            self.model.HMMs[state].add_data(
                     self.data[startidx:startidx+dur],stateseq=substateseq)
-            self.substates_list.append(self.HMMs[state].states_list[-1])
+            self.substates_list.append(self.model.HMMs[state].states_list[-1])
 
 
 class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant):
