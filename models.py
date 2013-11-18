@@ -619,19 +619,7 @@ class SubHMM(HMMEigen):
         pass
 
 class HSMMSubHMMs(HSMM):
-    pass # TODO TODO
-
-class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, pyhsmm.models.HSMMPossibleChangepoints):
-    def add_data(self,data,changepoints,**kwargs):
-        self.states_list.append(HSMMSubHMMStatesPossibleChangepoints(
-            changepoints=changepoints,T=len(data),data=data,
-            hmms=self.hmms,dur_distns=self.dur_distns,
-            transition_distn=self.trans_distn,initial_distn=self.init_state_distn,
-            **kwargs))
-
-class HSMMIntNegBinVariantSubHMMs(HSMM):
-    _states_class = states.HSMMIntNegBinVariantSubHMMsStates
-    _subhmm_class = SubHMM
+    _states_class = states.HSMMSubHMMStates
 
     def __init__(self,
             obs_distnss=None,
@@ -661,6 +649,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
     def resample_obs_distns(self):
         for hmm in self.HMMs:
             hmm.resample_model()
+        self._clear_caches()
 
     def plot_observations(self,colors=None,states_objs=None):
         # NOTE: colors are superstate colors
@@ -680,6 +669,49 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
                             (substate,colors[superstate]+offset)
                             for substate,offset in zip(substates,
                                 np.linspace(-0.5,0.5,num_substates,endpoint=True)/12.5)))
+
+    def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
+        import pyhsmm.parallel as parallel
+        # remove things we don't need in parallel
+        self.states_list = []
+        # NOTE: we could also call s._remove_substates_from_subHMMs, but we
+        # don't want to send ANY substates objects, so we remove everything here
+        # and add the un-resampled substates objects back to the HMMs at the end
+        # of this method
+        for s in states_to_resample:
+            s.substates_list = []
+        for hmm in self.HMMs:
+            hmm.states_list = [] # includes held out subseqs, added back below
+
+        raw = parallel.map_on_each(
+                self._state_sampler,
+                [self._get_parallel_data(s) for s in states_to_resample],
+                kwargss=self._get_parallel_kwargss(states_to_resample),
+                engine_globals=dict(global_model=self,temp=temp))
+
+        for s, (superstateseq,substateseqs,like) in zip(states_to_resample,raw):
+            s.set_stateseqs(superstateseq,substateseqs) # TODO add this method and add to subhmms
+            s._loglike = like # TODO add s.log_likelihood() method
+
+        # these got cleared above, so we add them back
+        for s in states_to_hold_out:
+            s._add_substates_to_subHMMs()
+
+        return states_to_resample
+
+    @staticmethod
+    @engine_global_namespace
+    def _state_sampler(data,**kwargs):
+        # expects globals: global_model, temp
+        global_model.add_data(
+                data=data,
+                initialize_from_prior=False,temp=temp,**kwargs)
+        s = global_model.states_list.pop()
+        return s.stateseq, s.substates, s.log_likelihood()
+
+class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
+    _states_class = states.HSMMIntNegBinVariantSubHMMsStates
+    _subhmm_class = SubHMM
 
     def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
         import pyhsmm.parallel as parallel
@@ -721,4 +753,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         like = global_model.states_list[-1].log_likelihood()
         big_stateseq = global_model.states_list.pop().big_stateseq
         return big_stateseq, like
+
+class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, pyhsmm.models.HSMMPossibleChangepoints):
+    _states_class = states.HSMMSubHMMStatesPossibleChangepoints
 
