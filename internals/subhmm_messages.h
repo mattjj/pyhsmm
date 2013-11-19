@@ -14,6 +14,7 @@
 #include "util.h"
 #endif
 
+// TODO remove using namespace from header files, you noob!
 using namespace Eigen;
 using namespace std;
 
@@ -60,15 +61,13 @@ namespace subhmm {
     float messages_backwards_normalized(
             int T, int bigN, int N, int32_t *Nsubs,
             int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-            vector<float*>& sub_transs, vector<float*>& sub_inits,
-            vector<float*>& aBls,
+            vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
             float *betan);
 
     float messages_forwards_normalized(
             int T, int bigN, int N, int32_t *Nsubs,
             int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-            std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
-            std::vector<float*>& aBls,
+            vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
             float *alphan);
 
     void sample_backwards_normalized(
@@ -85,6 +84,13 @@ namespace subhmm {
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
         float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
         float *v, int niter);
+
+    float messages_forwards_normalized_changepoints(
+            int T, int bigN, int N, int32_t *Nsubs,
+            int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
+            vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
+            int32_t *starts, int32_t *blocklens, int Tblock,
+            float *alphan);
 
     // these next functions are for testing from Python
 

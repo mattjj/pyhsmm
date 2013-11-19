@@ -1555,6 +1555,9 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def pi_0(self):
+        # TODO TODO handle left censoring case, move this logic to
+        # init_state_distn
+        warnings.warn('make this cleaner yo')
         out = np.zeros(self.bigN)
         for start, Nsub, super_pi_i, sub_init \
                 in zip(self.blockstarts,self.Nsubs,self.hsmm_pi_0,self.subhmm_pi_0s):
@@ -1580,10 +1583,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._alphan = self._raw_alphan[:required_size].reshape(required_shape)
 
         _, self._loglike = messages_forwards_normalized(
-                self.hsmm_trans_matrix,self.hsmm_pi_0,
-                self.rs,self.ps,
-                self.subhmm_trans_matrices,self.subhmm_pi_0s,
-                self.aBls,self._alphan)
+                self.hsmm_trans_matrix, self.pi_0,
+                self.rs, self.ps,
+                self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
+                self._alphan)
 
         return self._alphan
 

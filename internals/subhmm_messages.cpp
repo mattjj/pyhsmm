@@ -1,6 +1,7 @@
 #include "subhmm_messages.h"
 
 #include <iostream>
+#include <algorithm>
 
 using namespace Eigen;
 using namespace std;
@@ -112,8 +113,7 @@ float subhmm::vector_matrix_mult(
 float subhmm::messages_backwards_normalized(
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-        std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
-        std::vector<float*>& aBls,
+        vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
         float *betan)
 {
     float temp[bigN];
@@ -170,6 +170,7 @@ float subhmm::messages_backwards_normalized(
     for (int i=0; i<N; i++) {
         cmax = max(cmax, eaBls[i].row(0).maxCoeff());
     }
+    // TODO TODO replace this with init state distn being passed in
     for (int i=0; i<N; i++) {
         NPSubVectorArray(in_potential + blockstarts[i],Nsubs[i]) =
             init_state_distn[i] * esub_inits[i].array() * (eaBls[i].row(0) - cmax).exp().transpose();
@@ -182,8 +183,7 @@ float subhmm::messages_backwards_normalized(
 float subhmm::messages_forwards_normalized(
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-        std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
-        std::vector<float*>& aBls,
+        vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
         float *alphan)
 {
     int blocksizes[N];
@@ -209,16 +209,9 @@ float subhmm::messages_forwards_normalized(
     }
     NPArray ealphan(alphan,T,bigN);
 
-    // TODO TODO this uses init state distns, not steady state over duration
-    // pseudostates. this method should just take a full bigN steady state as an
-    // argument... censoring!
     float in_potential[bigN] __attribute__ ((aligned(16)));
     NPVectorArray ein_potential(in_potential,bigN);
-    ein_potential.setZero();
-    for (int i=0; i<N; i++) {
-        ein_potential.segment(blockstarts[i],Nsubs[i]) =
-            init_state_distn[i] * esub_inits[i].array();
-    }
+    ein_potential = NPVectorArray(init_state_distn,bigN);
     float logtot = 0., cmax;
     for (int t=0; t<T; t++) {
         cmax = -1.*numeric_limits<float>::infinity();
@@ -318,9 +311,8 @@ void subhmm::steady_state(
 float subhmm::messages_forwards_normalized_changepoints(
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-        std::vector<float*>& sub_transs, std::vector<float*>& sub_inits,
-        std::vector<float*>& aBls,
-        int32_t *starts, int32_t *ends, int Tblock,
+        vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
+        int32_t *segmentstarts, int32_t *segmentlens, int Tblock,
         float *alphan)
 {
     // standard setup
@@ -347,41 +339,40 @@ float subhmm::messages_forwards_normalized_changepoints(
     }
     NPArray ealphan(alphan,Tblock,bigN);
 
-    // an extra temp vector? TODO
-    float in_potential[2*bigN] __attribute__ ((aligned(16)));
-
-    // TODO just copy in initial state distn
-    float logtot = 0., cmax;
+    float temp1[bigN] __attribute__ ((aligned(16)));
+    float temp2[bigN] __attribute__ ((aligned(16)));
+    NPVectorArray(temp1,bigN) = NPVectorArray(init_state_distn,bigN);
+    float logtot = 0., cmax, *in = temp1, *out = temp2;
     for (int tblock=0; tblock<Tblock; tblock++) {
-        for (int t=starts[tblock]; t<ends[tblock]; t++) {
+        for (int t=segmentstarts[tblock]; t<segmentstarts[tblock]+segmentlens[tblock]; t++) {
             cmax = -1.*numeric_limits<float>::infinity();
             for (int i=0; i<N; i++) {
                 cmax = max(cmax, eaBls[i].row(t).maxCoeff());
             }
 
             for (int i=0; i<N; i++) {
-                NPSubArray(in_potential + blockstarts[i],rs[i],Nsubs[i]).rowwise()
+                NPSubArray(in + blockstarts[i],rs[i],Nsubs[i]).rowwise()
                     *= (eaBls[i].row(t) - cmax).exp();
             }
-            // TODO declare ein_potential here check allocation
-            float tot = ein_potential.sum();
-            ealphan.row(t) = ein_potential / tot;
+            asm("# START MALLOC CHECK?");
+            NPVectorArray ein(in,bigN); // TODO check for malloc here
+            float tot = ein.sum();
+            ein /= tot;
+            asm("# END MALLOC CHECK?");
             logtot += log(tot) + cmax;
 
             vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
                     esub_transs,esub_inits,blocksizes,blockstarts,
-                    alphan + bigN*t,in_potential); // TODO ping pong
+                    in,out);
+
+            swap(in,out);
         }
-    // TODO set into alphan
+    ealphan.row(tblock) = NPVectorArray(in,bigN);
     }
     return logtot;
 }
 
-
-/******************
- *  TESTING CODE  *
- ******************/
-
+// TESTING CODE
 
 void subhmm::test_matrix_vector_mult(
         int N, int32_t *Nsubs, int32_t *rs, float *ps,
