@@ -354,11 +354,9 @@ float subhmm::messages_forwards_normalized_changepoints(
                 NPSubArray(in + blockstarts[i],rs[i],Nsubs[i]).rowwise()
                     *= (eaBls[i].row(t) - cmax).exp();
             }
-            asm("# START MALLOC CHECK?");
             NPVectorArray ein(in,bigN); // TODO check for malloc here
             float tot = ein.sum();
             ein /= tot;
-            asm("# END MALLOC CHECK?");
             logtot += log(tot) + cmax;
 
             vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
