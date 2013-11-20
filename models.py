@@ -164,6 +164,13 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             import parallel
             numtoresample = min(parallel.get_num_engines(),len(self.states_list))
 
+        ### resample parameters locally
+
+        # NOTE: these methods will call self._clear_caches()
+        self.resample_obs_distns_parallel() # doesn't necessarily run parallel
+        self.resample_trans_distn()
+        self.resample_init_state_distn()
+
         ### resample states in parallel
 
         # choose which sequences to resample
@@ -183,13 +190,6 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         if numtoresample != 'all':
             self.states_list.extend(states_to_hold_out)
             self.states_list.sort(key=added_order.__getitem__)
-
-        ### resample parameters locally
-
-        # NOTE: these methods will call self._clear_caches()
-        self.resample_obs_distns_parallel() # doesn't necessarily run parallel
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
 
     def resample_obs_distns_parallel(self):
         # this method is broken out so that it can be overridden
