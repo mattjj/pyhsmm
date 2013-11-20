@@ -157,7 +157,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         else:
             parallel.add_data(data)
 
-    def resample_model_parallel(self,numtoresample='all',temp=None):
+    def resample_model_parallel(self,temp=None):
         ### resample parameters locally
         # NOTE: these methods will call self._clear_caches()
         self.resample_obs_distns_parallel() # doesn't necessarily run parallel
