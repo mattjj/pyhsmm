@@ -158,34 +158,10 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             parallel.add_data(data)
 
     def resample_model_parallel(self,numtoresample='all',temp=None):
-        if numtoresample == 'all':
-            numtoresample = len(self.states_list)
-        elif numtoresample == 'engines':
-            import parallel
-            numtoresample = min(parallel.get_num_engines(),len(self.states_list))
-
         ### resample states in parallel
-
-        # choose which sequences to resample
-        if numtoresample != 'all':
-            added_order = {s:i for i,s in enumerate(self.states_list)}
-            states_to_resample = random.sample(self.states_list,numtoresample)
-            states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
-        else:
-            states_to_resample = self.states_list
-            states_to_hold_out = []
-
-        # actually resample the states
-        self.states_list = self.resample_states_parallel(
-                states_to_resample,states_to_hold_out,temp=temp)
-
-        # add back the held-out states
-        if numtoresample != 'all':
-            self.states_list.extend(states_to_hold_out)
-            self.states_list.sort(key=added_order.__getitem__)
+        self.resample_states_parallel(temp=temp)
 
         ### resample parameters locally
-
         # NOTE: these methods will call self._clear_caches()
         self.resample_obs_distns_parallel() # doesn't necessarily run parallel
         self.resample_trans_distn()
@@ -196,11 +172,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         # data probably needs to be broadcasted to resample in parallel
         self.resample_obs_distns()
 
-    def resample_states_parallel(self,states_to_resample=None,states_to_hold_out=[],temp=None):
+    def resample_states_parallel(self,temp=None):
         import parallel
-        if states_to_resample is None:
-            assert len(states_to_hold_out) == 0
-            states_to_resample = self.states_list
+        states_to_resample = self.states_list
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
@@ -209,7 +183,7 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
                 engine_globals=dict(global_model=self,temp=temp))
         for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
-        return states_to_resample
+        self.states_list = states_to_resample
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
