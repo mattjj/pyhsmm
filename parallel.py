@@ -5,29 +5,30 @@ import os
 from util.general import engine_global_namespace
 
 profile = 'default'
-dv = []
-costs = np.array([])
-data_residency = {}
-client_ids = []
+
+# these globals get set, named here for clarity
 client = None
+dv = None
+costs = None
+data_residency = None
 
 def reset_engines():
-    global dv
+    global costs, data_residency
     dv.push(dict(my_data={}))
+    costs = np.zeros(len(dv))
+    data_residency = {}
 
 def set_up_engines():
-    global client, profile, dv, client_ids, data_residency, costs
+    global client, dv
     if client is None:
         client = Client(profile=profile)
         dv = client[:]
-        client_ids = client._ids
-        data_residency = {}
-        costs = np.zeros(len(dv))
         reset_engines()
 
 def set_profile(this_profile):
-    global profile
+    global profile, client
     profile = this_profile
+    client = None
     os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"] = profile
 
 def get_num_engines():
@@ -49,6 +50,11 @@ def vhash(d):
         return hash(d.data)
     else:
         return hash(tuple(map(vhash,d)))
+
+def clear_ipython_caches():
+    client.purge_results('all')
+    client.results.clear()
+    dv.results.clear()
 
 ### adding and managing data
 
@@ -75,8 +81,7 @@ def add_data(data,costfunc=len):
     engine_to_send = np.argmin(costs)
     data_residency[ph] = engine_to_send
     costs[engine_to_send] += costfunc(data)
-    idx = client_ids
-    return client[idx[engine_to_send]].apply_async(update_my_data,ph,data)
+    return client[client._ids[engine_to_send]].apply_async(update_my_data,ph,data)
 
 def broadcast_data(data,costfunc=len):
     global data_residency, costs
@@ -112,15 +117,12 @@ def map_on_each(fn,added_datas,kwargss=None,engine_globals=None):
         kwargss = [{} for data in added_datas] # no communication overhead
 
     indata = [(phash(data),data,kwargs) for data,kwargs in zip(added_datas,kwargss)]
-    idx = client_ids
-    ars = [client[idx[data_residency[data_id]]].apply_async(_call,fn,data_id,**kwargs)
+    ars = [client[client._ids[data_residency[data_id]]].apply_async(_call,fn,data_id,**kwargs)
                     for data_id, data, kwargs in indata]
     dv.wait(ars)
     results = [ar.get() for ar in ars]
 
-    client.purge_results('all')
-    client.results.clear()
-    dv.results.clear()
+    clear_ipython_caches()
 
     return results
 
@@ -145,9 +147,7 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
             [[phash(data) for data in broadcasted_datas]]*len(kwargss),
             kwargss)
 
-    client.purge_results('all')
-    client.results.clear()
-    dv.results.clear()
+    clear_ipython_caches()
 
     return results
 
