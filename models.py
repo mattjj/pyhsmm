@@ -569,10 +569,12 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
 
 
 class IntNegBinSubHMM(HMMEigen):
-    def resample_states(self,*args,**kwargs):
+    def resample_model_nostates(self,temp=None):
         # NOTE: state resampling is done all at once in the
         # HSMMIntNegBin*SubHMMsStates class, so it doesn't need to be done here
-        pass
+        self.resample_obs_distns()
+        self.resample_trans_distn()
+        self.resample_init_state_distn()
 
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
@@ -605,7 +607,7 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
 
     def resample_obs_distns(self):
         for hmm in self.HMMs:
-            hmm.resample_model()
+            hmm.resample_model_nostates()
 
     def plot_observations(self,colors=None,states_objs=None):
         # NOTE: colors are superstate colors
