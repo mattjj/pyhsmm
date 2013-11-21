@@ -116,22 +116,28 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
-        self.resample_obs_distns()
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
+        self.resample_parameters(temp=temp)
         self.resample_states(temp=temp)
 
-    def resample_obs_distns(self):
+    def resample_parameters(self,temp=None):
+        self.resample_obs_distns(temp=temp)
+        self.resample_trans_distn(temp=temp)
+        self.resample_init_state_distn(temp=temp)
+
+    def resample_obs_distns(self,temp=None):
+        # TODO do something with temp
         # TODO TODO get rid of logical indexing! it copies data!
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
 
-    def resample_trans_distn(self):
+    def resample_trans_distn(self,temp=None):
+        # TODO do something with temp
         self.trans_distn.resample([s.stateseq for s in self.states_list])
         self._clear_caches()
 
-    def resample_init_state_distn(self):
+    def resample_init_state_distn(self,temp=None):
+        # TODO do something with temp
         self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
         self._clear_caches()
 
@@ -447,8 +453,9 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.resample_dur_distns()
         super(HSMM,self).resample_model(**kwargs)
 
-    def resample_dur_distns(self):
+    def resample_dur_distns(self,temp=None):
         # TODO TODO get rid of logical indexing
+        # TODO do something with temp
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
             data=
@@ -568,13 +575,7 @@ class HSMMIntNegBin(_HSMMIntNegBinBase):
 # TODO add generic SubHMM class here from old repo
 
 
-class IntNegBinSubHMM(HMMEigen):
-    def resample_model_nostates(self,temp=None):
-        # NOTE: state resampling is done all at once in the
-        # HSMMIntNegBin*SubHMMsStates class, so it doesn't need to be done here
-        self.resample_obs_distns()
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
+IntNegBinSubHMM = HMMEigen
 
 class HSMMIntNegBinVariantSubHMMs(HSMM):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
@@ -605,9 +606,11 @@ class HSMMIntNegBinVariantSubHMMs(HSMM):
         super(HSMMIntNegBinVariantSubHMMs,self).__init__(
                 obs_distns=self.HMMs,**kwargs)
 
-    def resample_obs_distns(self):
+    def resample_obs_distns(self,temp=None):
         for hmm in self.HMMs:
-            hmm.resample_model_nostates()
+            # NOTE: don't need to resample substates here because they are
+            # resampled all at once with the superstates
+            hmm.resample_parameters(temp=temp)
 
     def plot_observations(self,colors=None,states_objs=None):
         # NOTE: colors are superstate colors
