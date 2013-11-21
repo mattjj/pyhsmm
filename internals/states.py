@@ -1558,7 +1558,7 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         # TODO TODO handle left censoring case, move this logic to
         # init_state_distn
         warnings.warn('make this cleaner yo')
-        out = np.zeros(self.bigN)
+        out = np.zeros(self.bigN,dtype='float32')
         for start, Nsub, super_pi_i, sub_init \
                 in zip(self.blockstarts,self.Nsubs,self.hsmm_pi_0,self.subhmm_pi_0s):
             out[start:start+Nsub] = super_pi_i * sub_init
@@ -1703,6 +1703,30 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
     def generate(self):
         # TODO override generate someday
         raise NotImplementedError
+
+class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates):
+    def messages_forwards_normalized_changepoints(self):
+        from subhmm_messages_interface import messages_forwards_normalized_changepoints
+
+        # TODO move this
+        T = self.data.shape[0]
+        SEGLEN = 2
+        starts = np.arange(0,T,SEGLEN,dtype='int32')
+        lengths = np.repeat(SEGLEN,len(starts)).astype('int32')
+        Tblock = len(starts)
+
+        # allocate messages array
+        required_shape = (Tblock,sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
+        alphan = np.empty(required_shape,dtype='float32')
+
+        _, self._loglike = messages_forwards_normalized_changepoints(
+                self.hsmm_trans_matrix, self.pi_0,
+                self.rs, self.ps,
+                self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
+                starts,lengths,
+                alphan)
+
+        return alphan
 
 #################
 #  eigen stuff  #

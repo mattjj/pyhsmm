@@ -354,7 +354,7 @@ float subhmm::messages_forwards_normalized_changepoints(
                 NPSubArray(in + blockstarts[i],rs[i],Nsubs[i]).rowwise()
                     *= (eaBls[i].row(t) - cmax).exp();
             }
-            NPVectorArray ein(in,bigN); // TODO check for malloc here
+            NPVectorArray ein(in,bigN);
             float tot = ein.sum();
             ein /= tot;
             logtot += log(tot) + cmax;
@@ -365,7 +365,7 @@ float subhmm::messages_forwards_normalized_changepoints(
 
             swap(in,out);
         }
-    ealphan.row(tblock) = NPVectorArray(in,bigN);
+    ealphan.row(tblock) = NPVectorArray(out,bigN);
     }
     return logtot;
 }
