@@ -588,8 +588,7 @@ class HSMMPossibleChangepoints(HSMM):
 # TODO move everything below here to another repo
 
 
-IntNegBinSubHMM = HMMEigen
-
+class SubHMM(HMMEigen):
     def messages_forwards(self,aBl):
         return self._states_class._messages_forwards_log(
                 self.trans_distn.A,
@@ -602,8 +601,6 @@ IntNegBinSubHMM = HMMEigen
                 stateseq=np.zeros(data.shape[0]), # dummy
                 )
         return self.states_list.pop().aBl
-
-
 
 class HSMMSubHMMs(HSMM):
     _states_class = states.HSMMSubHMMStates
@@ -698,9 +695,12 @@ class HSMMSubHMMs(HSMM):
         s = global_model.states_list.pop()
         return s.stateseq, [s.stateseq for s in s.substates_list], s.log_likelihood()
 
+
+IntNegBinSubHMM = HMMEigen
+
 class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStates
-    _subhmm_class = SubHMM
+    _subhmm_class = IntNegBinSubHMM
 
     def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
         import pyhsmm.parallel as parallel

@@ -151,7 +151,7 @@ float subhmm::messages_backwards_normalized(
 
         for (int i=0; i<N; i++) {
             for (int k=0; k<rs[i]; k++) {
-                NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                NPSubArray(temp+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
                     *= (eaBls[i].row(t) - cmax).exp();
             }
         }
@@ -406,7 +406,7 @@ float subhmm::messages_forwards_normalized_changepoints(
 
             for (int i=0; i<N; i++) {
                 for (int k=0; k<rs[i]; k++) {
-                    NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                    NPSubArray(in+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
                         *= (eaBls[i].row(t) - cmax).exp();
                 }
             }

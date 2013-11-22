@@ -78,12 +78,12 @@ model.add_data(data,left_censoring=True)
 #  inference  #
 ###############
 
-# for itr in progprint_xrange(25):
-#     model.resample_model()
+for itr in progprint_xrange(25):
+    model.resample_model()
 
-# plt.figure()
-# model.plot()
-# plt.gcf().suptitle('fit')
+plt.figure()
+model.plot()
+plt.gcf().suptitle('fit')
 
-# plt.show()
+plt.show()
 
