@@ -38,14 +38,15 @@ float subhmm::matrix_vector_mult(
         int32_t Nsub = Nsubs[i];
         int32_t r = rs[i];
         float p = ps[i];
+        float temparr[r*Nsub] __attribute__((aligned(16)));
         NPMatrix &subtrans = esub_transs[i];
 
         NPSubMatrix rv(v + blockstart,r,Nsub);
         NPSubMatrix rout(out + blockstart,r,Nsub);
 
         // within-block
-        MatrixXf temp(r,Nsub); // NOTE: checked asm, no malloc here with g++ -O3, note float
-        temp = rv * subtrans.transpose();
+        NPMatrix temp(temparr,r,Nsub);
+        temp.noalias() = rv * subtrans.transpose();
         rout = (temp.array() * (1-p)).matrix();
         rout.block(0,0,r-1,Nsub) += p * temp.block(1,0,r-1,Nsub);
 
@@ -86,6 +87,7 @@ float subhmm::vector_matrix_mult(
         int32_t Nsub = Nsubs[i];
         int32_t r = rs[i];
         float p = ps[i];
+        float temparr[r*Nsub] __attribute__((aligned(16)));
         NPMatrix &subtrans = esub_transs[i];
         NPVector &pi = esub_inits[i];
 
@@ -93,8 +95,8 @@ float subhmm::vector_matrix_mult(
         NPSubMatrix rout(out + blockstart,r,Nsub);
 
         // within-block
-        MatrixXf temp(r,Nsub); // NOTE: checked asm, no malloc here with g++ -O3, note float
-        temp = rv * subtrans;
+        NPMatrix temp(temparr,r,Nsub);
+        temp.noalias() = rv * subtrans;
         rout = (temp.array() * (1-p)).matrix();
         rout.block(1,0,r-1,Nsub) += p * temp.block(0,0,r-1,Nsub);
 
@@ -148,8 +150,10 @@ float subhmm::messages_backwards_normalized(
         }
 
         for (int i=0; i<N; i++) {
-            NPSubArray(temp + blockstarts[i],rs[i],Nsubs[i]).rowwise()
-                = (eaBls[i].row(t+1) - cmax).exp();
+            for (int k=0; k<rs[i]; k++) {
+                NPSubArray(temp+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                    *= (eaBls[i].row(t) - cmax).exp();
+            }
         }
         etemp *= ebetan.row(t+1);
 
@@ -170,6 +174,7 @@ float subhmm::messages_backwards_normalized(
     for (int i=0; i<N; i++) {
         cmax = max(cmax, eaBls[i].row(0).maxCoeff());
     }
+    // TODO TODO replace this with init state distn being passed in
     for (int i=0; i<N; i++) {
         NPSubVectorArray(in_potential + blockstarts[i],Nsubs[i]) =
             init_state_distn[i] * esub_inits[i].array() * (eaBls[i].row(0) - cmax).exp().transpose();
@@ -211,11 +216,7 @@ float subhmm::messages_forwards_normalized(
 
     float in_potential[bigN] __attribute__ ((aligned(16)));
     NPVectorArray ein_potential(in_potential,bigN);
-    ein_potential.setZero();
-    for (int i=0; i<N; i++) {
-        ein_potential.segment(blockstarts[i],Nsubs[i]) =
-            init_state_distn[i] * esub_inits[i].array();
-    }
+    ein_potential = NPVectorArray(init_state_distn,bigN);
     float logtot = 0., cmax;
     for (int t=0; t<T; t++) {
         cmax = -1.*numeric_limits<float>::infinity();
@@ -224,8 +225,10 @@ float subhmm::messages_forwards_normalized(
         }
 
         for (int i=0; i<N; i++) {
-            NPSubArray(in_potential + blockstarts[i],rs[i],Nsubs[i]).rowwise()
-                *= (eaBls[i].row(t) - cmax).exp();
+            for (int k=0; k<rs[i]; k++) {
+                NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                    *= (eaBls[i].row(t) - cmax).exp();
+            }
         }
         float tot = ein_potential.sum();
         ealphan.row(t) = ein_potential / tot;

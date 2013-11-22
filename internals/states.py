@@ -369,7 +369,7 @@ class HMMStatesEigen(HMMStatesPython):
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
-                np.empty_like(log_likelihoods))
+                init_state_distn,np.empty_like(log_likelihoods))
 
     def messages_backwards_python(self):
         return super(HMMStatesEigen,self).messages_backwards_log()
@@ -575,7 +575,9 @@ class HSMMStatesPython(_StatesBase):
         if self._betal is not None and self._betastarl is not None:
             return self._betal, self._betastarl
 
+        errs = np.seterr(divide='ignore')
         aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
+        np.seterr(**errs)
         T,state_dim = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
 
@@ -1300,7 +1302,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
     @property
     def pi_0(self):
-        out = np.zeros(self.bigN)
+        # TODO TODO handle left censoring case, move this logic to
+        # init_state_distn
+        warnings.warn('make this cleaner yo')
+        out = np.zeros(self.bigN,dtype='float32')
         for start, Nsub, super_pi_i, sub_init \
                 in zip(self.blockstarts,self.Nsubs,self.hsmm_pi_0,self.subhmm_pi_0s):
             out[start:start+Nsub] = super_pi_i * sub_init
@@ -1325,10 +1330,10 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
         self._alphan = self._raw_alphan[:required_size].reshape(required_shape)
 
         _, self._loglike = messages_forwards_normalized(
-                self.hsmm_trans_matrix,self.hsmm_pi_0,
-                self.rs,self.ps,
-                self.subhmm_trans_matrices,self.subhmm_pi_0s,
-                self.aBls,self._alphan)
+                self.hsmm_trans_matrix, self.pi_0,
+                self.rs, self.ps,
+                self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
+                self._alphan)
 
         return self._alphan
 
