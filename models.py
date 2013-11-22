@@ -164,19 +164,8 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
             parallel.add_data(data)
 
     def resample_model_parallel(self,temp=None):
-        ### resample parameters locally
-        # NOTE: these methods will call self._clear_caches()
-        self.resample_obs_distns_parallel() # doesn't necessarily run parallel
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
-
-        ### resample states in parallel
+        self.resample_parameters(temp=temp)
         self.resample_states_parallel(temp=temp)
-
-    def resample_obs_distns_parallel(self):
-        # this method is broken out so that it can be overridden
-        # data probably needs to be broadcasted to resample in parallel
-        self.resample_obs_distns()
 
     def resample_states_parallel(self,temp=None):
         import parallel
@@ -449,9 +438,9 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### Gibbs sampling
 
-    def resample_model(self,**kwargs):
+    def resample_parameters(self,temp=None):
         self.resample_dur_distns()
-        super(HSMM,self).resample_model(**kwargs)
+        super(HSMM,self).resample_parameters(temp=temp)
 
     def resample_dur_distns(self,temp=None):
         # TODO TODO get rid of logical indexing
@@ -472,10 +461,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         return new
 
     ### parallel
-
-    def resample_model_parallel(self,*args,**kwargs):
-        self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(*args,**kwargs)
 
     def _get_parallel_kwargss(self,states_objs):
         return [dict(trunc=s.trunc,left_censoring=s.left_censoring,
