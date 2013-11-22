@@ -449,9 +449,8 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### Gibbs sampling
 
-    def resample_model(self,**kwargs):
-        self.resample_dur_distns()
-        super(HSMM,self).resample_model(**kwargs)
+    def resample_parameters(self,temp=None):
+        self.resample_dur_distns(temp=temp)
 
     def resample_dur_distns(self,temp=None):
         # TODO TODO get rid of logical indexing
@@ -472,10 +471,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         return new
 
     ### parallel
-
-    def resample_model_parallel(self,*args,**kwargs):
-        self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(*args,**kwargs)
 
     def _get_parallel_kwargss(self,states_objs):
         return [dict(trunc=s.trunc,left_censoring=s.left_censoring,
