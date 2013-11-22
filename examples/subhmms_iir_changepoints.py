@@ -72,7 +72,16 @@ model  = pyhsmm.models.HSMMIntNegBinVariantSubHMMsPossibleChangepoints(
         obs_distnss=obs_distnss,
         dur_distns=dur_distns)
 
-model.add_data(data,left_censoring=True)
+# !!! get the changepoints !!!
+# NOTE: usually these would be estimated by some external process; here I'm
+# totally cheating and just getting them from the truth
+temp = np.concatenate(((0,),truemodel.states_list[0].durations.cumsum()))
+changepoints = zip(temp[:-1],temp[1:])
+changepoints[-1] = (changepoints[-1][0],T) # because last duration might be censored
+print 'segments:'
+print changepoints
+
+model.add_data(data,changepoints=changepoints,left_censoring=True)
 
 ###############
 #  inference  #

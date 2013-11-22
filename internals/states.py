@@ -735,9 +735,6 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,*args,**kwargs):
-        HSMMStatesPython.__init__(self,*args,**kwargs)
-
     def clear_caches(self):
         HSMMStatesPython.clear_caches(self)
         self._hmm_trans = None
@@ -1126,8 +1123,8 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,model,changepoints,**kwargs):
         self.changepoints = changepoints
-        self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
-        self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
         self.Tblock = len(changepoints) # number of blocks
         super(HSMMStatesPossibleChangepoints,self).__init__(model,**kwargs)
 
@@ -1162,7 +1159,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             state = sample_discrete(nextstate_distr)
 
             # compute possible duration info (indep. of state)
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.segmentlens[tblock:].cumsum()
 
             # compute the pmf over those steps
             durprobs = self.dur_distns[state].pmf(possible_durations)
@@ -1208,7 +1205,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         betastarl = np.zeros_like(betal)
 
         for tblock in range(Tblock-1,-1,-1):
-            possible_durations = self.blocklens[tblock:].cumsum() # could precompute these
+            possible_durations = self.segmentlens[tblock:].cumsum() # could precompute these
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
@@ -1254,7 +1251,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
             # compute possible duration info (indep. of state)
             # TODO TODO doesn't handle censoring quite correctly
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.segmentlens[tblock:].cumsum()
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
 
@@ -1692,12 +1689,12 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
 
     def block_cumulative_likelihoods(self,startblock,stopblock,possible_durations):
         # could recompute possible_durations given startblock, stopblock,
-        # trunc/truncblock, and self.blocklens, but why redo that effort?
+        # trunc/truncblock, and self.segmentlens, but why redo that effort?
         return np.vstack([self.block_cumulative_likelihood_state(startblock,stopblock,state,possible_durations) for state in range(self.state_dim)]).T
 
     def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
-        start = self.startpoints[startblock]
-        stop = self.startpoints[stopblock] if stopblock < len(self.startpoints) else None
+        start = self.segmentstarts[startblock]
+        stop = self.segmentstarts[stopblock] if stopblock < len(self.segmentstarts) else None
         return np.logaddexp.reduce(self.model.HMMs[state].messages_forwards(self.aBls[state][start:stop])[possible_durations-1],axis=1)
 
     def generate(self):
@@ -1706,26 +1703,27 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
 
 
 class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates,HSMMStatesPossibleChangepoints):
-    # TODO fill in pretty much this whole class
-    def messages_forwards_normalized_changepoints(self):
+    def sample_backwards_normalized(self,alphan):
+        from subhmm_messages_interface import sample_backwards_normalized
+        bigA = self.csc_trans_matrix
+        self.big_stateseq = sample_backwards_normalized(
+                alphan,bigA.indptr,bigA.indices,bigA.data,
+                np.empty(self.Tblock,dtype='int32'))
+        self.big_stateseq = np.repeat(self.big_stateseq,self.segmentlens).astype('int32',copy=False)
+        self._map_states()
+
+    def messages_forwards_normalized(self):
         from subhmm_messages_interface import messages_forwards_normalized_changepoints
 
-        # TODO move this
-        T = self.data.shape[0]
-        SEGLEN = 1
-        starts = np.arange(0,T,SEGLEN,dtype='int32')
-        lengths = np.repeat(SEGLEN,len(starts)).astype('int32')
-        Tblock = len(starts)
-
         # allocate messages array
-        required_shape = (Tblock,sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
+        required_shape = (self.Tblock,sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
         alphan = np.empty(required_shape,dtype='float32')
 
         _, self._loglike = messages_forwards_normalized_changepoints(
                 self.hsmm_trans_matrix, self.pi_0,
                 self.rs, self.ps,
                 self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
-                starts,lengths,
+                self.segmentstarts,self.segmentlens,
                 alphan)
 
         return alphan

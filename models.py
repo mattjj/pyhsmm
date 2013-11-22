@@ -736,7 +736,6 @@ class HSMMIntNegBinVariantSubHMMs(HSMMSubHMMs):
 class HSMMSubHMMsPossibleChangepoints(HSMMSubHMMs, HSMMPossibleChangepoints):
     _states_class = states.HSMMSubHMMStatesPossibleChangepoints
 
-class HSMMIntNegBinVariantSubHMMsPossibleChangepoints(HSMMIntNegBinVariantSubHMMs):
+class HSMMIntNegBinVariantSubHMMsPossibleChangepoints(HSMMIntNegBinVariantSubHMMs, HSMMPossibleChangepoints):
     _states_class = states.HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints
-    _subhmm_class = SubHMM
 
