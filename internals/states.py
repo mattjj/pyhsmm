@@ -1712,7 +1712,7 @@ class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariant
 
         # TODO move this
         T = self.data.shape[0]
-        SEGLEN = 2
+        SEGLEN = 1
         starts = np.arange(0,T,SEGLEN,dtype='int32')
         lengths = np.repeat(SEGLEN,len(starts)).astype('int32')
         Tblock = len(starts)

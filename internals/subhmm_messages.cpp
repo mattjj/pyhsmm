@@ -351,8 +351,8 @@ float subhmm::vector_matrix_mult_inside_segment(
         // within-block
         NPMatrix temp(temparr,r,Nsub);
         temp.noalias() = rv * subtrans;
-        rout.block(0,0,1,Nsub) = temp.block(0,0,1,Nsub).matrix();
-        rout.block(1,0,r-1,Nsub) = (temp.block(1,0,r-1,Nsub).array() * (1-p)).matrix();
+        rout.block(0,0,r-1,Nsub) = (temp.block(0,0,r-1,Nsub).array() * (1-p)).matrix();
+        rout.block(r-1,0,1,Nsub) = temp.block(r-1,0,1,Nsub).matrix();
         rout.block(1,0,r-1,Nsub) += p * temp.block(0,0,r-1,Nsub);
 
         // track sum
@@ -398,7 +398,33 @@ float subhmm::messages_forwards_normalized_changepoints(
     NPVectorArray(temp1,bigN) = NPVectorArray(init_state_distn,bigN);
     float logtot = 0., cmax, *in = temp1, *out = temp2;
     for (int tblock=0; tblock<Tblock; tblock++) {
-        for (int t=segmentstarts[tblock]; t<segmentstarts[tblock]+segmentlens[tblock]; t++) {
+        int t = segmentstarts[tblock];
+
+        {
+            cmax = -1.*numeric_limits<float>::infinity();
+            for (int i=0; i<N; i++) {
+                cmax = max(cmax, eaBls[i].row(t).maxCoeff());
+            }
+
+            for (int i=0; i<N; i++) {
+                for (int k=0; k<rs[i]; k++) {
+                    NPSubArray(in+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                        *= (eaBls[i].row(t) - cmax).exp();
+                }
+            }
+            NPVectorArray ein(in,bigN);
+            float tot = ein.sum();
+            ein /= tot;
+            logtot += log(tot) + cmax;
+
+            vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
+                    esub_transs,esub_inits,blocksizes,blockstarts,
+                    in,out);
+
+            swap(in,out);
+        }
+
+        for (t += 1; t<segmentstarts[tblock]+segmentlens[tblock]; t++) {
             cmax = -1.*numeric_limits<float>::infinity();
             for (int i=0; i<N; i++) {
                 cmax = max(cmax, eaBls[i].row(t).maxCoeff());
@@ -421,9 +447,8 @@ float subhmm::messages_forwards_normalized_changepoints(
 
             swap(in,out);
         }
-    ealphan.row(tblock) = NPVectorArray(out,bigN);
-    // TODO wrong! call vector_matrix_mult in the outer loop only, inner loop
-    // call something that doesnt have the cross-superstate terms
+
+        ealphan.row(tblock) = NPVectorArray(out,bigN);
     }
     return logtot;
 }
