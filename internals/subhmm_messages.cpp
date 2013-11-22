@@ -39,14 +39,15 @@ float subhmm::matrix_vector_mult(
         int32_t Nsub = Nsubs[i];
         int32_t r = rs[i];
         float p = ps[i];
+        float temparr[r*Nsub] __attribute__((aligned(16)));
         NPMatrix &subtrans = esub_transs[i];
 
         NPSubMatrix rv(v + blockstart,r,Nsub);
         NPSubMatrix rout(out + blockstart,r,Nsub);
 
         // within-block
-        MatrixXf temp(r,Nsub); // NOTE: checked asm, no malloc here with g++ -O3, note float
-        temp = rv * subtrans.transpose();
+        NPMatrix temp(temparr,r,Nsub);
+        temp.noalias() = rv * subtrans.transpose();
         rout = (temp.array() * (1-p)).matrix();
         rout.block(0,0,r-1,Nsub) += p * temp.block(1,0,r-1,Nsub);
 
@@ -87,6 +88,7 @@ float subhmm::vector_matrix_mult(
         int32_t Nsub = Nsubs[i];
         int32_t r = rs[i];
         float p = ps[i];
+        float temparr[r*Nsub] __attribute__((aligned(16)));
         NPMatrix &subtrans = esub_transs[i];
         NPVector &pi = esub_inits[i];
 
@@ -94,8 +96,8 @@ float subhmm::vector_matrix_mult(
         NPSubMatrix rout(out + blockstart,r,Nsub);
 
         // within-block
-        MatrixXf temp(r,Nsub); // NOTE: checked asm, no malloc here with g++ -O3, note float
-        temp = rv * subtrans;
+        NPMatrix temp(temparr,r,Nsub);
+        temp.noalias() = rv * subtrans;
         rout = (temp.array() * (1-p)).matrix();
         rout.block(1,0,r-1,Nsub) += p * temp.block(0,0,r-1,Nsub);
 
@@ -148,8 +150,10 @@ float subhmm::messages_backwards_normalized(
         }
 
         for (int i=0; i<N; i++) {
-            NPSubArray(temp + blockstarts[i],rs[i],Nsubs[i]).rowwise()
-                = (eaBls[i].row(t+1) - cmax).exp();
+            for (int k=0; k<rs[i]; k++) {
+                NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                    *= (eaBls[i].row(t) - cmax).exp();
+            }
         }
         etemp *= ebetan.row(t+1);
 
@@ -220,9 +224,12 @@ float subhmm::messages_forwards_normalized(
         }
 
         for (int i=0; i<N; i++) {
-            NPSubArray(in_potential + blockstarts[i],rs[i],Nsubs[i]).rowwise()
-                *= (eaBls[i].row(t) - cmax).exp();
+            for (int k=0; k<rs[i]; k++) {
+                NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                    *= (eaBls[i].row(t) - cmax).exp();
+            }
         }
+
         float tot = ein_potential.sum();
         ealphan.row(t) = ein_potential / tot;
         logtot += log(tot) + cmax;
@@ -308,6 +315,53 @@ void subhmm::steady_state(
     }
 }
 
+// changepoint stuff
+
+inline
+float subhmm::vector_matrix_mult_inside_segment(
+        int N, int32_t *Nsubs, int32_t *rs, float *ps,
+        vector<NPMatrix> &esub_transs,
+        int *blocksizes, int *blockstarts,
+        float *v, float *out)
+{
+    // these two lines just force eincomings to be on the stack
+    float incomings[N] __attribute__ ((aligned(16)));
+    NPVector eincomings(incomings,N);
+
+    float sum_of_result = 0.;
+
+    // NOTE: the next two loops are each parallelizeable over N
+
+    for (int i=0; i<N; i++) {
+        incomings[i] = ps[i] * NPSubVector(
+                v + blockstarts[i] + blocksizes[i] - Nsubs[i],Nsubs[i]).sum();
+    }
+
+    for (int i=0; i < N; i++) {
+        int blockstart = blockstarts[i];
+        int32_t Nsub = Nsubs[i];
+        int32_t r = rs[i];
+        float p = ps[i];
+        float temparr[r*Nsub] __attribute__((aligned(16)));
+        NPMatrix &subtrans = esub_transs[i];
+
+        NPSubMatrix rv(v + blockstart,r,Nsub);
+        NPSubMatrix rout(out + blockstart,r,Nsub);
+
+        // within-block
+        NPMatrix temp(temparr,r,Nsub);
+        temp.noalias() = rv * subtrans;
+        rout.block(0,0,1,Nsub) = temp.block(0,0,1,Nsub).matrix();
+        rout.block(1,0,r-1,Nsub) = (temp.block(1,0,r-1,Nsub).array() * (1-p)).matrix();
+        rout.block(1,0,r-1,Nsub) += p * temp.block(0,0,r-1,Nsub);
+
+        // track sum
+        sum_of_result += rout.sum();
+    }
+
+    return sum_of_result;
+}
+
 float subhmm::messages_forwards_normalized_changepoints(
         int T, int bigN, int N, int32_t *Nsubs,
         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
@@ -351,21 +405,25 @@ float subhmm::messages_forwards_normalized_changepoints(
             }
 
             for (int i=0; i<N; i++) {
-                NPSubArray(in + blockstarts[i],rs[i],Nsubs[i]).rowwise()
-                    *= (eaBls[i].row(t) - cmax).exp();
+                for (int k=0; k<rs[i]; k++) {
+                    NPSubArray(in_potential+blockstarts[i] + k*Nsubs[i],1,Nsubs[i])
+                        *= (eaBls[i].row(t) - cmax).exp();
+                }
             }
             NPVectorArray ein(in,bigN);
             float tot = ein.sum();
             ein /= tot;
             logtot += log(tot) + cmax;
 
-            vector_matrix_mult(N,Nsubs,rs,ps,esuper_trans_T,
-                    esub_transs,esub_inits,blocksizes,blockstarts,
+            vector_matrix_mult_inside_segment(N,Nsubs,rs,ps,esub_transs,
+                    blocksizes,blockstarts,
                     in,out);
 
             swap(in,out);
         }
     ealphan.row(tblock) = NPVectorArray(out,bigN);
+    // TODO wrong! call vector_matrix_mult in the outer loop only, inner loop
+    // call something that doesnt have the cross-superstate terms
     }
     return logtot;
 }
@@ -429,5 +487,4 @@ void subhmm::test_vector_matrix_mult(
             blocksizes, blockstarts,
             v, out);
 }
-
 

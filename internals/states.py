@@ -1704,7 +1704,9 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
         # TODO override generate someday
         raise NotImplementedError
 
-class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates):
+
+class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates,HSMMStatesPossibleChangepoints):
+    # TODO fill in pretty much this whole class
     def messages_forwards_normalized_changepoints(self):
         from subhmm_messages_interface import messages_forwards_normalized_changepoints
 

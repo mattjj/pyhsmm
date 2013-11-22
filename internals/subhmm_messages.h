@@ -85,6 +85,15 @@ namespace subhmm {
         float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
         float *v, int niter);
 
+    // changepoints stuff
+
+    inline
+    float vector_matrix_mult_inside_segment(
+            int N, int32_t *Nsubs, int32_t *rs, float *ps,
+            vector<NPMatrix> &esub_transs,
+            int *blocksizes, int *blockstarts,
+            float *v, float *out);
+
     float messages_forwards_normalized_changepoints(
             int T, int bigN, int N, int32_t *Nsubs,
             int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
