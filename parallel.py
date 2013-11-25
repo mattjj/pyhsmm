@@ -20,6 +20,7 @@ def reset_engines():
 
 def set_up_engines():
     global client, dv
+    profile = os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"]
     if client is None:
         client = Client(profile=profile)
         dv = client[:]
