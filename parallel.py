@@ -141,7 +141,7 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
     if engine_globals is not None:
         dv.push(engine_globals,block=True)
 
-    results = lbv.map_sync(
+    results = dv.map_sync(
             _call,
             [fn]*len(kwargss),
             [[phash(data) for data in broadcasted_datas]]*len(kwargss),
