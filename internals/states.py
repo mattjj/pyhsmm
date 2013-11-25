@@ -1704,19 +1704,34 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
 
 class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates,HSMMStatesPossibleChangepoints):
     def sample_backwards_normalized(self,alphan):
-        from subhmm_messages_interface import sample_backwards_normalized
-        bigA = self.csc_trans_matrix
-        self.big_stateseq = sample_backwards_normalized(
-                alphan,bigA.indptr,bigA.indices,bigA.data,
-                np.empty(self.Tblock,dtype='int32'))
-        self.big_stateseq = np.repeat(self.big_stateseq,self.segmentlens).astype('int32',copy=False)
-        self._map_states()
+        # TODO TODO TODO
+        # soooooo why would i save a full alphan anyway? i shouldn't save any of
+        # the substate information at all. the messages array should be
+        # T x (Nsuper * dur)
+        # then i can use a non-subhmm sample forwards for superstates
+        # this seems to be conflating changepoints with...
+        # no, those things aren't mistakenly conflated: we cant collapse out
+        # substate info without changepoints, since it could be in any sub
+        # transition at any time unless we know changepoint information. with
+        # changepoint information, we know it's sufficient to pay attention only
+        # to the superstate transitions
+        # so TODO make the cpp code save only pieces, change required_shape
+        # below
+
+        # in this method, we just call a regular IntNegBinHSMM resampling method
+        # unfortunately, i don't have one implemented! i could use the HMM
+        # version if i write constructing the just-super trans matrix. but thats
+        # a pain and it'd be easier just to implement the thing for the thing.
+        # maybe i could call the subhmm code with 1x1 subhmm trans matrices? a
+        # bit wasteful.
+        raise NotImplementedError
+
 
     def messages_forwards_normalized(self):
         from subhmm_messages_interface import messages_forwards_normalized_changepoints
 
         # allocate messages array
-        required_shape = (self.Tblock,sum(r*Nsub for r,Nsub in zip(self.rs,self.Nsubs)))
+        required_shape = (self.Tblock,sum(self.rs))
         alphan = np.empty(required_shape,dtype='float32')
 
         _, self._loglike = messages_forwards_normalized_changepoints(
