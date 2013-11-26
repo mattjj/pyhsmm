@@ -282,10 +282,9 @@ class HMMStatesPython(_StatesBase):
     ### EM
 
     def E_step(self):
-        alphal = self.alphal = self.messages_forwards()
-        betal = self.betal = self.messages_backwards()
-        aBl = self.aBl
-        Al = np.log(self.trans_matrix)
+        alphal = self.alphal = self.messages_forwards_log()
+        betal = self.betal = self.messages_backwards_log()
+        expectations = self.expectations = alphal + betal
 
         expectations = alphal + betal
         expectations -= expectations.max(1)[:,na]
@@ -378,7 +377,7 @@ class HMMStatesEigen(HMMStatesPython):
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
-                np.empty_like(log_likelihoods))
+                init_state_distn,np.empty_like(log_likelihoods))
 
     def messages_backwards_python(self):
         return super(HMMStatesEigen,self).messages_backwards_log()
@@ -584,7 +583,9 @@ class HSMMStatesPython(_StatesBase):
         if self._betal is not None and self._betastarl is not None:
             return self._betal, self._betastarl
 
+        errs = np.seterr(divide='ignore')
         aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
+        np.seterr(**errs)
         T,num_states = aDl.shape
         trunc = self.trunc if self.trunc is not None else T
 
@@ -801,6 +802,11 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def trans_matrix(self):
         pass
 
+    def resample(self,temp=None):
+        self.temp = temp
+        betal, superbetal = self.messages_backwards_log()
+        self.sample_forwards_log(betal,superbetal)
+
     # generic implementation, these could be overridden for efficiency
     # they act like HMMs, and they're probably called from an HMMStates method
 
@@ -809,13 +815,13 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         self._map_states()
         return ret
 
-    def messages_backwards(self):
+    def messages_backwards_log(self):
         return self.messages_backwards_hmm(), None # 2nd is a dummy, see sample_forwards
 
-    def messages_forwards(self):
-        return HMMStatesEigen.messages_forwards(self)
+    def messages_forwards_log(self):
+        return HMMStatesEigen.messages_forwards_log(self)
 
-    def sample_forwards(self,betal,dummy):
+    def sample_forwards_log(self,betal,dummy):
         return self.sample_forwards_hmm(betal)
 
     def maxsum_messages_backwards(self):
@@ -834,10 +840,10 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         scores, args = self.maxsum_messages_backwards_hmm()
         return self.maximize_forwards_hmm(scores,args)
 
-    def messages_backwards_hmm(self):
+    def messages_backwards_log_hmm(self):
         return HMMStatesEigen.messages_backwards(self)
 
-    def sample_forwards_hmm(self,betal):
+    def sample_forwards_log_hmm(self,betal):
         ret = HMMStatesEigen.sample_forwards(self,betal)
         self._map_states()
         return ret
@@ -902,7 +908,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
     ### structure-exploiting methods
 
-    def messages_backwards(self):
+    def messages_backwards_log(self):
         if self._betal is not None and self._superbetal is not None:
             return self._betal, self._superbetal
 
@@ -934,7 +940,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 
         return betal, superbetal
 
-    def sample_forwards(self,betal,superbetal):
+    def sample_forwards_log(self,betal,superbetal):
         global eigen_path
         hsmm_intnegbin_sample_forwards_codestr = _get_codestr('hsmm_intnegbinvariant_sample_forwards')
 
@@ -1072,7 +1078,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
     # matrix structure-exploiting methods
 
-    def maxsum_messages_backwards(self):
+    def maxsum_messages_backwards_log(self):
         global eigen_path
         # these names are dumb
         hsmm_intnegbin_nonvariant_maxsum_messages_backwards_codestr = _get_codestr('hsmm_intnegbin_maxsum_messages_backwards')
