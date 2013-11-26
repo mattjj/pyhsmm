@@ -63,8 +63,6 @@ cdef extern from "hmm_messages.h":
     void d_viterbi "hmm::viterbi" (
             int M, int T, double *A, double *pi0, double *aBl, int32_t *stateseq)
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def messages_backwards_log(
         np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] aBl not None,
@@ -76,8 +74,6 @@ def messages_backwards_log(
         f_messages_backwards_log(A.shape[0],aBl.shape[0],&A[0,0],&aBl[0,0],&betal[0,0])
     return betal
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def messages_forwards_log(
         np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] aBl not None,
@@ -92,8 +88,6 @@ def messages_forwards_log(
                 &alphal[0,0])
     return alphal
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def messages_forwards_normalized(
         np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] aBl not None,
@@ -108,8 +102,6 @@ def messages_forwards_normalized(
                 &aBl[0,0],&alphan[0,0])
     return alphan, loglike
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def sample_forwards_log(
         np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] aBl not None,
@@ -125,8 +117,6 @@ def sample_forwards_log(
                 &betal[0,0],&stateseq[0])
     return stateseq
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def sample_backwards_normalized(
         np.ndarray[cython.floating,ndim=2,mode="c"] AT not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] alphan not None,
@@ -140,8 +130,6 @@ def sample_backwards_normalized(
                 &alphan[0,0],&stateseq[0])
     return stateseq
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def viterbi(
         np.ndarray[cython.floating,ndim=2,mode="c"] A not None,
         np.ndarray[cython.floating,ndim=2,mode="c"] aBl not None,
