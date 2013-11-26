@@ -1134,8 +1134,8 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,model,changepoints,**kwargs):
         self.changepoints = changepoints
-        self.startpoints = np.array([start for start,stop in changepoints],dtype=np.int32)
-        self.blocklens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
         self.Tblock = len(changepoints) # number of blocks
         super(HSMMStatesPossibleChangepoints,self).__init__(model,**kwargs)
 
@@ -1170,7 +1170,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             state = sample_discrete(nextstate_distr)
 
             # compute possible duration info (indep. of state)
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.segmentlens[tblock:].cumsum()
 
             # compute the pmf over those steps
             durprobs = self.dur_distns[state].pmf(possible_durations)
@@ -1216,7 +1216,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         betastarl = np.zeros_like(betal)
 
         for tblock in range(Tblock-1,-1,-1):
-            possible_durations = self.blocklens[tblock:].cumsum() # could precompute these
+            possible_durations = self.segmentlens[tblock:].cumsum() # could precompute these
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
@@ -1262,7 +1262,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
             # compute possible duration info (indep. of state)
             # TODO TODO doesn't handle censoring quite correctly
-            possible_durations = self.blocklens[tblock:].cumsum()
+            possible_durations = self.segmentlens[tblock:].cumsum()
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
 
