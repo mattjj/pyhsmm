@@ -281,7 +281,8 @@ class _WeakLimitHDPHMMTransitionsGibbs(
         self.m = m
         return m
 
-class WeakLimitHDPHMMTransitions(_WeakLimitHDPHMMTransitionsGibbs):
+class WeakLimitHDPHMMTransitions(_WeakLimitHDPHMMTransitionsGibbs,_HMMTransitionsMaxLikelihood):
+    # NOTE: include MaxLikelihood for convenience
     pass
 
 

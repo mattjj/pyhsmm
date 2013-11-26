@@ -282,6 +282,8 @@ class HMMStatesPython(_StatesBase):
     ### EM
 
     def E_step(self):
+        aBl = self.aBl
+        Al = np.log(self.trans_matrix)
         alphal = self.alphal = self.messages_forwards_log()
         betal = self.betal = self.messages_backwards_log()
         expectations = self.expectations = alphal + betal
