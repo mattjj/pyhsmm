@@ -20,6 +20,7 @@ def reset_engines():
 
 def set_up_engines():
     global client, dv
+    profile = os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"]
     if client is None:
         client = Client(profile=profile)
         dv = client[:]
@@ -141,7 +142,7 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
     if engine_globals is not None:
         dv.push(engine_globals,block=True)
 
-    results = lbv.map_sync(
+    results = dv.map_sync(
             _call,
             [fn]*len(kwargss),
             [[phash(data) for data in broadcasted_datas]]*len(kwargss),
