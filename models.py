@@ -159,9 +159,9 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(data)
+            parallel.broadcast_data(self._get_parallel_data(data))
         else:
-            parallel.add_data(data)
+            parallel.add_data(self._get_parallel_data(self.states_list[-1]))
 
     def resample_model_parallel(self,temp=None):
         self.resample_parameters(temp=temp)
@@ -173,12 +173,15 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
-                [s.data for s in states_to_resample],
+                [self._get_parallel_data(s) for s in states_to_resample],
                 kwargss=self._get_parallel_kwargss(states_to_resample),
                 engine_globals=dict(global_model=self,temp=temp))
         for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
         self.states_list = states_to_resample
+
+    def _get_parallel_data(self,states_obj):
+        return states_obj.data
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -437,7 +440,7 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_parameters(self,temp=None):
-        self.resample_dur_distns()
+        self.resample_dur_distns(temp=temp)
         super(HSMM,self).resample_parameters(temp=temp)
 
     def resample_dur_distns(self,temp=None):
