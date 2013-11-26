@@ -118,31 +118,34 @@ class HMMTransitions(
 
 
 class _HSMMTransitionsBase(_HMMTransitionsBase):
-    @property
-    def trans_matrix(self):
+    def _get_trans_matrix(self):
         out = self.full_trans_matrix
         out.flat[::out.shape[0]+1] = 0
+        errs = np.seterr(invalid='ignore')
         out /= out.sum(1)[:,na]
+        out = np.nan_to_num(out)
+        np.seterr(**errs)
         return out
 
-    @trans_matrix.setter
-    def trans_matrix(self,trans_matrix):
-        HMMTransitions.trans_matrix.fset(self,trans_matrix)
+    trans_matrix = property(_get_trans_matrix,_HMMTransitionsBase.trans_matrix.fset)
 
-class _HSMMTransitionsGibbs(_HMMTransitionsGibbs):
+    @property
+    def full_trans_matrix(self):
+        return super(_HSMMTransitionsBase,self).trans_matrix
+
+    def _count_transitions(self,stateseqs):
+        stateseq_noreps = [rle(stateseq)[0] for stateseq in stateseqs]
+        return super(_HSMMTransitionsBase,self)._count_transitions(stateseq_noreps)
+
+class _HSMMTransitionsGibbs(_HSMMTransitionsBase,_HMMTransitionsGibbs):
     # NOTE: in this non-hierarchical case, we wouldn't need the below data
     # augmentation if we were only to update the distribution on off-diagonal
     # components. but it's easier to code if we just keep everything complete
     # dirichlet/multinomial and do the data augmentation here, especially since
     # we'll need it for the hierarchical case anyway.
 
-    @property
-    def full_trans_matrix(self):
-        return super(_HSMMTransitionsGibbs,self).trans_matrix
-
     def _count_transitions(self,stateseqs):
-        stateseq_noreps = [rle(stateseq)[0] for stateseq in stateseqs]
-        trans_counts = super(_HSMMTransitionsGibbs,self)._count_transitions(stateseq_noreps)
+        trans_counts = super(_HSMMTransitionsGibbs,self)._count_transitions(stateseqs)
 
         if trans_counts.sum() > 0:
             froms = trans_counts.sum(1)
@@ -152,7 +155,12 @@ class _HSMMTransitionsGibbs(_HMMTransitionsGibbs):
 
         return trans_counts
 
-class HSMMTransitions(_HSMMTransitionsGibbs):
+class HSMMTransitions(
+        _HSMMTransitionsGibbs,
+        _HSMMTransitionsBase,
+        _HMMTransitionsMaxLikelihood):
+    # NOTE: include MaxLikelihood for convenience, uses
+    # _HMMTransitionsBase._count_transitions
     pass
 
 
@@ -365,13 +373,19 @@ class _WeakLimitStickyHDPHMMTransitionsGibbs(
                     dtype=np.int32)
         return newms
 
-class WeakLimitStickyHDPHMMTransitions(_WeakLimitStickyHDPHMMTransitionsGibbs):
+class WeakLimitStickyHDPHMMTransitions(
+        _WeakLimitStickyHDPHMMTransitionsGibbs,_HMMTransitionsMaxLikelihood):
+    # NOTE: include MaxLikelihood for convenience
     pass
 
 
 class WeakLimitHDPHSMMTransitions(
-        _HSMMTransitionsGibbs,_WeakLimitHDPHMMTransitionsGibbs):
+        _HSMMTransitionsGibbs,
+        _WeakLimitHDPHMMTransitionsGibbs,
+        _HSMMTransitionsBase,_HMMTransitionsMaxLikelihood):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
+    # NOTE: include MaxLikelihood for convenience, uses
+    # _HMMTransitionsBase._count_transitions
     pass
 
 

@@ -981,6 +981,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         aBl = self.hsmm_aBl / self.temp if self.temp is not None else self.hsmm_aBl
         T,M = aBl.shape
 
+        errs = np.seterr(divide='ignore')
         rs = self.rs
         crs = rs.cumsum()
         start_indices = np.concatenate(((0,),crs[:-1]))
@@ -990,6 +991,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         logps = np.log(ps)
         log1mps = np.log1p(-ps)
         Al = np.log(self.hsmm_trans_matrix) + log1mps[:,na]
+        np.seterr(**errs)
 
         scores = np.zeros((T,rtot))
         args = np.zeros((T,rtot),dtype=np.int32)
