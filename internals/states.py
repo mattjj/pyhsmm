@@ -1587,6 +1587,21 @@ class HSMMIntNegBinVariantSubHMMsStates(HSMMStatesIntegerNegativeBinomialVariant
 
         return self._alphan
 
+    def messages_forwards_normalized_onlysuper(self):
+        from subhmm_messages_interface import messages_forwards_normalized_onlysuper
+
+        # allocate messages array
+        required_shape = (self.data.shape[0],sum(self.rs))
+        alphan = np.empty(required_shape,dtype='float32')
+
+        _, self._loglike = messages_forwards_normalized_onlysuper(
+                self.hsmm_trans_matrix, self.pi_0,
+                self.rs, self.ps,
+                self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
+                alphan)
+
+        return alphan
+
     def sample_backwards_normalized(self,alphan):
         from subhmm_messages_interface import sample_backwards_normalized
         bigA = self.csc_trans_matrix

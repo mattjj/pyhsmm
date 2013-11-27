@@ -85,21 +85,29 @@ namespace subhmm {
         float *super_trans, vector<float*>& sub_transs, vector<float*>& sub_inits,
         float *v, int niter);
 
+    // onlysuper stuff
+
+    float messages_forwards_normalized_onlysuper(
+        int T, int onlysuperN, int bigN, int N, int32_t *Nsubs,
+        int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
+        vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
+        float *alphan);
+
     // changepoints stuff
 
-    inline
-    float vector_matrix_mult_inside_segment(
-            int N, int32_t *Nsubs, int32_t *rs, float *ps,
-            vector<NPMatrix> &esub_transs,
-            int *blocksizes, int *blockstarts,
-            float *v, float *out);
+    // inline
+    // float vector_matrix_mult_inside_segment(
+    //         int N, int32_t *Nsubs, int32_t *rs, float *ps,
+    //         vector<NPMatrix> &esub_transs,
+    //         int *blocksizes, int *blockstarts,
+    //         float *v, float *out);
 
-    float messages_forwards_normalized_changepoints(
-            int T, int bigN, int N, int32_t *Nsubs,
-            int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
-            vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
-            int32_t *starts, int32_t *blocklens, int Tblock,
-            float *alphan);
+    // float messages_forwards_normalized_changepoints(
+    //         int T, int bigN, int N, int32_t *Nsubs,
+    //         int32_t *rs, float *ps, float *super_trans, float *init_state_distn,
+    //         vector<float*>& sub_transs, vector<float*>& sub_inits, vector<float*>& aBls,
+    //         int32_t *starts, int32_t *blocklens, int Tblock,
+    //         float *alphan);
 
     // these next functions are for testing from Python
 
