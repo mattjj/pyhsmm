@@ -1,41 +1,35 @@
 #ifndef HMM_MESSAGES_H
 #define HMM_MESSAGES_H
 
-#ifndef MY_CSTDINT_H
-#define MY_CSTDINT_H
 #include <stdint.h>
-#endif
-
-#ifndef EIGEN_CORE_H
 #include <Eigen/Core>
-#endif
 
-#ifndef UTIL_H
 #include "util.h"
-#endif
-
-// TODO remove stack alignment trick stuff?
-
-using namespace Eigen;
-using namespace std;
 
 // NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
 // worked with each's deafult alignment, so the notion of "row" and "column"
 // get transposed here compared to numpy code
-// NOTE: I wrote that when I was young and naive; it'd be better just to
-// use the RowMajor flag with Eigen. TODO
+// TODO: I wrote that when I was young and naive; it'd be better just to
+// use the RowMajor flag with Eigen. use nptypes.h
 
 // NOTE: on my test machine numpy heap arrays were always aligned, but I doubt
 // that's guaranteed. Still, this code assumes alignment!
 
-// NOTE: I assume alignment of stack arrays, too
+// TODO check for mallocs
+//
+// TODO template on the statesequence type as well!
+
+// TODO change pointers to (mostly const) references
 
 namespace hmm {
+    using namespace Eigen;
+    using namespace std;
 
     // Messages
 
     template <typename Type>
-    void messages_backwards_log(int M, int T, Type *A, Type *aBl, Type *betal)
+    void messages_backwards_log(int M, int T, Type *A, Type *aBl,
+            Type *betal)
     {
         // inputs
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
@@ -117,8 +111,8 @@ namespace hmm {
     // Sampling
 
     template <typename Type>
-    void sample_forwards_log(
-            int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal, int32_t *stateseq)
+    void sample_forwards_log( int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
+            int32_t *stateseq)
     {
         // inputs
         Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
@@ -162,8 +156,7 @@ namespace hmm {
     // Viterbi
 
     template <typename Type>
-    void viterbi(
-            int M, int T, Type *A, Type *pi0, Type *aBl,
+    void viterbi(int M, int T, Type *A, Type *pi0, Type *aBl,
             int32_t *stateseq)
     {
         // inputs
@@ -197,5 +190,39 @@ namespace hmm {
         }
     }
 }
+
+// NOTE: this class exists for cyhton binding convenience, since it can't
+// handle templated functions (as of 0.19.1) but it can handle templated
+// classes
+
+template <typename Type>
+class hmmc
+{
+    public:
+
+    static void messages_backwards_log(int M, int T, Type *A, Type *aBl,
+            Type *betal)
+    { hmm::messages_backwards_log(M,T,A,aBl,betal); }
+
+    static void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
+            Type *alphal)
+    { hmm::messages_forwards_log(M,T,A,pi0,aBl,alphal); }
+
+    static void sample_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
+            int32_t *stateseq)
+    { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq); }
+
+    static Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
+            Type *alphan)
+    { return hmm::messages_forwards_normalized(M,T,A,pi0,aBl,alphan); }
+
+    static void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
+            int32_t *stateseq)
+    { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq); }
+
+    static void viterbi(int M, int T, Type *A, Type *pi0, Type *aBl,
+            int32_t *stateseq)
+    { hmm::viterbi(M,T,A,pi0,aBl,stateseq); }
+};
 
 #endif
