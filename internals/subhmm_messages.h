@@ -14,10 +14,6 @@
 #include "util.h"
 #endif
 
-// TODO remove using namespace from header files, you noob!
-using namespace Eigen;
-using namespace std;
-
 // NOTE: no doubles here! TODO template things, including the typedefs (type
 // aliases? or just typdefs inside classes without C++11?)
 // TODO move those nice typedefs to hmm_messages.h
@@ -25,6 +21,8 @@ using namespace std;
 // TODO make a macro for stack-alignment directive (Julia source has an example)
 
 namespace subhmm {
+    using namespace Eigen;
+    using namespace std;
 
     // typedef int64_t idx_t; // TODO use this type for indices, esp linear ones
 

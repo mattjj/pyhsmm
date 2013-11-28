@@ -5,10 +5,11 @@
 
 # TODO E step functions
 
-# TODO default arguments of None don't work with np.ndarray typed arguments;
-# file bug report with cython?
+# NOTE: default arguments of None don't work with np.ndarray typed arguments
+# file a bug report with cython?
 
 # NOTE: cython can use templated classes but not templated functions in 0.19.1,
+# hence the wrapper class. no syntax for directly calling static members, though
 
 import numpy as np
 cimport numpy as np
@@ -20,18 +21,18 @@ from cython cimport floating
 
 cdef extern from "hmm_messages.h":
     cdef cppclass hmmc[Type]:
-        hmmc()
-        void messages_backwards_log (
+        hmmc() # stub unary constructor, doesn't really exist
+        void messages_backwards_log(
             int M, int T, Type *A, Type *aBl, Type *betal)
         void messages_forwards_log(
             int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphal)
         Type messages_forwards_normalized(
             int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphan)
-        void sample_forwards_log (
+        void sample_forwards_log(
             int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal, int32_t *stateseq)
         void sample_backwards_normalized(
             int M, int T, Type *AT, Type *alphan, int32_t *stateseq)
-        void viterbi (
+        void viterbi(
             int M, int T, Type *A, Type *pi0, Type *aBl, int32_t *stateseq)
 
 def messages_backwards_log(

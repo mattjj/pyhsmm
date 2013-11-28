@@ -4,13 +4,8 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
+#include "nptypes.h"
 #include "util.h"
-
-// NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
-// worked with each's deafult alignment, so the notion of "row" and "column"
-// get transposed here compared to numpy code
-// TODO: I wrote that when I was young and naive; it'd be better just to
-// use the RowMajor flag with Eigen. use nptypes.h
 
 // NOTE: on my test machine numpy heap arrays were always aligned, but I doubt
 // that's guaranteed. Still, this code assumes alignment!
@@ -21,7 +16,8 @@
 
 // TODO change pointers to (mostly const) references
 
-namespace hmm {
+namespace hmm
+{
     using namespace Eigen;
     using namespace std;
 
@@ -191,9 +187,7 @@ namespace hmm {
     }
 }
 
-// NOTE: this class exists for cyhton binding convenience, since it can't
-// handle templated functions (as of 0.19.1) but it can handle templated
-// classes
+// NOTE: this class exists for cyhton binding convenience
 
 template <typename Type>
 class hmmc
