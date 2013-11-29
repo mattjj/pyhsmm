@@ -82,7 +82,7 @@ namespace hmm
         NPMatrix<Type> eaBl(aBl,T,M);
         NPVector<Type> epi0(pi0,M);
 
-        NPMatrix<Type> ealphan(alphan,T,M);
+        NPArray<Type> ealphan(alphan,T,M);
 
         Type logtot = 0., cmax, norm;
 
@@ -93,7 +93,7 @@ namespace hmm
         logtot += log(norm) + cmax;
         for (int t=0; t<T-1; t++) {
             cmax = eaBl.row(t+1).maxCoeff();
-            ealphan.row(t+1) = (ealphan.row(t) * eA).array()
+            ealphan.row(t+1) = (ealphan.matrix().row(t) * eA).array()
                 * (eaBl.row(t+1).array() - cmax).exp();
             norm = ealphan.row(t+1).sum();
             ealphan.row(t+1) /= norm;

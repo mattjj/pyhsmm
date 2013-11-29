@@ -54,10 +54,24 @@ def random_model(nstates):
 def likelihood_hand_tests():
     yield make_nose_tuple(_likelihood_helper,
             obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
-            trans_matrix=np.array([[0.9,0.1],[0.1,0.9]]),
+            trans_matrix=np.array([[1.,0.],[0.,1.]]),
             init_distn=np.array([1.,0.]),
             data=np.zeros(10,dtype=int),
             target_val=9*np.log(0.9))
+
+    yield make_nose_tuple(_likelihood_helper,
+            obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
+            trans_matrix=np.array([[1.,0.],[0.,1.]]),
+            init_distn=np.array([0.,1.]),
+            data=np.zeros(10,dtype=int),
+            target_val=np.log(0.))
+
+    yield make_nose_tuple(_likelihood_helper,
+            obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
+            trans_matrix=np.array([[0.,1.],[1.,0.]]),
+            init_distn=np.array([1.,0.]),
+            data=np.repeat([0,1],5).astype(int),
+            target_val=np.log(0.))
 
     yield make_nose_tuple(_likelihood_helper,
             obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -94,3 +108,4 @@ def likelihood_exhaustive_tests():
         target_val = compute_likelihood_enumeration(obs_distns=obs_distns,data=data,**model)
         yield make_nose_tuple(_likelihood_helper,target_val=target_val,data=data,
                 obs_distns=obs_distns,**model)
+
