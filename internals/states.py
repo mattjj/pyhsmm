@@ -194,8 +194,12 @@ class HMMStatesPython(_StatesBase):
             cmax = aBl[t].max()
             alphan[t] = in_potential * np.exp(aBl[t] - cmax)
             norm = alphan[t].sum()
-            alphan[t] /= norm
-            logtot += np.log(norm) + cmax
+            if norm != 0:
+                alphan[t] /= norm
+                logtot += np.log(norm) + cmax
+            else:
+                # NOTE: messages are invalid here anyway
+                logtot += np.log(0.)
             in_potential = alphan[t].dot(A)
 
         return alphan, logtot
@@ -371,20 +375,25 @@ class HMMStatesEigen(HMMStatesPython):
         return messages_forwards_log(trans_matrix,log_likelihoods,
                 init_state_distn,np.empty_like(log_likelihoods))
 
-    def messages_backwards_python(self):
-        return super(HMMStatesEigen,self).messages_backwards_log()
-
-    def messages_forwards_python(self):
-        return super(HMMStatesEigen,self).messages_forwards_log()
-
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_normalized
         return messages_forwards_normalized(trans_matrix,log_likelihoods,
                 init_state_distn,np.empty_like(log_likelihoods))
 
+    # next three methods are just for convenient testing
+
+    def messages_backwards_log_python(self):
+        return super(HMMStatesEigen,self)._messages_backwards_log(
+                self.trans_matrix,self.aBl)
+
+    def messages_forwards_log_python(self):
+        return super(HMMStatesEigen,self)._messages_forwards_log(
+                self.trans_matrix,self.pi_0,self.aBl)
+
     def messages_forwards_normalized_python(self):
-        return super(HMMStatesEigen,self).messages_forwards_normalized()
+        return super(HMMStatesEigen,self)._messages_forwards_normalized(
+                self.trans_matrix,self.pi_0,self.aBl)
 
     ### sampling
 

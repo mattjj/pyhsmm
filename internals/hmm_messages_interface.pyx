@@ -1,6 +1,6 @@
 # distutils: name = internals.hmm_messages_interface
 # distutils: language = c++
-# distutils: extra_compile_args = -O3 -march=native -g -w -DNDEBUG
+# distutils: extra_compile_args = -O3 -march=native -w -DNDEBUG
 # distutils: include_dirs = deps/Eigen3/
 
 # TODO E step functions

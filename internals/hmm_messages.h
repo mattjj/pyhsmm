@@ -1,7 +1,9 @@
 #ifndef HMM_MESSAGES_H
 #define HMM_MESSAGES_H
 
+#include <iostream> // TODO remove
 #include <stdint.h>
+#include <limits>
 #include <Eigen/Core>
 
 #include "nptypes.h"
@@ -79,27 +81,29 @@ namespace hmm
             Type *alphan)
     {
         NPMatrix<Type> eA(A,M,M);
-        NPMatrix<Type> eaBl(aBl,T,M);
-        NPVector<Type> epi0(pi0,M);
+        NPArray<Type> eaBl(aBl,T,M);
 
-        NPArray<Type> ealphan(alphan,T,M);
+        NPMatrix<Type> ealphan(alphan,T,M);
 
-        Type logtot = 0., cmax, norm;
+        Type logtot = 0.;
+        Type cmax, norm;
 
-        cmax = eaBl.row(0).maxCoeff();
-        ealphan.row(0) = epi0.array() * (eaBl.row(0).array() - cmax).exp();
-        norm = ealphan.row(0).sum();
-        ealphan.row(0) /= norm;
-        logtot += log(norm) + cmax;
-        for (int t=0; t<T-1; t++) {
-            cmax = eaBl.row(t+1).maxCoeff();
-            ealphan.row(t+1) = (ealphan.matrix().row(t) * eA).array()
-                * (eaBl.row(t+1).array() - cmax).exp();
-            norm = ealphan.row(t+1).sum();
-            ealphan.row(t+1) /= norm;
-            logtot += log(norm) + cmax;
+        Type inpotbuf[M] __attribute__((aligned(16)));
+        NPMatrix<Type> ein_potential(inpotbuf,1,M);
+        ein_potential = NPMatrix<Type>(pi0,1,M);
+        for (int t=0; t<T; t++) {
+            cmax = eaBl.row(t).maxCoeff();
+            ealphan.row(t) = ein_potential.array() * (eaBl.row(t) - cmax).exp();
+            norm = ealphan.row(t).sum();
+            if (norm != 0) {
+                ealphan.row(t) /= norm;
+                logtot += log(norm) + cmax;
+            } else {
+                // NOTE: messages are invalid here
+                return -numeric_limits<Type>::infinity();
+            }
+            ein_potential = ealphan.row(t) * eA;
         }
-
         return logtot;
     }
 
