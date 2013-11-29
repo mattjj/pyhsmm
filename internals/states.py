@@ -123,6 +123,7 @@ class HMMStatesPython(_StatesBase):
 
     @staticmethod
     def _messages_backwards_log(trans_matrix,log_likelihoods):
+        errs = np.seterr(over='ignore')
         Al = np.log(trans_matrix)
         aBl = log_likelihoods
 
@@ -131,6 +132,7 @@ class HMMStatesPython(_StatesBase):
         for t in xrange(betal.shape[0]-2,-1,-1):
             np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
 
+        np.seterr(**errs)
         return betal
 
     def messages_backwards_log(self):

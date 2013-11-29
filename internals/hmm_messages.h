@@ -1,10 +1,9 @@
 #ifndef HMM_MESSAGES_H
 #define HMM_MESSAGES_H
 
-#include <iostream> // TODO remove
-#include <stdint.h>
-#include <limits>
 #include <Eigen/Core>
+#include <stdint.h> // int32_t
+#include <limits> // infinity
 
 #include "nptypes.h"
 #include "util.h"

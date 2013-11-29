@@ -8,11 +8,9 @@ from nose.plugins.attrib import attr
 
 from pyhsmm import models as m, distributions as d
 
-# TODO test log messages against normalization messages explicitly
-
-######################
-#  likelihood tests  #
-######################
+##################################
+#  likelihoods / messages tests  #
+##################################
 
 ### util
 
@@ -24,7 +22,28 @@ def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
         hmm.trans_distn.A = trans_matrix
         hmm.init_state_distn.weights = init_distn
         hmm.add_data(data)
-        assert np.isclose(hmm.log_likelihood(), target_val)
+
+        # test default log_likelihood method
+
+        assert np.isclose(target_val, hmm.log_likelihood())
+
+        # manual tests of the several message passing methods
+
+        states = hmm.states_list[-1]
+        states.clear_caches()
+        assert np.isclose(target_val,
+                states._messages_forwards_normalized(
+                    states.trans_matrix,states.pi_0,states.aBl)[1])
+
+        states.clear_caches()
+        assert np.isinf(target_val) or np.isclose(target_val,
+                np.logaddexp.reduce(states.messages_forwards_log()[-1]))
+
+        states.clear_caches()
+        assert np.isinf(target_val) or np.isclose(target_val,
+                np.logaddexp.reduce(
+                    states.messages_backwards_log()[0] + np.log(states.pi_0) \
+                            + states.aBl[0]))
 
 def compute_likelihood_enumeration(obs_distns,trans_matrix,init_distn,data):
     N = len(obs_distns)
