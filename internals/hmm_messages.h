@@ -7,9 +7,6 @@
 #include "nptypes.h"
 #include "util.h"
 
-// NOTE: on my test machine numpy heap arrays were always aligned, but I doubt
-// that's guaranteed. Still, this code assumes alignment!
-
 // TODO check for mallocs
 //
 // TODO template on the statesequence type as well!
@@ -20,9 +17,11 @@ namespace hmm
 {
     using namespace Eigen;
     using namespace std;
+    using namespace nptypes;
 
     // Messages
 
+    // TODO use nptypes
     template <typename Type>
     void messages_backwards_log(int M, int T, Type *A, Type *aBl,
             Type *betal)
@@ -49,6 +48,7 @@ namespace hmm
         }
     }
 
+    // TODO use nptypes
     template <typename Type>
     void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphal)
@@ -78,26 +78,25 @@ namespace hmm
     Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphan)
     {
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Matrix<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eaBl(aBl,T,M);
+        NPVector<Type> epi0(pi0,M);
 
-        Map<Array<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
+        NPArray<Type> ealphan(alphan,T,M);
 
-        Type logtot = 0.;
-        Type cmax, norm;
+        Type logtot = 0., cmax, norm;
 
-        cmax = eaBl.col(0).maxCoeff();
-        ealphan.col(0) = epi0.array() * (eaBl.col(0).array() - cmax).exp();
-        norm = ealphan.col(0).sum();
-        ealphan.col(0) /= norm;
+        cmax = eaBl.row(0).maxCoeff();
+        ealphan.row(0) = epi0.array() * (eaBl.row(0).array() - cmax).exp();
+        norm = ealphan.row(0).sum();
+        ealphan.row(0) /= norm;
         logtot += log(norm) + cmax;
         for (int t=0; t<T-1; t++) {
-            cmax = eaBl.col(t+1).maxCoeff();
-            ealphan.col(t+1) = (eAT * ealphan.col(t).matrix()).array()
-                * (eaBl.col(t+1).array() - cmax).exp();
-            norm = ealphan.col(t+1).sum();
-            ealphan.col(t+1) /= norm;
+            cmax = eaBl.row(t+1).maxCoeff();
+            ealphan.row(t+1) = (ealphan.matrix().row(t) * eA).array()
+                * (eaBl.row(t+1).array() - cmax).exp();
+            norm = ealphan.row(t+1).sum();
+            ealphan.row(t+1) /= norm;
             logtot += log(norm) + cmax;
         }
 
@@ -106,6 +105,7 @@ namespace hmm
 
     // Sampling
 
+    // TODO use nptypes
     template <typename Type>
     void sample_forwards_log( int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
             int32_t *stateseq)
@@ -133,6 +133,7 @@ namespace hmm
         }
     }
 
+    // TODO use nptypes
     template <typename Type>
     void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
             int32_t *stateseq)
@@ -151,6 +152,7 @@ namespace hmm
 
     // Viterbi
 
+    // TODO use nptypes
     template <typename Type>
     void viterbi(int M, int T, Type *A, Type *pi0, Type *aBl,
             int32_t *stateseq)
