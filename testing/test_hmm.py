@@ -30,20 +30,18 @@ def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
         # manual tests of the several message passing methods
 
         states = hmm.states_list[-1]
-        states.clear_caches()
-        assert np.isclose(target_val,
-                states._messages_forwards_normalized(
-                    states.trans_matrix,states.pi_0,states.aBl)[1])
 
         states.clear_caches()
-        assert np.isinf(target_val) or np.isclose(target_val,
-                np.logaddexp.reduce(states.messages_forwards_log()[-1]))
+        states.messages_forwards_normalized()
+        assert np.isclose(target_val,states._loglike)
 
         states.clear_caches()
-        assert np.isinf(target_val) or np.isclose(target_val,
-                np.logaddexp.reduce(
-                    states.messages_backwards_log()[0] + np.log(states.pi_0) \
-                            + states.aBl[0]))
+        states.messages_forwards_log()
+        assert np.isinf(target_val) or np.isclose(target_val,states._loglike)
+
+        states.clear_caches()
+        states.messages_backwards_log()
+        assert np.isinf(target_val) or np.isclose(target_val,states._loglike)
 
 def compute_likelihood_enumeration(obs_distns,trans_matrix,init_distn,data):
     N = len(obs_distns)

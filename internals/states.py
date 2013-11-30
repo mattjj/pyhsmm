@@ -137,10 +137,13 @@ class HMMStatesPython(_StatesBase):
 
     def messages_backwards_log(self):
         aBl = self.aBl/self.temp if hasattr(self,'temp') and self.temp is not None else self.aBl
-        return self._messages_backwards_log(self.trans_matrix,aBl)
+        betal = self._messages_backwards_log(self.trans_matrix,aBl)
+        self._loglike = np.logaddexp.reduce(np.log(self.pi_0) + betal[0] + aBl[0])
+        return betal
 
     @staticmethod
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
+        errs = np.seterr(over='ignore')
         Al = np.log(trans_matrix)
         aBl = log_likelihoods
 
@@ -150,10 +153,13 @@ class HMMStatesPython(_StatesBase):
         for t in xrange(alphal.shape[0]-1):
             alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
 
+        np.seterr(**errs)
         return alphal
 
     def messages_forwards_log(self):
-        return self._messages_forwards_log(self.trans_matrix,self.pi_0,self.aBl)
+        alphal = self._messages_forwards_log(self.trans_matrix,self.pi_0,self.aBl)
+        self._loglike = np.logaddexp.reduce(alphal[-1])
+        return alphal
 
     @staticmethod
     def _messages_backwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
