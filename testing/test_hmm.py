@@ -8,8 +8,6 @@ from nose.plugins.attrib import attr
 
 from pyhsmm import models as m, distributions as d
 
-# TODO both held-out and in-model, currently only does in-model
-
 ##################################
 #  likelihoods / messages tests  #
 ##################################
@@ -44,6 +42,10 @@ def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
         states.clear_caches()
         states.messages_backwards_log()
         assert np.isinf(target_val) or np.isclose(target_val,states._loglike)
+
+        # test held-out vs in-model
+
+        assert np.isclose(target_val, hmm.log_likelihood(data))
 
 def compute_likelihood_enumeration(obs_distns,trans_matrix,init_distn,data):
     N = len(obs_distns)
