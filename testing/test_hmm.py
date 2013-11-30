@@ -8,6 +8,8 @@ from nose.plugins.attrib import attr
 
 from pyhsmm import models as m, distributions as d
 
+# TODO both held-out and in-model, currently only does in-model
+
 ##################################
 #  likelihoods / messages tests  #
 ##################################
@@ -77,6 +79,7 @@ def runmultiple(n):
 
 ### tests
 
+@attr('likelihood','messages','basic')
 def like_hand_test_1():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -85,6 +88,7 @@ def like_hand_test_1():
         data=np.zeros(10,dtype=int),
         target_val=0.)
 
+@attr('likelihood','messages','basic')
 def like_hand_test_2():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -93,6 +97,7 @@ def like_hand_test_2():
         data=np.zeros(10,dtype=int),
         target_val=np.log(0.))
 
+@attr('likelihood','messages','basic')
 def like_hand_test_3():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -101,6 +106,7 @@ def like_hand_test_3():
         data=np.tile([0,1],5).astype(int),
         target_val=0.)
 
+@attr('likelihood','messages','basic')
 def like_hand_test_4():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -109,6 +115,7 @@ def like_hand_test_4():
         data=np.tile([0,1],5).astype(int),
         target_val=0.)
 
+@attr('likelihood','messages','basic')
 def like_hand_test_5():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
@@ -117,7 +124,7 @@ def like_hand_test_5():
         data=np.tile((0,1),5),
         target_val=5*np.log(0.1) + 4*np.log(0.2))
 
-@attr('slow')
+@attr('slow','likelihood','messages')
 @runmultiple(3)
 def discrete_exhaustive_test():
     model = random_model(2)
@@ -127,7 +134,7 @@ def discrete_exhaustive_test():
     target_val = compute_likelihood_enumeration(obs_distns=obs_distns,data=data,**model)
     likelihood_check(target_val=target_val,data=data,obs_distns=obs_distns,**model)
 
-@attr('slow')
+@attr('slow','likelihood','messages')
 @runmultiple(3)
 def gaussian_exhaustive_test():
     model = random_model(3)
