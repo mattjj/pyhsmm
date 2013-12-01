@@ -138,6 +138,7 @@ class HMMStatesPython(_StatesBase):
     def messages_backwards_log(self):
         aBl = self.aBl/self.temp if hasattr(self,'temp') and self.temp is not None else self.aBl
         betal = self._messages_backwards_log(self.trans_matrix,aBl)
+        assert not np.isnan(betal).any()
         self._loglike = np.logaddexp.reduce(np.log(self.pi_0) + betal[0] + aBl[0])
         return betal
 
@@ -158,6 +159,7 @@ class HMMStatesPython(_StatesBase):
 
     def messages_forwards_log(self):
         alphal = self._messages_forwards_log(self.trans_matrix,self.pi_0,self.aBl)
+        assert not np.any(np.isnan(alphal))
         self._loglike = np.logaddexp.reduce(alphal[-1])
         return alphal
 
@@ -243,8 +245,11 @@ class HMMStatesPython(_StatesBase):
         nextstate_unsmoothed = init_state_distn
         for idx in xrange(T):
             logdomain = betal[idx] + aBl[idx]
-            logdomain[nextstate_unsmoothed == 0] = -np.inf # to enforce constraints in the trans matrix
-            stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
+            logdomain[nextstate_unsmoothed == 0] = -np.inf
+            if np.any(np.isfinite(logdomain)):
+                stateseq[idx] = sample_discrete(nextstate_unsmoothed * np.exp(logdomain - np.amax(logdomain)))
+            else:
+                stateseq[idx] = sample_discrete(nextstate_unsmoothed)
             nextstate_unsmoothed = A[stateseq[idx]]
 
         return stateseq
@@ -294,6 +299,8 @@ class HMMStatesPython(_StatesBase):
     ### EM
 
     def E_step(self):
+        # TODO this has to save self.alphal, self.betal, self.expectations for
+        # other classes to look at. new dev branch has a better abstraction.
         alphal = self.alphal = self.messages_forwards_log()
         betal = self.betal = self.messages_backwards_log()
         expectations = self.expectations = alphal + betal

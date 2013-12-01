@@ -8,11 +8,7 @@
 #include "nptypes.h"
 #include "util.h"
 
-// TODO check for mallocs
-//
 // TODO template on the statesequence type as well!
-
-// TODO change pointers to (mostly const) references
 
 namespace hmm
 {
@@ -22,56 +18,48 @@ namespace hmm
 
     // Messages
 
-    // TODO use nptypes
     template <typename Type>
     void messages_backwards_log(int M, int T, Type *A, Type *aBl,
             Type *betal)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eaBl(aBl,T,M);
 
-        // outputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ebetal(betal,M,T);
+        NPMatrix<Type> ebetal(betal,T,M);
 
-        // locals
-        Matrix<Type,Dynamic,Dynamic> eA(M,M);
-        eA = eAT.transpose();
+#ifndef HMM_TEMPS_ON_STACK
         Matrix<Type,Dynamic,1> thesum(M);
+#else
+        Type thesum_buf[M];
+        NPVector<Type> thesum(thesum_buf,M);
+#endif
         Type cmax;
 
-        // computation!
-        ebetal.col(T-1).setZero();
+        ebetal.row(T-1).setZero();
         for (int t=T-2; t>=0; t--) {
-            thesum = eaBl.col(t+1) + ebetal.col(t+1);
+            thesum = (eaBl.row(t+1) + ebetal.row(t+1)).transpose();
             cmax = thesum.maxCoeff();
-            ebetal.col(t) = (eA * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
+            ebetal.row(t) = (eA * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
         }
     }
 
-    // TODO use nptypes
     template <typename Type>
     void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphal)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Array<Type,Dynamic,1>,Aligned> epi0(pi0,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        NPMatrix<Type> eA(A,M,M);
+        NPArray<Type> epi0(pi0,1,M);
+        NPArray<Type> eaBl(aBl,T,M);
 
-        // outputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphal(alphal,M,T);
+        NPArray<Type> ealphal(alphal,T,M);
 
-        // locals
         Type cmax;
 
-        // computation!
-        ealphal.col(0) = epi0.log() + eaBl.col(0).array();
+        ealphal.row(0) = epi0.log() + eaBl.row(0);
         for (int t=0; t<T-1; t++) {
-            cmax = ealphal.col(t).maxCoeff();
-            ealphal.col(t+1) = (eAT * (ealphal.col(t).array()
-                        - cmax).array().exp().matrix()).array().log()
-                + cmax + eaBl.col(t+1).array();
+            cmax = ealphal.row(t).maxCoeff();
+            ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
+                + cmax + eaBl.row(t+1);
         }
     }
 
@@ -87,8 +75,13 @@ namespace hmm
         Type logtot = 0.;
         Type cmax, norm;
 
-        Type inpotbuf[M] __attribute__((aligned(16)));
-        NPMatrix<Type> ein_potential(inpotbuf,1,M);
+#ifndef HMM_TEMPS_ON_STACK
+        Matrix<Type,1,Dynamic> ein_potential(1,M);
+#else
+        Type in_potential_buf[M];
+        NPMatrix<Type> ein_potential(in_potential,1,M);
+#endif
+
         ein_potential = NPMatrix<Type>(pi0,1,M);
         for (int t=0; t<T; t++) {
             cmax = eaBl.row(t).maxCoeff();
@@ -192,7 +185,7 @@ namespace hmm
     }
 }
 
-// NOTE: this class exists for cyhton binding convenience
+// NOTE: this class exists for cython binding convenience
 
 template <typename Type>
 class hmmc

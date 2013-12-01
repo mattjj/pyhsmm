@@ -85,7 +85,7 @@ def runmultiple(n):
 def like_hand_test_1():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
-        trans_matrix=np.array([[1.,0.],[0.,1.]]),
+        trans_matrix=np.eye(2),
         init_distn=np.array([1.,0.]),
         data=np.zeros(10,dtype=int),
         target_val=0.)
@@ -94,7 +94,7 @@ def like_hand_test_1():
 def like_hand_test_2():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],
-        trans_matrix=np.array([[1.,0.],[0.,1.]]),
+        trans_matrix=np.eye(2),
         init_distn=np.array([0.,1.]),
         data=np.zeros(10,dtype=int),
         target_val=np.log(0.))
