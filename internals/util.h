@@ -6,9 +6,9 @@
 #include <cstdlib>
 #endif
 
-using namespace std;
-
 namespace util {
+    using namespace std;
+
     template <typename T>
     int sample_discrete(int N, T *distn)
     {
