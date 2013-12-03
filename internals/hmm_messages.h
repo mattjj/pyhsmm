@@ -8,8 +8,6 @@
 #include "nptypes.h"
 #include "util.h"
 
-// TODO template on the statesequence type as well!
-
 // NOTE: HMM_TEMPS_ON_STACK is mainly for the OpenMP case, where dynamic
 // allocation has locks and even then may lead to false sharing.
 // It may be a dumb idea though, I haven't profiled it.
@@ -66,7 +64,7 @@ namespace hmm
         for (int t=0; t<T-1; t++) {
             cmax = ealphal.row(t).maxCoeff();
 #ifndef HMM_NOT_ROBUST
-            if (likely(util::is_finite<Type>(cmax))) {
+            if (likely(util::is_finite(cmax))) {
 #endif
                 ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
                     + cmax + eaBl.row(t+1);
@@ -173,22 +171,22 @@ namespace hmm
     // Viterbi
 
     // TODO use nptypes
-    template <typename Type>
-    void viterbi(int M, int T, Type *A, Type *pi0, Type *aBl,
-            int32_t *stateseq)
+    template <typename FloatType, typename IntType>
+    void viterbi(int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            IntType *stateseq)
     {
         // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Array<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        Map<Matrix<FloatType,Dynamic,Dynamic>,Aligned> eA(A,M,M);
+        Map<Matrix<FloatType,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        Map<Array<FloatType,Dynamic,1>,Aligned> epi0(pi0,M);
 
         // locals
         MatrixXi args(M,T);
-        Matrix<Type,Dynamic,Dynamic> eAl(M,M);
+        Matrix<FloatType,Dynamic,Dynamic> eAl(M,M);
         eAl = eA.array().log();
-        Matrix<Type,Dynamic,1> scores(M);
-        Matrix<Type,Dynamic,1> prevscores(M);
-        Matrix<Type,Dynamic,1> tempvec(M);
+        Matrix<FloatType,Dynamic,1> scores(M);
+        Matrix<FloatType,Dynamic,1> prevscores(M);
+        Matrix<FloatType,Dynamic,1> tempvec(M);
         int maxIndex;
 
         // computation!
@@ -211,33 +209,39 @@ namespace hmm
 
 // NOTE: this class exists for cython binding convenience
 
-template <typename Type>
+template <typename FloatType, typename IntType = int32_t>
 class hmmc
 {
     public:
 
-    static void messages_backwards_log(int M, int T, Type *A, Type *aBl,
-            Type *betal)
+    static void messages_backwards_log(
+            int M, int T, FloatType *A, FloatType *aBl,
+            FloatType *betal)
     { hmm::messages_backwards_log(M,T,A,aBl,betal); }
 
-    static void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
-            Type *alphal)
+    static void messages_forwards_log(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            FloatType *alphal)
     { hmm::messages_forwards_log(M,T,A,pi0,aBl,alphal); }
 
-    static void sample_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
-            int32_t *stateseq)
+    static void sample_forwards_log(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            IntType *stateseq)
     { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq); }
 
-    static Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
-            Type *alphan)
+    static FloatType messages_forwards_normalized(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            FloatType *alphan)
     { return hmm::messages_forwards_normalized(M,T,A,pi0,aBl,alphan); }
 
-    static void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
-            int32_t *stateseq)
+    static void sample_backwards_normalized(
+            int M, int T, FloatType *AT, FloatType *alphan,
+            IntType *stateseq)
     { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq); }
 
-    static void viterbi(int M, int T, Type *A, Type *pi0, Type *aBl,
-            int32_t *stateseq)
+    static void viterbi(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            IntType *stateseq)
     { hmm::viterbi(M,T,A,pi0,aBl,stateseq); }
 };
 

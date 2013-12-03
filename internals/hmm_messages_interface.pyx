@@ -20,7 +20,7 @@ from libc.stdint cimport int32_t
 from cython cimport floating
 
 cdef extern from "hmm_messages.h":
-    cdef cppclass hmmc[Type]:
+    cdef cppclass hmmc[Type]: # NOTE: default states type is int32_t
         hmmc() # stub unary constructor, doesn't really exist
         void messages_backwards_log(
             int M, int T, Type *A, Type *aBl, Type *betal)
@@ -29,7 +29,8 @@ cdef extern from "hmm_messages.h":
         Type messages_forwards_normalized(
             int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphan)
         void sample_forwards_log(
-            int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal, int32_t *stateseq)
+            int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
+            int32_t *stateseq)
         void sample_backwards_normalized(
             int M, int T, Type *AT, Type *alphan, int32_t *stateseq)
         void viterbi(
