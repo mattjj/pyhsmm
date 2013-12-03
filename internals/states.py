@@ -1709,43 +1709,11 @@ class HSMMSubHMMStatesPossibleChangepoints(HSMMSubHMMStates,HSMMStatesPossibleCh
 class HSMMIntNegBinVariantSubHMMsStatesPossibleChangepoints(HSMMIntNegBinVariantSubHMMsStates,HSMMStatesPossibleChangepoints):
     def sample_backwards_normalized(self,alphan):
         # TODO TODO TODO
-        # soooooo why would i save a full alphan anyway? i shouldn't save any of
-        # the substate information at all. the messages array should be
-        # T x (Nsuper * dur)
-        # then i can use a non-subhmm sample forwards for superstates
-        # this seems to be conflating changepoints with...
-        # no, those things aren't mistakenly conflated: we cant collapse out
-        # substate info without changepoints, since it could be in any sub
-        # transition at any time unless we know changepoint information. with
-        # changepoint information, we know it's sufficient to pay attention only
-        # to the superstate transitions
-        # so TODO make the cpp code save only pieces, change required_shape
-        # below
-
-        # in this method, we just call a regular IntNegBinHSMM resampling method
-        # unfortunately, i don't have one implemented! i could use the HMM
-        # version if i write constructing the just-super trans matrix. but thats
-        # a pain and it'd be easier just to implement the thing for the thing.
-        # maybe i could call the subhmm code with 1x1 subhmm trans matrices? a
-        # bit wasteful.
         raise NotImplementedError
 
-
     def messages_forwards_normalized(self):
-        from subhmm_messages_interface import messages_forwards_normalized_changepoints
-
-        # allocate messages array
-        required_shape = (self.Tblock,sum(self.rs))
-        alphan = np.empty(required_shape,dtype='float32')
-
-        _, self._loglike = messages_forwards_normalized_changepoints(
-                self.hsmm_trans_matrix, self.pi_0,
-                self.rs, self.ps,
-                self.subhmm_trans_matrices, self.subhmm_pi_0s, self.aBls,
-                self.segmentstarts,self.segmentlens,
-                alphan)
-
-        return alphan
+        # TODO TODO TODO
+        raise NotImplementedError
 
 #################
 #  eigen stuff  #
@@ -1764,5 +1732,4 @@ def _get_codestr(name):
         with open(os.path.join(eigen_code_dir,name+'.cpp')) as infile:
             codestrs[name] = infile.read()
     return codestrs[name]
-
 
