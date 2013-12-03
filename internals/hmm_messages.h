@@ -10,6 +10,8 @@
 
 // TODO template on the statesequence type as well!
 
+// TODO make robust versions, with macros if necessary
+
 namespace hmm
 {
     using namespace Eigen;
@@ -30,7 +32,7 @@ namespace hmm
 #ifndef HMM_TEMPS_ON_STACK
         Matrix<Type,Dynamic,1> thesum(M);
 #else
-        Type thesum_buf[M];
+        Type thesum_buf[M] __attribute__((aligned(16)));
         NPVector<Type> thesum(thesum_buf,M);
 #endif
         Type cmax;
@@ -58,8 +60,14 @@ namespace hmm
         ealphal.row(0) = epi0.log() + eaBl.row(0);
         for (int t=0; t<T-1; t++) {
             cmax = ealphal.row(t).maxCoeff();
-            ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
-                + cmax + eaBl.row(t+1);
+            if (likely(util::is_finite<Type>(cmax))) {
+                ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
+                    + cmax + eaBl.row(t+1);
+            } else {
+                // data is impossible under the model, bail out without setting
+                // messages
+                return;
+            }
         }
     }
 
@@ -78,8 +86,8 @@ namespace hmm
 #ifndef HMM_TEMPS_ON_STACK
         Matrix<Type,1,Dynamic> ein_potential(1,M);
 #else
-        Type in_potential_buf[M];
-        NPMatrix<Type> ein_potential(in_potential,1,M);
+        Type in_potential_buf[M] __attribute__((aligned(16)));
+        NPRowVector<Type> ein_potential(in_potential_buf,M);
 #endif
 
         ein_potential = NPMatrix<Type>(pi0,1,M);
@@ -101,31 +109,31 @@ namespace hmm
 
     // Sampling
 
-    // TODO use nptypes
-    template <typename Type>
-    void sample_forwards_log( int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
-            int32_t *stateseq)
+    template <typename FloatType, typename IntType>
+    void sample_forwards_log(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            IntType *stateseq)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ebetal(betal,M,T);
-        Map<Matrix<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        NPMatrix<FloatType> eA(A,M,M);
+        NPMatrix<FloatType> eaBl(aBl,T,M);
+        NPMatrix<FloatType> ebetal(betal,T,M);
 
-        // locals
-        int idx;
-        Matrix<Type,Dynamic,1> nextstate_unsmoothed(M);
-        Matrix<Type,Dynamic,1> logdomain(M);
-        Matrix<Type,Dynamic,1> nextstate_distr(M);
+#ifndef HMM_TEMPS_ON_STACK
+        Array<FloatType,1,Dynamic> logdomain(M);
+        Matrix<FloatType,1,Dynamic> nextstate_distr(M);
+#else
+        FloatType logdomain_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> logdomain(logdomain_buf,M);
+        FloatType nextstate_distr_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> nextstate_distr(nextstate_distr_buf,M);
+#endif
 
-        // code!
-        nextstate_unsmoothed = epi0;
-        for (idx=0; idx < T; idx++) {
-            logdomain = ebetal.col(idx) + eaBl.col(idx);
-            nextstate_distr = (logdomain.array() - logdomain.maxCoeff()).exp()
-                * nextstate_unsmoothed.array();
-            stateseq[idx] = util::sample_discrete(M,nextstate_distr.data());
-            nextstate_unsmoothed = eAT.col(stateseq[idx]);
+        nextstate_distr = NPVector<FloatType>(pi0,M);
+        for (int t=0; t < T; t++) {
+            logdomain = ebetal.row(t) + eaBl.row(t);
+            nextstate_distr *= (logdomain - logdomain.maxCoeff()).exp();
+            stateseq[t] = util::sample_discrete(M,nextstate_distr.data());
+            nextstate_distr = eA.row(stateseq[t]);
         }
     }
 

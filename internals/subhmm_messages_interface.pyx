@@ -1,11 +1,8 @@
 # distutils: name = internals.subhmm_messages_interface
 # distutils: sources = internals/subhmm_messages.cpp
-# distutils: extra_compile_args = -O3 -w -g0 -march=native -DEIGEN_DONT_PARALLELIZE -DNDEBUG
+# distutils: extra_compile_args = -O3 -w -march=native -DNDEBUG -DEIGEN_DONT_PARALLELIZE
 # distutils: language = c++
 # distutils: include_dirs = deps/Eigen3/
-# cython: boundscheck=False
-# cython: nonecheck=False
-# cython: wraparound=False
 
 import numpy as np
 cimport numpy as np

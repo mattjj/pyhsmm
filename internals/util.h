@@ -6,6 +6,9 @@
 #include <cstdlib>
 #endif
 
+#define likely(x) __builtin_expect((x),1)
+#define unlikely(x) __builtin_expect((x),0)
+
 namespace util {
     using namespace std;
 
@@ -21,6 +24,10 @@ namespace util {
 
         return sample_idx;
     }
+
+    // got these next two from Eigen
+    template<typename T> bool is_not_nan(const T& x) { return x==x; }
+    template<typename T> bool is_finite(const T& x) { return is_not_nan(x - x); }
 }
 
 #endif
