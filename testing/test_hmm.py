@@ -90,7 +90,7 @@ def like_hand_test_1():
         data=np.zeros(10,dtype=int),
         target_val=0.)
 
-@attr('likelihood','messages','basic')
+@attr('likelihood','messages','basic','robust')
 def like_hand_test_2():
     likelihood_check(
         obs_distns=[d.Categorical(weights=row) for row in np.eye(2)],

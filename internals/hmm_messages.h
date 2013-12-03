@@ -10,7 +10,12 @@
 
 // TODO template on the statesequence type as well!
 
-// TODO make robust versions, with macros if necessary
+// NOTE: HMM_TEMPS_ON_STACK is mainly for the OpenMP case, where dynamic
+// allocation has locks and even then may lead to false sharing.
+// It may be a dumb idea though, I haven't profiled it.
+
+// NOTE: HMM_NOT_ROBUST switch needs to be benchmarked, removed if it doesn't
+// make a difference
 
 namespace hmm
 {
@@ -60,14 +65,17 @@ namespace hmm
         ealphal.row(0) = epi0.log() + eaBl.row(0);
         for (int t=0; t<T-1; t++) {
             cmax = ealphal.row(t).maxCoeff();
+#ifndef HMM_NOT_ROBUST
             if (likely(util::is_finite<Type>(cmax))) {
+#endif
                 ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
                     + cmax + eaBl.row(t+1);
+#ifndef HMM_NOT_ROBUST
             } else {
-                // data is impossible under the model, bail out without setting
-                // messages
+                ealphal.block(t+1,0,T-(t+1),M).setConstant(-numeric_limits<Type>::infinity());
                 return;
             }
+#endif
         }
     }
 
@@ -95,13 +103,17 @@ namespace hmm
             cmax = eaBl.row(t).maxCoeff();
             ealphan.row(t) = ein_potential.array() * (eaBl.row(t) - cmax).exp();
             norm = ealphan.row(t).sum();
-            if (norm != 0) {
+#ifndef HMM_NOT_ROBUST
+            if (likely(norm != 0)) {
+#endif
                 ealphan.row(t) /= norm;
                 logtot += log(norm) + cmax;
+#ifndef HMM_NOT_ROBUST
             } else {
-                // NOTE: messages are invalid here
+                ealphan.block(t,0,T-1,M).setZero();
                 return -numeric_limits<Type>::infinity();
             }
+#endif
             ein_potential = ealphan.row(t) * eA;
         }
         return logtot;
@@ -120,7 +132,7 @@ namespace hmm
 
 #ifndef HMM_TEMPS_ON_STACK
         Array<FloatType,1,Dynamic> logdomain(M);
-        Matrix<FloatType,1,Dynamic> nextstate_distr(M);
+        Array<FloatType,1,Dynamic> nextstate_distr(M);
 #else
         FloatType logdomain_buf[M] __attribute__((aligned(16)));
         NPRowVectorArray<FloatType> logdomain(logdomain_buf,M);
@@ -137,19 +149,23 @@ namespace hmm
         }
     }
 
-    // TODO use nptypes
-    template <typename Type>
-    void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
-            int32_t *stateseq)
+    template <typename FloatType, typename IntType>
+    void sample_backwards_normalized(int M, int T, FloatType *AT, FloatType *alphan,
+            IntType *stateseq)
     {
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(AT,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
+        NPArray<FloatType> eAT(AT,M,M);
+        NPArray<FloatType> ealphan(alphan,T,M);
 
-        Array<Type,Dynamic,1> etemp(M);
+#ifndef HMM_TEMPS_ON_STACK
+        Array<FloatType,1,Dynamic> etemp(M);
+#else
+        FloatType temp_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> etemp(temp_buf,M);
+#endif
 
-        stateseq[T-1] = util::sample_discrete(M,ealphan.col(T-1).data());
+        stateseq[T-1] = util::sample_discrete(M,ealphan.row(T-1).data());
         for (int t=T-2; t>=0; t--) {
-            etemp = eA.col(stateseq[t+1]).array() * ealphan.col(t).array();
+            etemp = eAT.row(stateseq[t+1]) * ealphan.row(t);
             stateseq[t] = util::sample_discrete(M,etemp.data());
         }
     }
