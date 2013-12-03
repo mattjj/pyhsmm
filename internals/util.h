@@ -6,8 +6,8 @@
 #include <cstdlib>
 #endif
 
-#define likely(x) __builtin_expect((x),1)
-#define unlikely(x) __builtin_expect((x),0)
+#define likely(x) __builtin_expect(!!(x),true)
+#define unlikely(x) __builtin_expect(!!(x),false)
 
 namespace util {
     using namespace std;
