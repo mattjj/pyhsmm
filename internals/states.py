@@ -430,39 +430,10 @@ class HMMStatesEigen(HMMStatesPython):
 
     ### Vitberbi
 
-    @staticmethod
-    def _maxsum_messages_backwards(trans_matrix,log_likelihoods):
-        global eigen_path
-        hmm_maxsum_messages_backwards_codestr = _get_codestr('hmm_maxsum_messages_backwards')
-
-        Al = np.log(trans_matrix)
-        aBl = log_likelihoods
-        T,M = log_likelihoods.shape
-
-        scores = np.zeros_like(aBl)
-        args = np.zeros(aBl.shape,dtype=np.int32)
-
-        scipy.weave.inline(hmm_maxsum_messages_backwards_codestr,['Al','aBl','T','M','scores','args'],
-                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return scores, args
-
-    @staticmethod
-    def _maximize_forwards(scores,args,init_state_distn,log_likelihoods):
-        global eigen_path
-        hmm_maximize_forwards_codestr = _get_codestr('hmm_maximize_forwards')
-
-        T,M = log_likelihoods.shape
-        stateseq = np.empty(T,dtype=np.int32)
-
-        stateseq[0] = (scores[0] + np.log(init_state_distn) + log_likelihoods[0]).argmax()
-
-        scipy.weave.inline(hmm_maximize_forwards_codestr,['stateseq','args','scores','T','M'],
-                headers=['<Eigen/Core>','<limits>'],include_dirs=[eigen_path],
-                extra_compile_args=['-O3','-DNDEBUG'])
-
-        return stateseq
+    def Viterbi(self):
+        from hmm_messages_interface import viterbi
+        return viterbi(self.trans_matrix,self.aBl,self.pi_0,
+                np.empty(self.aBl.shape[0],dtype='int32'))
 
 
 class HSMMStatesPython(_StatesBase):
