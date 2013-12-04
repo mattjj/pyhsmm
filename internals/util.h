@@ -1,10 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#ifndef MY_CSTDLIB_H
-#define MY_CSTDLIB_H
 #include <cstdlib>
-#endif
 
 #define likely(x) __builtin_expect(!!(x),true)
 #define unlikely(x) __builtin_expect(!!(x),false)
