@@ -62,10 +62,15 @@ plt.gcf().suptitle('Gibbs-sampled initialization')
 
 print 'EM'
 
-fitmodel.EM_fit()
+likes = fitmodel.EM_fit()
 
 plt.figure()
 fitmodel.plot()
 plt.gcf().suptitle('EM fit')
+
+plt.figure()
+plt.plot(likes)
+plt.gcf().suptitle('log likelihoods during EM')
+
 plt.show()
 

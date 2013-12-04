@@ -56,10 +56,14 @@ print 'Gibbs sampling'
 for idx in progprint_xrange(50):
     posteriormodel.resample_model()
 
-posteriormodel.Viterbi_EM_fit()
+likes = posteriormodel.Viterbi_EM_fit()
 
 plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('Viterbi fit')
+
+plt.figure()
+plt.plot(likes)
+plt.gcf().suptitle('log likelihoods during VEM')
 
 plt.show()

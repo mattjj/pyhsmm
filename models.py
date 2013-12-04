@@ -116,22 +116,28 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
     ### Gibbs sampling
 
     def resample_model(self,temp=None):
-        self.resample_obs_distns()
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
+        self.resample_parameters(temp=temp)
         self.resample_states(temp=temp)
 
-    def resample_obs_distns(self):
+    def resample_parameters(self,temp=None):
+        self.resample_obs_distns(temp=temp)
+        self.resample_trans_distn(temp=temp)
+        self.resample_init_state_distn(temp=temp)
+
+    def resample_obs_distns(self,temp=None):
+        # TODO do something with temp
         # TODO TODO get rid of logical indexing! it copies data!
         for state, distn in enumerate(self.obs_distns):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
 
-    def resample_trans_distn(self):
+    def resample_trans_distn(self,temp=None):
+        # TODO do something with temp
         self.trans_distn.resample([s.stateseq for s in self.states_list])
         self._clear_caches()
 
-    def resample_init_state_distn(self):
+    def resample_init_state_distn(self,temp=None):
+        # TODO do something with temp
         self.init_state_distn.resample([s.stateseq[:1] for s in self.states_list])
         self._clear_caches()
 
@@ -153,60 +159,29 @@ class HMM(ModelGibbsSampling, ModelEM, ModelMAPEM):
         import parallel
         self.add_data(data=data,**kwargs)
         if broadcast:
-            parallel.broadcast_data(data)
+            parallel.broadcast_data(self._get_parallel_data(data))
         else:
-            parallel.add_data(data)
+            parallel.add_data(self._get_parallel_data(self.states_list[-1]))
 
-    def resample_model_parallel(self,numtoresample='all',temp=None):
-        if numtoresample == 'all':
-            numtoresample = len(self.states_list)
-        elif numtoresample == 'engines':
-            import parallel
-            numtoresample = min(parallel.get_num_engines(),len(self.states_list))
+    def resample_model_parallel(self,temp=None):
+        self.resample_parameters(temp=temp)
+        self.resample_states_parallel(temp=temp)
 
-        ### resample parameters locally
-
-        # NOTE: these methods will call self._clear_caches()
-        self.resample_obs_distns_parallel() # doesn't necessarily run parallel
-        self.resample_trans_distn()
-        self.resample_init_state_distn()
-
-        ### resample states in parallel
-
-        # choose which sequences to resample
-        if numtoresample != 'all':
-            added_order = {s:i for i,s in enumerate(self.states_list)}
-            states_to_resample = random.sample(self.states_list,numtoresample)
-            states_to_hold_out = [s for s in self.states_list if s not in states_to_resample]
-        else:
-            states_to_resample = self.states_list
-            states_to_hold_out = []
-
-        # actually resample the states
-        self.states_list = self.resample_states_parallel(
-                states_to_resample,states_to_hold_out,temp=temp)
-
-        # add back the held-out states
-        if numtoresample != 'all':
-            self.states_list.extend(states_to_hold_out)
-            self.states_list.sort(key=added_order.__getitem__)
-
-    def resample_obs_distns_parallel(self):
-        # this method is broken out so that it can be overridden
-        # data probably needs to be broadcasted to resample in parallel
-        self.resample_obs_distns()
-
-    def resample_states_parallel(self,states_to_resample,states_to_hold_out,temp=None):
+    def resample_states_parallel(self,temp=None):
         import parallel
+        states_to_resample = self.states_list
         self.states_list = [] # removed because we push the global model
         raw = parallel.map_on_each(
                 self._state_sampler,
-                [s.data for s in states_to_resample],
+                [self._get_parallel_data(s) for s in states_to_resample],
                 kwargss=self._get_parallel_kwargss(states_to_resample),
                 engine_globals=dict(global_model=self,temp=temp))
         for s, stateseq in zip(states_to_resample,raw):
             s.stateseq = stateseq
-        return states_to_resample
+        self.states_list = states_to_resample
+
+    def _get_parallel_data(self,states_obj):
+        return states_obj.data
 
     def _get_parallel_kwargss(self,states_objs):
         # this method is broken out so that it can be overridden
@@ -464,12 +439,13 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
 
     ### Gibbs sampling
 
-    def resample_model(self,**kwargs):
-        self.resample_dur_distns()
-        super(HSMM,self).resample_model(**kwargs)
+    def resample_parameters(self,temp=None):
+        self.resample_dur_distns(temp=temp)
+        super(HSMM,self).resample_parameters(temp=temp)
 
-    def resample_dur_distns(self):
+    def resample_dur_distns(self,temp=None):
         # TODO TODO get rid of logical indexing
+        # TODO do something with temp
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
             data=
@@ -486,10 +462,6 @@ class HSMM(HMM, ModelGibbsSampling, ModelEM, ModelMAPEM):
         return new
 
     ### parallel
-
-    def resample_model_parallel(self,*args,**kwargs):
-        self.resample_dur_distns()
-        super(HSMM,self).resample_model_parallel(*args,**kwargs)
 
     def _get_parallel_kwargss(self,states_objs):
         return [dict(trunc=s.trunc,left_censoring=s.left_censoring,
@@ -582,4 +554,21 @@ class HSMMIntNegBinVariant(_HSMMIntNegBinBase):
 
 class HSMMIntNegBin(_HSMMIntNegBinBase):
     _states_class = states.HSMMStatesIntegerNegativeBinomial
+
+
+class HSMMPossibleChangepoints(HSMM):
+    _states_class = states.HSMMStatesPossibleChangepoints
+
+    def add_data(self,data,changepoints,**kwargs):
+        super(HSMMPossibleChangepoints,self).add_data(
+                data=data,changepoints=changepoints,**kwargs)
+
+    def _get_parallel_kwargss(self,states_objs):
+        dcts = super(HSMMPossibleChangepoints,self)._get_parallel_kwargss(states_objs)
+        for dct, states_obj in zip(dcts,states_objs):
+            dct.update(dict(changepoints=states_obj.changepoints))
+        return dcts
+
+    def generate(self,*args,**kwargs):
+        raise NotImplementedError
 
