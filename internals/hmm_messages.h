@@ -1,61 +1,50 @@
 #ifndef HMM_MESSAGES_H
 #define HMM_MESSAGES_H
 
-#ifndef MY_CSTDINT_H
-#define MY_CSTDINT_H
-#include <stdint.h>
-#endif
-
-#ifndef EIGEN_CORE_H
 #include <Eigen/Core>
-#endif
+#include <stdint.h> // int32_t
+#include <limits> // infinity
 
-#ifndef UTIL_H
+#include "nptypes.h"
 #include "util.h"
-#endif
 
-// TODO remove stack alignment trick stuff?
+// NOTE: HMM_TEMPS_ON_STACK is mainly for the OpenMP case, where dynamic
+// allocation has locks and even then may lead to false sharing.
+// It may be a dumb idea though, I haven't profiled it.
 
-using namespace Eigen;
-using namespace std;
+// NOTE: HMM_NOT_ROBUST switch needs to be benchmarked, removed if it doesn't
+// make a difference
 
-// NOTE: numpy arrays are row-major by default, while Eigen is column-major; I
-// worked with each's deafult alignment, so the notion of "row" and "column"
-// get transposed here compared to numpy code
-// NOTE: I wrote that when I was young and naive; it'd be better just to
-// use the RowMajor flag with Eigen. TODO
-
-// NOTE: on my test machine numpy heap arrays were always aligned, but I doubt
-// that's guaranteed. Still, this code assumes alignment!
-
-// NOTE: I assume alignment of stack arrays, too
-
-namespace hmm {
+namespace hmm
+{
+    using namespace Eigen;
+    using namespace std;
+    using namespace nptypes;
 
     // Messages
 
     template <typename Type>
-    void messages_backwards_log(int M, int T, Type *A, Type *aBl, Type *betal)
+    void messages_backwards_log(int M, int T, Type *A, Type *aBl,
+            Type *betal)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eaBl(aBl,T,M);
 
-        // outputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ebetal(betal,M,T);
+        NPMatrix<Type> ebetal(betal,T,M);
 
-        // locals
-        Matrix<Type,Dynamic,Dynamic> eA(M,M);
-        eA = eAT.transpose();
+#ifndef HMM_TEMPS_ON_STACK
         Matrix<Type,Dynamic,1> thesum(M);
+#else
+        Type thesum_buf[M] __attribute__((aligned(16)));
+        NPVector<Type> thesum(thesum_buf,M);
+#endif
         Type cmax;
 
-        // computation!
-        ebetal.col(T-1).setZero();
+        ebetal.row(T-1).setZero();
         for (int t=T-2; t>=0; t--) {
-            thesum = eaBl.col(t+1) + ebetal.col(t+1);
+            thesum = (eaBl.row(t+1) + ebetal.row(t+1)).transpose();
             cmax = thesum.maxCoeff();
-            ebetal.col(t) = (eA * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
+            ebetal.row(t) = (eA * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
         }
     }
 
@@ -63,24 +52,28 @@ namespace hmm {
     void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphal)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Array<Type,Dynamic,1>,Aligned> epi0(pi0,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        NPMatrix<Type> eA(A,M,M);
+        NPArray<Type> epi0(pi0,1,M);
+        NPArray<Type> eaBl(aBl,T,M);
 
-        // outputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphal(alphal,M,T);
+        NPArray<Type> ealphal(alphal,T,M);
 
-        // locals
         Type cmax;
 
-        // computation!
-        ealphal.col(0) = epi0.log() + eaBl.col(0).array();
+        ealphal.row(0) = epi0.log() + eaBl.row(0);
         for (int t=0; t<T-1; t++) {
-            cmax = ealphal.col(t).maxCoeff();
-            ealphal.col(t+1) = (eAT * (ealphal.col(t).array()
-                        - cmax).array().exp().matrix()).array().log()
-                + cmax + eaBl.col(t+1).array();
+            cmax = ealphal.row(t).maxCoeff();
+#ifndef HMM_NOT_ROBUST
+            if (likely(util::is_finite(cmax))) {
+#endif
+                ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
+                    + cmax + eaBl.row(t+1);
+#ifndef HMM_NOT_ROBUST
+            } else {
+                ealphal.block(t+1,0,T-(t+1),M).setConstant(-numeric_limits<Type>::infinity());
+                return;
+            }
+#endif
         }
     }
 
@@ -88,96 +81,112 @@ namespace hmm {
     Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphan)
     {
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Matrix<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        NPMatrix<Type> eA(A,M,M);
+        NPArray<Type> eaBl(aBl,T,M);
 
-        Map<Array<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
+        NPMatrix<Type> ealphan(alphan,T,M);
 
         Type logtot = 0.;
         Type cmax, norm;
 
-        cmax = eaBl.col(0).maxCoeff();
-        ealphan.col(0) = epi0.array() * (eaBl.col(0).array() - cmax).exp();
-        norm = ealphan.col(0).sum();
-        ealphan.col(0) /= norm;
-        logtot += log(norm) + cmax;
-        for (int t=0; t<T-1; t++) {
-            cmax = eaBl.col(t+1).maxCoeff();
-            ealphan.col(t+1) = (eAT * ealphan.col(t).matrix()).array()
-                * (eaBl.col(t+1).array() - cmax).exp();
-            norm = ealphan.col(t+1).sum();
-            ealphan.col(t+1) /= norm;
-            logtot += log(norm) + cmax;
-        }
+#ifndef HMM_TEMPS_ON_STACK
+        Matrix<Type,1,Dynamic> ein_potential(1,M);
+#else
+        Type in_potential_buf[M] __attribute__((aligned(16)));
+        NPRowVector<Type> ein_potential(in_potential_buf,M);
+#endif
 
+        ein_potential = NPMatrix<Type>(pi0,1,M);
+        for (int t=0; t<T; t++) {
+            cmax = eaBl.row(t).maxCoeff();
+            ealphan.row(t) = ein_potential.array() * (eaBl.row(t) - cmax).exp();
+            norm = ealphan.row(t).sum();
+#ifndef HMM_NOT_ROBUST
+            if (likely(norm != 0)) {
+#endif
+                ealphan.row(t) /= norm;
+                logtot += log(norm) + cmax;
+#ifndef HMM_NOT_ROBUST
+            } else {
+                ealphan.block(t,0,T-1,M).setZero();
+                return -numeric_limits<Type>::infinity();
+            }
+#endif
+            ein_potential = ealphan.row(t) * eA;
+        }
         return logtot;
     }
 
     // Sampling
 
-    template <typename Type>
+    template <typename FloatType, typename IntType>
     void sample_forwards_log(
-            int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal, int32_t *stateseq)
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            IntType *stateseq)
     {
-        // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eAT(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ebetal(betal,M,T);
-        Map<Matrix<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        NPMatrix<FloatType> eA(A,M,M);
+        NPMatrix<FloatType> eaBl(aBl,T,M);
+        NPMatrix<FloatType> ebetal(betal,T,M);
 
-        // locals
-        int idx;
-        Matrix<Type,Dynamic,1> nextstate_unsmoothed(M);
-        Matrix<Type,Dynamic,1> logdomain(M);
-        Matrix<Type,Dynamic,1> nextstate_distr(M);
+#ifndef HMM_TEMPS_ON_STACK
+        Array<FloatType,1,Dynamic> logdomain(M);
+        Array<FloatType,1,Dynamic> nextstate_distr(M);
+#else
+        FloatType logdomain_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> logdomain(logdomain_buf,M);
+        FloatType nextstate_distr_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> nextstate_distr(nextstate_distr_buf,M);
+#endif
 
-        // code!
-        nextstate_unsmoothed = epi0;
-        for (idx=0; idx < T; idx++) {
-            logdomain = ebetal.col(idx) + eaBl.col(idx);
-            nextstate_distr = (logdomain.array() - logdomain.maxCoeff()).exp()
-                * nextstate_unsmoothed.array();
-            stateseq[idx] = util::sample_discrete(M,nextstate_distr.data());
-            nextstate_unsmoothed = eAT.col(stateseq[idx]);
+        nextstate_distr = NPVector<FloatType>(pi0,M);
+        for (int t=0; t < T; t++) {
+            logdomain = ebetal.row(t) + eaBl.row(t);
+            nextstate_distr *= (logdomain - logdomain.maxCoeff()).exp();
+            stateseq[t] = util::sample_discrete(M,nextstate_distr.data());
+            nextstate_distr = eA.row(stateseq[t]);
         }
     }
 
-    template <typename Type>
-    void sample_backwards_normalized(int M, int T, Type *AT, Type *alphan,
-            int32_t *stateseq)
+    template <typename FloatType, typename IntType>
+    void sample_backwards_normalized(int M, int T, FloatType *AT, FloatType *alphan,
+            IntType *stateseq)
     {
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(AT,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> ealphan(alphan,M,T);
+        NPArray<FloatType> eAT(AT,M,M);
+        NPArray<FloatType> ealphan(alphan,T,M);
 
-        Array<Type,Dynamic,1> etemp(M);
+#ifndef HMM_TEMPS_ON_STACK
+        Array<FloatType,1,Dynamic> etemp(M);
+#else
+        FloatType temp_buf[M] __attribute__((aligned(16)));
+        NPRowVectorArray<FloatType> etemp(temp_buf,M);
+#endif
 
-        stateseq[T-1] = util::sample_discrete(M,ealphan.col(T-1).data());
+        stateseq[T-1] = util::sample_discrete(M,ealphan.row(T-1).data());
         for (int t=T-2; t>=0; t--) {
-            etemp = eA.col(stateseq[t+1]).array() * ealphan.col(t).array();
+            etemp = eAT.row(stateseq[t+1]) * ealphan.row(t);
             stateseq[t] = util::sample_discrete(M,etemp.data());
         }
     }
 
     // Viterbi
 
-    template <typename Type>
-    void viterbi(
-            int M, int T, Type *A, Type *pi0, Type *aBl,
-            int32_t *stateseq)
+    // TODO use nptypes
+    template <typename FloatType, typename IntType>
+    void viterbi(int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            IntType *stateseq)
     {
         // inputs
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eA(A,M,M);
-        Map<Matrix<Type,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
-        Map<Array<Type,Dynamic,1>,Aligned> epi0(pi0,M);
+        Map<Matrix<FloatType,Dynamic,Dynamic>,Aligned> eA(A,M,M);
+        Map<Matrix<FloatType,Dynamic,Dynamic>,Aligned> eaBl(aBl,M,T);
+        Map<Array<FloatType,Dynamic,1>,Aligned> epi0(pi0,M);
 
         // locals
         MatrixXi args(M,T);
-        Matrix<Type,Dynamic,Dynamic> eAl(M,M);
+        Matrix<FloatType,Dynamic,Dynamic> eAl(M,M);
         eAl = eA.array().log();
-        Matrix<Type,Dynamic,1> scores(M);
-        Matrix<Type,Dynamic,1> prevscores(M);
-        Matrix<Type,Dynamic,1> tempvec(M);
+        Matrix<FloatType,Dynamic,1> scores(M);
+        Matrix<FloatType,Dynamic,1> prevscores(M);
+        Matrix<FloatType,Dynamic,1> tempvec(M);
         int maxIndex;
 
         // computation!
@@ -197,5 +206,43 @@ namespace hmm {
         }
     }
 }
+
+// NOTE: this class exists for cython binding convenience
+
+template <typename FloatType, typename IntType = int32_t>
+class hmmc
+{
+    public:
+
+    static void messages_backwards_log(
+            int M, int T, FloatType *A, FloatType *aBl,
+            FloatType *betal)
+    { hmm::messages_backwards_log(M,T,A,aBl,betal); }
+
+    static void messages_forwards_log(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            FloatType *alphal)
+    { hmm::messages_forwards_log(M,T,A,pi0,aBl,alphal); }
+
+    static void sample_forwards_log(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            IntType *stateseq)
+    { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq); }
+
+    static FloatType messages_forwards_normalized(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            FloatType *alphan)
+    { return hmm::messages_forwards_normalized(M,T,A,pi0,aBl,alphan); }
+
+    static void sample_backwards_normalized(
+            int M, int T, FloatType *AT, FloatType *alphan,
+            IntType *stateseq)
+    { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq); }
+
+    static void viterbi(
+            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            IntType *stateseq)
+    { hmm::viterbi(M,T,A,pi0,aBl,stateseq); }
+};
 
 #endif
