@@ -205,8 +205,12 @@ class HMMStatesPython(_StatesBase):
             cmax = aBl[t].max()
             alphan[t] = in_potential * np.exp(aBl[t] - cmax)
             norm = alphan[t].sum()
-            alphan[t] /= norm
-            logtot += np.log(norm) + cmax
+            if norm != 0:
+                alphan[t] /= norm
+                logtot += np.log(norm) + cmax
+            else:
+                alphan[t:] = 0.
+                return alphan, np.log(0.)
             in_potential = alphan[t].dot(A)
 
         return alphan, logtot
@@ -391,13 +395,7 @@ class HMMStatesEigen(HMMStatesPython):
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
-                np.empty_like(log_likelihoods))
-
-    def messages_backwards_python(self):
-        return super(HMMStatesEigen,self).messages_backwards_log()
-
-    def messages_forwards_python(self):
-        return super(HMMStatesEigen,self).messages_forwards_log()
+                init_state_distn,np.empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
