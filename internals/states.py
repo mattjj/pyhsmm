@@ -13,8 +13,6 @@ from ..util.general import rle, top_eigenvector
 
 # TODO change HSMM message methods to be called messages_log
 
-# TODO temperature
-
 class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
 
