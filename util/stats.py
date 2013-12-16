@@ -76,6 +76,8 @@ def sample_discrete(distn,size=[],dtype=np.int32):
     'samples from a one-dimensional finite pmf'
     distn = np.atleast_1d(distn)
     assert (distn >=0).all() and distn.ndim == 1
+    if (0 == distn).all():
+        return np.random.randint(distn.shape[0],size=size)
     cumvals = np.cumsum(distn)
     return np.sum(np.array(random(size))[...,na] * cumvals[-1] > cumvals, axis=-1,dtype=dtype)
 
