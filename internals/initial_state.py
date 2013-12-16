@@ -6,16 +6,16 @@ from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
 class InitialState(Categorical):
-    def __init__(self,state_dim,rho,pi_0=None):
-        super(InitialState,self).__init__(alpha_0=rho,K=state_dim,weights=pi_0)
+    def __init__(self,num_states,rho,pi_0=None):
+        super(InitialState,self).__init__(alpha_0=rho,K=num_states,weights=pi_0)
 
     @property
     def pi_0(self):
         return self.weights
 
 class StartInZero(GibbsSampling,MaxLikelihood):
-    def __init__(self,state_dim,**kwargs):
-        self.pi_0 = np.zeros(state_dim)
+    def __init__(self,num_states,**kwargs):
+        self.pi_0 = np.zeros(num_states)
         self.pi_0[0] = 1.
 
     def resample(self,init_states=np.array([])):
@@ -28,8 +28,8 @@ class StartInZero(GibbsSampling,MaxLikelihood):
         pass
 
 class Uniform(GibbsSampling,MaxLikelihood):
-    def __init__(self,state_dim,**kwargs):
-        self.pi_0 = np.ones(state_dim)
+    def __init__(self,num_states,**kwargs):
+        self.pi_0 = np.ones(num_states)
 
     def resample(self,init_states=np.array([])):
         pass
@@ -51,7 +51,7 @@ class SteadyState(object):
     @property
     def pi_0(self):
         if self._pi is None:
-            self._pi = top_eigenvector(self.model.trans_distn.A)
+            self._pi = top_eigenvector(self.model.trans_distn.trans_matrix)
         return self._pi
 
     def resample(self,*args,**kwargs):
