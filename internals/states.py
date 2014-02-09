@@ -1,7 +1,6 @@
 import numpy as np
 from numpy import newaxis as na
 from numpy.random import random
-import scipy.weave
 import abc, copy, warnings
 import scipy.stats as stats
 import scipy.sparse as sparse
