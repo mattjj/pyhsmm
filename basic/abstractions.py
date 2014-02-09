@@ -5,9 +5,7 @@ from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
 from ..util.stats import flattendata, sample_discrete_from_log, combinedata
-
-# PLAN: have a resample_with_truncations method default implementation which
-# just samples out the other business using rvs_greater_than
+from ..util.general import rcumsum
 
 class DurationDistribution(Distribution):
     __metaclass__ = abc.ABCMeta
@@ -26,6 +24,9 @@ class DurationDistribution(Distribution):
     def log_pmf(self,x):
         return self.log_likelihood(x)
 
+    def expected_log_pmf(self,x):
+        return self.expected_log_likelihood(x)
+
     # default implementations below
 
     def pmf(self,x):
@@ -37,9 +38,15 @@ class DurationDistribution(Distribution):
             return x+1
         trunc = 500
         while self.log_sf(x+trunc) - tail > -20:
-            trunc *= 1.1
+            trunc = int(1.1*trunc)
         logprobs = self.log_pmf(np.arange(x+1,x+trunc+1)) - tail
         return sample_discrete_from_log(logprobs)+x+1
+
+    def expected_log_sf(self,x):
+        x = np.atleast_1d(x).astype('int32')
+        assert x.ndim == 1
+        inf = max(2*x.max(),2*1000) # approximately infinity, we hope
+        return rcumsum(self.expected_log_pmf(np.arange(1,inf)),strict=True)[x]
 
     def resample_with_truncations(self,data=[],truncated_data=[]):
         '''
@@ -60,7 +67,7 @@ class DurationDistribution(Distribution):
             trunc *= 1.5
         return np.arange(1,trunc+1).dot(self.pmf(np.arange(1,trunc+1)))
 
-    def plot(self,data=None,color='b'):
+    def plot(self,data=None,color='b',**kwargs):
         data = flattendata(data) if data is not None else None
 
         try:

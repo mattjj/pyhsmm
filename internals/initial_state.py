@@ -5,13 +5,37 @@ from ..util.general import top_eigenvector
 from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
-class InitialState(Categorical):
-    def __init__(self,num_states,rho,pi_0=None):
-        super(InitialState,self).__init__(alpha_0=rho,K=num_states,weights=pi_0)
+class HMMInitialState(Categorical):
+    def __init__(self,model,init_state_concentration=None,pi_0=None):
+        self.model = model
+        if init_state_concentration is not None or pi_0 is not None:
+            self._is_steady_state = False
+            super(HMMInitialState,self).__init__(
+                    alpha_0=init_state_concentration,K=model.num_states,weights=pi_0)
+        else:
+            self._is_steady_state = True
 
     @property
     def pi_0(self):
-        return self.weights
+        if self._is_steady_state:
+            return self.steady_state_distribution
+        else:
+            return self.weights
+
+    @pi_0.setter
+    def pi_0(self,pi_0):
+        self.weights = pi_0
+
+    @property
+    def exp_expected_log_init_state_distn(self):
+        return np.exp(self.expected_log_likelihood())
+
+    @property
+    def steady_state_distribution(self):
+        return top_eigenvector(self.model.trans_distn.trans_matrix)
+
+    def clear_caches(self):
+        pass
 
 class StartInZero(GibbsSampling,MaxLikelihood):
     def __init__(self,num_states,**kwargs):
@@ -27,43 +51,16 @@ class StartInZero(GibbsSampling,MaxLikelihood):
     def max_likelihood(*args,**kwargs):
         pass
 
-class Uniform(GibbsSampling,MaxLikelihood):
-    def __init__(self,num_states,**kwargs):
-        self.pi_0 = np.ones(num_states)
-
-    def resample(self,init_states=np.array([])):
-        pass
-
-    def rvs(self,size=[]):
-        return np.random.random_integers(self.pi_0.shape[0],size=size)
-
-    def max_likelihood(*args,**kwargs):
-        pass
-
-class SteadyState(object):
-    def __init__(self,model):
-        self.model = model
-        self.clear_caches()
-
-    def clear_caches(self):
-        self._pi = None
-
+class HSMMInitialState(HMMInitialState):
     @property
-    def pi_0(self):
-        if self._pi is None:
-            self._pi = top_eigenvector(self.model.trans_distn.trans_matrix)
-        return self._pi
-
-    def resample(self,*args,**kwargs):
-        pass
-
-class HSMMSteadyState(SteadyState):
-    @property
-    def pi_0(self):
-        if self._pi is None:
+    def steady_state_distribution(self):
+        if self._steady_state_distribution is None:
             markov_part = super(HSMMSteadyState,self).pi_0
             duration_expectations = np.array([d.mean for d in self.model.dur_distns])
-            self._pi = markov_part * duration_expectations
-            self._pi /= self._pi.sum()
-        return self._pi
+            self._steady_state_distribution = markov_part * duration_expectations
+            self._steady_state_distribution /= self._steady_state_distribution.sum()
+        return self._steady_state_distribution
+
+    def clear_caches(self):
+        self._steady_state_distribution = None
 

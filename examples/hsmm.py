@@ -38,8 +38,7 @@ true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for sta
 
 # Build the true HSMM model
 truemodel = pyhsmm.models.HSMM(
-        alpha=6.,gamma=6.,
-        init_state_concentration=10.,
+        alpha=6.,init_state_concentration=10.,
         obs_distns=true_obs_distns,
         dur_distns=true_dur_distns)
 
@@ -61,7 +60,7 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMMEigen(
+posteriormodel = pyhsmm.models.WeakLimitHDPHSMM(
         alpha=6.,gamma=6., # these can matter; better to sample over them (concentration-resampling.py)
         init_state_concentration=6., # pretty inconsequential
         obs_distns=obs_distns,

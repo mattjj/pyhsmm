@@ -18,11 +18,14 @@ class _StartAtOneMixin(object):
     def log_sf(self,x,*args,**kwargs):
         return super(_StartAtOneMixin,self).log_sf(x-1,*args,**kwargs)
 
+    def expected_log_likelihood(self,x,*args,**kwargs):
+        return super(_StartAtOneMixin,self).expected_log_likelihood(x-1,*args,**kwargs)
+
     def rvs(self,size=None):
         return super(_StartAtOneMixin,self).rvs(size)+1
 
     def rvs_given_greater_than(self,x):
-        return super(_StartAtOneMixin,self).rvs_given_greater_than(x-1)+1
+        return super(_StartAtOneMixin,self).rvs_given_greater_than(x)+1
 
     def resample(self,data=[],*args,**kwargs):
         if isinstance(data,np.ndarray):
@@ -31,40 +34,77 @@ class _StartAtOneMixin(object):
             return super(_StartAtOneMixin,self).resample([d-1 for d in data],*args,**kwargs)
 
     def max_likelihood(self,data,weights=None,*args,**kwargs):
-        if weights is not None:
-            raise NotImplementedError
+        if isinstance(data,np.ndarray):
+            return super(_StartAtOneMixin,self).max_likelihood(
+                    data-1,weights=weights,*args,**kwargs)
         else:
-            if isinstance(data,np.ndarray):
-                return super(_StartAtOneMixin,self).max_likelihood(data-1,weights=None,*args,**kwargs)
-            else:
-                return super(_StartAtOneMixin,self).max_likelihood([d-1 for d in data],weights=None,*args,**kwargs)
+            return super(_StartAtOneMixin,self).max_likelihood(
+                    [d-1 for d in data],weights=weights,*args,**kwargs)
+
+    def meanfieldupdate(self,data,weights,*args,**kwargs):
+        if isinstance(data,np.ndarray):
+            return super(_StartAtOneMixin,self).meanfieldupdate(
+                    data-1,weights=weights,*args,**kwargs)
+        else:
+            return super(_StartAtOneMixin,self).meanfieldupdate(
+                    [d-1 for d in data],weights=weights,*args,**kwargs)
+
+    def meanfield_sgdstep(self,data,weights,minibatchfrac,stepsize):
+        if isinstance(data,np.ndarray):
+            return super(_StartAtOneMixin,self).meanfield_sgdstep(
+                    data-1,weights=weights,
+                    minibatchfrac=minibatchfrac,stepsize=stepsize)
+        else:
+            return super(_StartAtOneMixin,self).meanfield_sgdstep(
+                    [d-1 for d in data],weights=weights,
+                    minibatchfrac=minibatchfrac,stepsize=stepsize)
 
 ##########################
 #  Distribution classes  #
 ##########################
 
-class GeometricDuration(Geometric,DurationDistribution):
-    pass
-
-class PoissonDuration(_StartAtOneMixin,Poisson,DurationDistribution):
-    pass
-
-class NegativeBinomialDuration(_StartAtOneMixin,NegativeBinomial,DurationDistribution):
-    pass
-
-class NegativeBinomialFixedRDuration(_StartAtOneMixin,NegativeBinomialFixedR,
+class GeometricDuration(
+        Geometric,
         DurationDistribution):
     pass
 
-class NegativeBinomialIntegerRDuration(_StartAtOneMixin,NegativeBinomialIntegerR,
+class PoissonDuration(
+        _StartAtOneMixin,
+        Poisson,
         DurationDistribution):
     pass
 
-class NegativeBinomialFixedRVariantDuration(NegativeBinomialFixedRVariant,
+class NegativeBinomialDuration(
+        _StartAtOneMixin,
+        NegativeBinomial,
         DurationDistribution):
     pass
 
-class NegativeBinomialIntegerRVariantDuration(NegativeBinomialIntegerRVariant,
+class NegativeBinomialFixedRDuration(
+        _StartAtOneMixin,
+        NegativeBinomialFixedR,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialIntegerRDuration(
+        _StartAtOneMixin,
+        NegativeBinomialIntegerR,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialIntegerR2Duration(
+        _StartAtOneMixin,
+        NegativeBinomialIntegerR2,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialFixedRVariantDuration(
+        NegativeBinomialFixedRVariant,
+        DurationDistribution):
+    pass
+
+class NegativeBinomialIntegerRVariantDuration(
+        NegativeBinomialIntegerRVariant,
         DurationDistribution):
     pass
 

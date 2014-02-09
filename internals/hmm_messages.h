@@ -8,17 +8,18 @@
 #include "nptypes.h"
 #include "util.h"
 
-// NOTE: HMM_TEMPS_ON_STACK is mainly for the OpenMP case, where dynamic
-// allocation has locks and even then may lead to false sharing.
-// It may be a dumb idea though, I haven't profiled it.
+// NOTE: HMM_TEMPS_ON_HEAP is for robustness. for the OpenMP case, where dynamic
+// allocation has locks and there might be false sharing, I force some
+// temporaries onto the stack using compiler directives. It may be a dumb idea
+// though; I haven't profiled it and I don't know how compiler-dependent it is.
 
-// NOTE: HMM_NOT_ROBUST switch needs to be benchmarked, removed if it doesn't
+// NOTE: HMM_NOT_ROBUST switch needs to be benchmarked and removed if it doesn't
 // make a difference
 
 namespace hmm
 {
-    using namespace Eigen;
     using namespace std;
+    using namespace Eigen;
     using namespace nptypes;
 
     // Messages
@@ -32,7 +33,7 @@ namespace hmm
 
         NPMatrix<Type> ebetal(betal,T,M);
 
-#ifndef HMM_TEMPS_ON_STACK
+#ifdef HMM_TEMPS_ON_HEAP
         Matrix<Type,Dynamic,1> thesum(M);
 #else
         Type thesum_buf[M] __attribute__((aligned(16)));
@@ -89,7 +90,7 @@ namespace hmm
         Type logtot = 0.;
         Type cmax, norm;
 
-#ifndef HMM_TEMPS_ON_STACK
+#ifdef HMM_TEMPS_ON_HEAP
         Matrix<Type,1,Dynamic> ein_potential(1,M);
 #else
         Type in_potential_buf[M] __attribute__((aligned(16)));
@@ -108,7 +109,7 @@ namespace hmm
                 logtot += log(norm) + cmax;
 #ifndef HMM_NOT_ROBUST
             } else {
-                ealphan.block(t,0,T-1,M).setZero();
+                ealphan.block(t,0,T-t,M).setZero();
                 return -numeric_limits<Type>::infinity();
             }
 #endif
@@ -122,13 +123,13 @@ namespace hmm
     template <typename FloatType, typename IntType>
     void sample_forwards_log(
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
-            IntType *stateseq)
+            IntType *stateseq, FloatType *randseq)
     {
         NPMatrix<FloatType> eA(A,M,M);
         NPMatrix<FloatType> eaBl(aBl,T,M);
         NPMatrix<FloatType> ebetal(betal,T,M);
 
-#ifndef HMM_TEMPS_ON_STACK
+#ifdef HMM_TEMPS_ON_HEAP
         Array<FloatType,1,Dynamic> logdomain(M);
         Array<FloatType,1,Dynamic> nextstate_distr(M);
 #else
@@ -142,29 +143,29 @@ namespace hmm
         for (int t=0; t < T; t++) {
             logdomain = ebetal.row(t) + eaBl.row(t);
             nextstate_distr *= (logdomain - logdomain.maxCoeff()).exp();
-            stateseq[t] = util::sample_discrete(M,nextstate_distr.data());
+            stateseq[t] = util::sample_discrete(M,nextstate_distr.data(),randseq[t]);
             nextstate_distr = eA.row(stateseq[t]);
         }
     }
 
     template <typename FloatType, typename IntType>
     void sample_backwards_normalized(int M, int T, FloatType *AT, FloatType *alphan,
-            IntType *stateseq)
+            IntType *stateseq, FloatType *randseq)
     {
         NPArray<FloatType> eAT(AT,M,M);
         NPArray<FloatType> ealphan(alphan,T,M);
 
-#ifndef HMM_TEMPS_ON_STACK
+#ifdef HMM_TEMPS_ON_HEAP
         Array<FloatType,1,Dynamic> etemp(M);
 #else
         FloatType temp_buf[M] __attribute__((aligned(16)));
         NPRowVectorArray<FloatType> etemp(temp_buf,M);
 #endif
 
-        stateseq[T-1] = util::sample_discrete(M,ealphan.row(T-1).data());
+        stateseq[T-1] = util::sample_discrete(M,ealphan.row(T-1).data(),randseq[T-1]);
         for (int t=T-2; t>=0; t--) {
             etemp = eAT.row(stateseq[t+1]) * ealphan.row(t);
-            stateseq[t] = util::sample_discrete(M,etemp.data());
+            stateseq[t] = util::sample_discrete(M,etemp.data(),randseq[t]);
         }
     }
 
@@ -226,8 +227,8 @@ class hmmc
 
     static void sample_forwards_log(
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
-            IntType *stateseq)
-    { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq); }
+            IntType *stateseq, FloatType *randseq)
+    { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq,randseq); }
 
     static FloatType messages_forwards_normalized(
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
@@ -236,8 +237,8 @@ class hmmc
 
     static void sample_backwards_normalized(
             int M, int T, FloatType *AT, FloatType *alphan,
-            IntType *stateseq)
-    { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq); }
+            IntType *stateseq, FloatType *randseq)
+    { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq,randseq); }
 
     static void viterbi(
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,

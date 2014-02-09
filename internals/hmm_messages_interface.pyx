@@ -1,12 +1,11 @@
 # distutils: name = internals.hmm_messages_interface
 # distutils: language = c++
-# distutils: extra_compile_args = -O3 -march=native -w -DNDEBUG
+# distutils: extra_compile_args = -O3 -w -DNDEBUG -fopenmp -DEIGEN_DONT_PARALLELIZE -std=c++11
+# distutils: extra_link_args = -fopenmp
 # distutils: include_dirs = deps/Eigen3/
+# cython: boundscheck = False
 
 # TODO E step functions
-
-# NOTE: default arguments of None don't work with np.ndarray typed arguments
-# file a bug report with cython?
 
 # NOTE: cython can use templated classes but not templated functions in 0.19.1,
 # hence the wrapper class. no syntax for directly calling static members, though
@@ -14,31 +13,33 @@
 import numpy as np
 cimport numpy as np
 
-import cython
-
 from libc.stdint cimport int32_t
+from libcpp.vector cimport vector
 from cython cimport floating
+
+from cython.parallel import prange
 
 cdef extern from "hmm_messages.h":
     cdef cppclass hmmc[Type]: # NOTE: default states type is int32_t
-        hmmc() # stub unary constructor, doesn't really exist
+        hmmc()
         void messages_backwards_log(
-            int M, int T, Type *A, Type *aBl, Type *betal)
+            int M, int T, Type *A, Type *aBl, Type *betal) nogil
         void messages_forwards_log(
-            int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphal)
+            int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphal) nogil
         Type messages_forwards_normalized(
-            int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphan)
+            int M, int T, Type *A, Type *pi0, Type *aBl, Type *alphan) nogil
         void sample_forwards_log(
             int M, int T, Type *A, Type *pi0, Type *aBl, Type *betal,
-            int32_t *stateseq)
+            int32_t *stateseq, Type *randseq) nogil
         void sample_backwards_normalized(
-            int M, int T, Type *AT, Type *alphan, int32_t *stateseq)
+            int M, int T, Type *AT, Type *alphan,
+            int32_t *stateseq, Type *randseq) nogil
         void viterbi(
-            int M, int T, Type *A, Type *pi0, Type *aBl, int32_t *stateseq)
+            int M, int T, Type *A, Type *pi0, Type *aBl, int32_t *stateseq) nogil
 
 def messages_backwards_log(
-        np.ndarray[floating,ndim=2,mode="c"] A not None,
-        np.ndarray[floating,ndim=2,mode="c"] aBl not None,
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
         np.ndarray[floating,ndim=2,mode="c"] betal not None,
         ):
     cdef hmmc[floating] ref
@@ -46,9 +47,9 @@ def messages_backwards_log(
     return betal
 
 def messages_forwards_log(
-        np.ndarray[floating,ndim=2,mode="c"] A not None,
-        np.ndarray[floating,ndim=2,mode="c"] aBl not None,
-        np.ndarray[floating,ndim=1,mode="c"] pi0 not None,
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
+        floating[::1] pi0 not None,
         np.ndarray[floating,ndim=2,mode="c"] alphal not None,
         ):
     cdef hmmc[floating] ref
@@ -57,9 +58,9 @@ def messages_forwards_log(
     return alphal
 
 def messages_forwards_normalized(
-        np.ndarray[floating,ndim=2,mode="c"] A not None,
-        np.ndarray[floating,ndim=2,mode="c"] aBl not None,
-        np.ndarray[floating,ndim=1,mode="c"] pi0 not None,
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
+        floating[::1] pi0 not None,
         np.ndarray[floating,ndim=2,mode="c"] alphan not None,
         ):
     cdef hmmc[floating] ref
@@ -69,31 +70,104 @@ def messages_forwards_normalized(
     return alphan, loglike
 
 def sample_forwards_log(
-        np.ndarray[floating,ndim=2,mode="c"] A not None,
-        np.ndarray[floating,ndim=2,mode="c"] aBl not None,
-        np.ndarray[floating,ndim=1,mode="c"] pi0 not None,
-        np.ndarray[floating,ndim=2,mode="c"] betal not None,
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
+        floating[::1] pi0 not None,
+        floating[:,::1] betal not None,
         np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
         ):
     cdef hmmc[floating] ref
+
+    cdef floating[:] randseq
+    if floating is double:
+        randseq = np.random.random(size=aBl.shape[0]).astype(np.double)
+    else:
+        randseq = np.random.random(size=aBl.shape[0]).astype(np.float)
+
     ref.sample_forwards_log(A.shape[0],aBl.shape[0],&A[0,0],&pi0[0],&aBl[0,0],
-            &betal[0,0],&stateseq[0])
+            &betal[0,0],&stateseq[0],&randseq[0])
+
     return stateseq
 
 def sample_backwards_normalized(
-        np.ndarray[floating,ndim=2,mode="c"] AT not None,
-        np.ndarray[floating,ndim=2,mode="c"] alphan not None,
+        floating[:,::1] AT not None,
+        floating[:,::1] alphan not None,
         np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
         ):
     cdef hmmc[floating] ref
+
+    cdef floating[:] randseq
+    if floating is double:
+        randseq = np.random.random(size=alphan.shape[0]).astype(np.double)
+    else:
+        randseq = np.random.random(size=alphan.shape[0]).astype(np.float)
+
     ref.sample_backwards_normalized(AT.shape[0],alphan.shape[0],&AT[0,0],
-            &alphan[0,0],&stateseq[0])
+            &alphan[0,0],&stateseq[0],&randseq[0])
+
     return stateseq
 
+# NOTE: the purpose of this method is to dispatch to OpenMP, so it only makes
+# sense if this file is compiled with CCFLAGS=-fopenmp LDFLAGS=-fopenmp
+def resample_normalized_multiple(
+        floating[:,::1] A not None,
+        floating[::1] pi0 not None,
+        list aBls not None,
+        list stateseqs not None,
+        ):
+    cdef hmmc[floating] ref
+    cdef int i
+
+    # NOTE: to run without the gil, we have to unpack all the data we need from
+    # the python objects
+
+    cdef int num = len(aBls)
+    cdef int N = A.shape[0]
+    cdef floating[:,:] AT = A.T.copy()
+    cdef int[:] Ts = np.array([seq.shape[0] for seq in stateseqs],dtype=np.int32)
+    cdef int[:] starts = np.concatenate(((0,),np.cumsum(Ts)[:-1])).astype(np.int32)
+
+    # NOTE: allocate temps, pad to avoid false sharing in the cache
+
+    alphans = [np.empty((aBl.shape[0]+1,aBl.shape[1])) for aBl in aBls]
+
+    # NOTE: this next bit is converting python lists to C++ vectors for nogil
+
+    cdef vector[floating*] aBls_vect
+    cdef vector[floating*] alphans_vect
+    cdef vector[int32_t*] stateseqs_vect
+    cdef floating[:,:] temp
+    cdef int32_t[:] temp2
+    for i in range(num):
+        temp = aBls[i]
+        aBls_vect.push_back(&temp[0,0])
+        temp = alphans[i]
+        alphans_vect.push_back(&temp[0,0])
+        temp2 = stateseqs[i]
+        stateseqs_vect.push_back(&temp2[0])
+
+    cdef floating[:] loglikes
+    cdef floating[:] randseq
+    if floating is double:
+        loglikes = np.empty(num,dtype=np.double)
+        randseq = np.random.random(size=np.sum(Ts)).astype(np.double)
+    else:
+        loglikes = np.empty(num,dtype=np.float)
+        randseq = np.random.random(size=np.sum(Ts)).astype(np.float)
+
+    with nogil:
+        for i in prange(num):
+            loglikes[i] = ref.messages_forwards_normalized(N,Ts[i],&A[0,0],
+                    &pi0[0],aBls_vect[i],alphans_vect[i])
+            ref.sample_backwards_normalized(N,Ts[i],&AT[0,0],
+                    alphans_vect[i],stateseqs_vect[i],&randseq[starts[i]])
+
+    return np.asarray(loglikes)
+
 def viterbi(
-        np.ndarray[floating,ndim=2,mode="c"] A not None,
-        np.ndarray[floating,ndim=2,mode="c"] aBl not None,
-        np.ndarray[floating,ndim=1,mode="c"] pi0 not None,
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
+        floating[::1] pi0 not None,
         np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
         ):
     cdef hmmc[floating] ref

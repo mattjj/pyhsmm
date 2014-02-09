@@ -15,9 +15,8 @@ from pyhsmm import models as m, distributions as d
 ### util
 
 def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
-    for cls in [m.HMM, m.HMMEigen]:
-        hmm = cls(
-                alpha=6,gamma=6,init_state_concentration=1, # placeholders
+    for cls in [m.HMMPython, m.HMM]:
+        hmm = cls(alpha=6.,init_state_concentration=1, # placeholders
                 obs_distns=obs_distns)
         hmm.trans_distn.trans_matrix = trans_matrix
         hmm.init_state_distn.weights = init_distn

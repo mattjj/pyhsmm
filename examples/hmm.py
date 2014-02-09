@@ -30,7 +30,7 @@ obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.3,
+                'kappa_0':0.25,
                 'nu_0':obs_dim+5}
 
 dur_hypparams = {'alpha_0':2*30,
@@ -39,9 +39,13 @@ dur_hypparams = {'alpha_0':2*30,
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
-truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
+true_trans_matrix = np.diag(np.repeat(0.5,N-1),-1) + np.diag(np.repeat(0.5,N-1),1)
+true_trans_matrix /= true_trans_matrix.sum(1)[:,None]
+
+truemodel = pyhsmm.models.HSMM(alpha=6.,init_state_concentration=1.,
                               obs_distns=true_obs_distns,
-                              dur_distns=true_dur_distns)
+                              dur_distns=true_dur_distns,
+                              trans_matrix=true_trans_matrix)
 
 data, labels = truemodel.generate(T)
 
@@ -60,7 +64,7 @@ Nmax = 25
 ### HDP-HMM without the sticky bias
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
-posteriormodel = pyhsmm.models.HMMEigen(alpha=6.,gamma=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.WeakLimitHDPHMM(alpha=6.,gamma=6.,init_state_concentration=1.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
@@ -74,8 +78,9 @@ plt.gcf().suptitle('HDP-HMM sampled model after 100 iterations')
 ### Sticky-HDP-HMM
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
-posteriormodel = pyhsmm.models.StickyHMMEigen(kappa=50.,alpha=6.,gamma=6.,init_state_concentration=6.,
-                                   obs_distns=obs_distns)
+posteriormodel = pyhsmm.models.WeakLimitStickyHDPHMM(
+        kappa=50.,alpha=6.,gamma=6.,init_state_concentration=1.,
+        obs_distns=obs_distns)
 posteriormodel.add_data(data)
 
 for idx in progprint_xrange(100):

@@ -42,6 +42,27 @@ def ibincount(counts):
     'returns an array a such that counts = np.bincount(a)'
     return np.repeat(np.arange(counts.shape[0]),counts)
 
+def cumsum(v,strict=False):
+    if not strict:
+        return np.cumsum(v,axis=0)
+    else:
+        out = np.zeros_like(v)
+        out[1:] = np.cumsum(v[:-1],axis=0)
+        return out
+
+def rcumsum(v,strict=False):
+    if not strict:
+        return np.cumsum(v[::-1],axis=0)[::-1]
+    else:
+        out = np.zeros_like(v)
+        out[:-1] = np.cumsum(v[-1:0:-1],axis=0)[::-1]
+        return out
+
+def delta_like(v,i):
+    out = np.zeros_like(v)
+    out[i] = 1
+    return out
+
 def deepcopy(obj):
     return copy.deepcopy(obj)
 

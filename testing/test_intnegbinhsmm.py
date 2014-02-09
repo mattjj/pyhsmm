@@ -25,8 +25,7 @@ def _random_variant_model():
                 ) for state in range(N)]
 
     model  = m.HSMMIntNegBinVariant(
-            init_state_concentration=10.,
-            alpha=6.,gamma=6.,
+            init_state_concentration=10.,alpha=6.,
             obs_distns=obs_distns,
             dur_distns=dur_distns)
 
@@ -64,7 +63,7 @@ def _hmm_message_comparison_helper():
     s = model.states_list[0]
     s.messages_backwards = None
     likelihood_hmm_messages = np.logaddexp.reduce(
-            np.log(s.pi_0) + s.messages_backwards_hmm()[0] + s.aBl[0])
+            np.log(s.pi_0) + s.messages_backwards_hmm() + s.aBl[0])
 
     assert np.isclose(likelihood_hmm_messages, likelihood_hsmmintnegbin_messages)
 
