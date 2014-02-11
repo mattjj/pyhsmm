@@ -1,26 +1,51 @@
+**NOTE: I pushed some big changes recently, so things may be a bit bumpy...**
+
 # Sampling Inference for Bayesian HSMMs and HMMs #
 This is a Python library for approximate unsupervised sampling inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
-and HDP-HSMM, via the weak-limit approximation.
+and HDP-HSMM, mostly with weak-limit approximations.
 
-There are also some plugins to extend the functionality:
+There are also some extensions:
 
-* [factorial models](https://github.com/mattjj/pyhsmm-factorial)
 * [autoregressive models](https://github.com/mattjj/pyhsmm-autoregressive)
+* [factorial models](https://github.com/mattjj/pyhsmm-factorial)
 * [collapsed HDP sampling inference](https://github.com/mattjj/pyhsmm-collapsedinfinite).
 
-The inference can be run in parallel over multiple cores and/or multiple
-machines (even on EC2!) using [ipython](https://github.com/ipython/ipython)'s
-excellent `ipython.parallel` module. Someday I might even document how to do
-it!
+## Building and Running ##
+This library depends on
+* numpy
+* scipy
+* cython
+* matplotlib
 
-## Installing ##
-You can clone this library and its dependencies into your current working directory with
+You can clone this library and its dependencies into your current working
+directory with
 
 ```bash
 git clone --recursive git://github.com/mattjj/pyhsmm.git
 ```
+
+Build it with
+
+```bash
+cd pyhsmm
+python setup.py build_ext --inplace
+```
+
+Tested with g++ 4.8 (recommended) and the clang++ that ships with OS X 10.8.
+
+Some things to keep in mind:
+* if you use OS X's default (clang) compiler on OS 10.8 or earlier, you should
+  pass the `--with-old-clang` option or set `CCFLAGS` and `LDFLAGS` to include
+`-stdlib=libc++`
+* to use processor-tuned instructions with g++, you can pass the
+  `--with-native` flag or set `CCFLAGS` to include `-march=native`, but the
+  assembler that ships with OS X 10.8 is too old to know about AVX instructions
+
+## Running ##
+
+See the examples directory.
 
 For the Python interpreter to be able to import pyhsmm, you'll need it on your
 Python path. Since the current working directory is usually included in the
@@ -28,19 +53,6 @@ Python path, you can probably run the examples from the same directory in which
 you run the git clone with commands like `python pyhsmm/examples/hsmm.py`. You
 might also want to add pyhsmm to your global Python path (e.g. by copying it to
 your site-packages directory).
-
-To pull updates, you can do this:
-
-```bash
-cd /path/to/pyhsmm
-git pull
-git submodule update --init --recursive
-```
-
-The library depends on `numpy`, `scipy`, and, for visualization, `matplotlib`.
-
-Disabling assertions may speed things up; to disable assertions in CPython,
-call it with the `-O` flag.
 
 ## A Simple Demonstration ##
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
@@ -79,10 +91,9 @@ plt.plot(pca_project_data(data,1))
 
 ![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm/data_vs_time.png)
 
-To learn an HSMM, we'll use `pyhsmm` to create an `HSMM` instance using some
-reasonable hyperparameters. We'll ask this model to infer the number of states
-as well (since an HDP-HSMM is instantiated by default), so we'll give it an
-`Nmax` parameter:
+To learn an HSMM, we'll use `pyhsmm` to create a `WeakLimitHDPHSMM` instance
+using some reasonable hyperparameters. We'll ask this model to infer the number
+of states as well, so we'll give it an `Nmax` parameter:
 
 ```python
 import pyhsmm
@@ -101,7 +112,7 @@ dur_hypparams = {'alpha_0':2*30,
 obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMM(
+posteriormodel = pyhsmm.models.WeakLimitHDPHSMM(
         alpha=6.,gamma=6., # better to sample over these; see concentration-resampling.py
         init_state_concentration=6., # pretty inconsequential
         obs_distns=obs_distns,
@@ -177,31 +188,6 @@ usage is minimized. It also minimizes file size if you save samples like
 import cPickle
 with open('sampled_models.pickle','w') as outfile:
     cPickle.dump(model_samples,outfile,protocol=-1)
-```
-
-## Speed ##
-
-HSMMs constitute a much more powerful model class than plain-old HMMs, and that
-enhanced power comes with a computational price: each sampling iteration for an
-HSMM is much slower than that of an HMM. But that price is often worthwhile if
-you want to place priors on state durations or have the model learn duration
-structure present in the data. (In the example, strong duration structure is
-what made the inference algorithm latch onto the correct explanation so
-easily.) In addition, the increased cost of each iteration often pays for
-itself, since HSMM samplers empirically seem to take fewer iterations to
-converge than comparable HMM samplers.
-
-Using my nothing-special i7-920 desktop machine and a NumPy/SciPy built against
-Intel's MKL along with the Eigen-backed classes, here's how long the demo
-iterations took:
-
-```
-$ python examples/hsmm.py
-.........................  [  25/100,    0.05sec avg,    3.95sec ETA ]
-.........................  [  50/100,    0.05sec avg,    2.64sec ETA ]
-.........................  [  75/100,    0.05sec avg,    1.34sec ETA ]
-.........................  [ 100/100,    0.05sec avg,    0.05sec ETA ]
-   0.05sec avg,    5.21sec total
 ```
 
 ## Extending the Code ##
