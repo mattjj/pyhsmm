@@ -9,19 +9,35 @@ from numpy.core.umath_tests import inner1d
 
 import general
 
-import os
-eigen_path = os.path.join(os.path.dirname(__file__),'../deps/Eigen3')
-
 # TODO write cholesky versions
 
 ### data abstraction
 
+def atleast_2d(data):
+    # NOTE: can't use np.atleast_2d because if it's 1D we want axis 1 to be the
+    # singleton and axis 0 to be the sequence index
+    if data.ndim == 1:
+        return data.reshape((-1,1))
+    return data
+
+def mask_data(data):
+    return np.ma.masked_array(np.nan_to_num(data),np.isnan(data),fill_value=0.,hard_mask=True)
+
+def gi(data):
+    out = (np.isnan(atleast_2d(data)).sum(1) == 0).ravel()
+    return out if len(out) != 0 else None
+
 def getdatasize(data):
-    if isinstance(data,np.ndarray):
-        return data.shape[0]
+    if isinstance(data,np.ma.masked_array):
+        return data.shape[0] - data.mask.reshape((data.shape[0],-1))[:,0].sum()
+    elif isinstance(data,np.ndarray):
+        if len(data) == 0:
+            return 0
+        return data[gi(data)].shape[0]
     elif isinstance(data,list):
         return sum(getdatasize(d) for d in data)
     else:
+        # handle unboxed case for convenience
         assert isinstance(data,int) or isinstance(data,float)
         return 1
 
@@ -33,17 +49,21 @@ def getdatadimension(data):
         assert len(data) > 0
         return getdatadimension(data[0])
     else:
+        # handle unboxed case for convenience
         assert isinstance(data,int) or isinstance(data,float)
         return 1
 
 def combinedata(datas):
     ret = []
     for data in datas:
+        if isinstance(data,np.ma.masked_array):
+            ret.append(np.ma.compress_rows(data))
         if isinstance(data,np.ndarray):
             ret.append(data)
         elif isinstance(data,list):
-            ret.extend(data)
+            ret.extend(combinedata(data))
         else:
+            # handle unboxed case for convenience
             assert isinstance(data,int) or isinstance(data,float)
             ret.append(np.atleast_1d(data))
     return ret
@@ -54,7 +74,7 @@ def flattendata(data):
         return data
     elif isinstance(data,list) or isinstance(data,tuple):
         if any(isinstance(d,np.ma.MaskedArray) for d in data):
-            return np.ma.concatenate(data).compressed()
+            return np.concatenate([np.ma.compress_rows(d) for d in data])
         else:
             return np.concatenate(data)
     else:
@@ -67,7 +87,10 @@ def flattendata(data):
 def cov(a):
     # return np.cov(a,rowvar=0,bias=1)
     mu = a.mean(0)
-    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
+    if isinstance(a,np.ma.MaskedArray):
+        return np.ma.dot(a.T,a)/a.count(0)[0] - np.ma.outer(mu,mu)
+    else:
+        return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
 
 ### Sampling functions
 
@@ -90,39 +113,6 @@ def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
                 for i in range(p_log.ndim)]],thesize)
     return np.sum(randvals > cumvals,axis=axis,dtype=dtype)
 
-def sample_markov(T,trans_matrix,init_state_distn=None):
-    if init_state_distn is None and T > 0:
-        init_state_distn = general.top_eigenvector(trans_matrix)
-    out = np.empty(T,dtype=np.int32)
-    N = trans_matrix.shape[0]
-    scipy.weave.inline(
-            '''
-            using namespace std;
-            double val;
-            int i;
-            if (T > 0) {
-                for (
-                    i=0,val=((float)rand())/RAND_MAX;
-                    i < N-1 && (val -= init_state_distn[i]) > 1e-6;
-                    i++
-                    ) ;
-                out[0] = i;
-
-                for (int t=1; t<T; t++) {
-                    for (
-                        i=0,val=((float)rand())/RAND_MAX;
-                        i < N-1 && (val -= trans_matrix[N*out[t-1]+i]) > 1e-6;
-                        i++
-                        ) ;
-                    out[t] = i;
-                }
-            }
-            ''',
-            ['T','N','trans_matrix','init_state_distn','out'],
-            headers=['<Eigen/Core>','<math.h>','<assert.h>'],include_dirs=[eigen_path],
-            extra_compile_args=['-O3','-DNDEBUG'])
-    return out
-
 def sample_niw(mu,lmbda,kappa,nu):
     '''
     Returns a sample from the normal/inverse-wishart distribution, conjugate
@@ -131,6 +121,7 @@ def sample_niw(mu,lmbda,kappa,nu):
     '''
     # code is based on Matlab's method
     # reference: p. 87 in Gelman's Bayesian Data Analysis
+    assert nu > lmbda.shape[0] and kappa > 0
 
     # first sample Sigma ~ IW(lmbda,nu)
     lmbda = sample_invwishart(lmbda,nu)
@@ -139,45 +130,65 @@ def sample_niw(mu,lmbda,kappa,nu):
 
     return mu, lmbda
 
-def sample_invwishart(lmbda,dof):
+def sample_invwishart(S,nu):
     # TODO make a version that returns the cholesky
     # TODO allow passing in chol/cholinv of matrix parameter lmbda
     # TODO lowmem! memoize! dchud (eigen?)
-    n = lmbda.shape[0]
-    chol = np.linalg.cholesky(lmbda)
+    n = S.shape[0]
+    chol = np.linalg.cholesky(S)
 
-    if (dof <= 81+n) and (dof == np.round(dof)):
-        x = np.random.randn(dof,n)
+    if (nu <= 81+n) and (nu == np.round(nu)):
+        x = np.random.randn(nu,n)
     else:
-        x = np.diag(np.sqrt(np.atleast_1d(stats.chi2.rvs(dof-np.arange(n)))))
+        x = np.diag(np.sqrt(np.atleast_1d(stats.chi2.rvs(nu-np.arange(n)))))
         x[np.triu_indices_from(x,1)] = np.random.randn(n*(n-1)/2)
     R = np.linalg.qr(x,'r')
     T = scipy.linalg.solve_triangular(R.T,chol.T,lower=True).T
     return np.dot(T,T.T)
 
-def sample_wishart(sigma, dof):
+def sample_wishart(sigma, nu):
     n = sigma.shape[0]
     chol = np.linalg.cholesky(sigma)
 
     # use matlab's heuristic for choosing between the two different sampling schemes
-    if (dof <= 81+n) and (dof == round(dof)):
+    if (nu <= 81+n) and (nu == round(nu)):
         # direct
-        X = np.dot(chol,np.random.normal(size=(n,dof)))
+        X = np.dot(chol,np.random.normal(size=(n,nu)))
     else:
-        A = np.diag(np.sqrt(np.random.chisquare(dof - np.arange(n))))
+        A = np.diag(np.sqrt(np.random.chisquare(nu - np.arange(n))))
         A[np.tri(n,k=-1,dtype=bool)] = np.random.normal(size=(n*(n-1)/2.))
         X = np.dot(chol,A)
 
     return np.dot(X,X.T)
 
-def sample_mn(Sigma,M,K):
-    left = np.linalg.cholesky(Sigma)
-    right = np.linalg.cholesky(K)
-    return M + left.dot(np.random.normal(size=M.shape)).dot(right.T)
+def sample_mn(M,U=None,Uinv=None,V=None,Vinv=None):
+    assert (U is None) ^ (Uinv is None)
+    assert (V is None) ^ (Vinv is None)
 
-def sample_mniw(dof,lmbda,M,K):
-    Sigma = sample_invwishart(lmbda,dof)
-    return sample_mn(Sigma,M,K), Sigma
+    G = np.random.normal(size=M.shape)
+
+    if U is not None:
+        G = np.dot(np.linalg.cholesky(U),G)
+    else:
+        G = np.linalg.solve(np.linalg.cholesky(Uinv).T,G)
+
+    if V is not None:
+        G = np.dot(G,np.linalg.cholesky(V).T)
+    else:
+        G = np.linalg.solve(np.linalg.cholesky(Vinv).T,G.T).T
+
+    return M + G
+
+def sample_mniw(nu,S,M,K=None,Kinv=None):
+    assert (K is None) ^ (Kinv is None)
+    Sigma = sample_invwishart(S,nu)
+    if K is not None:
+        return sample_mn(M=M,U=Sigma,V=K), Sigma
+    else:
+        return sample_mn(M=M,U=Sigma,Vinv=Kinv), Sigma
+
+def sample_pareto(x_m,alpha):
+    return x_m + np.random.pareto(alpha)
 
 ### Entropy
 def invwishart_entropy(sigma,nu,chol=None):

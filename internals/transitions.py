@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 import scipy.stats as stats
-import scipy.weave
 from numpy import newaxis as na
 np.seterr(invalid='raise')
 import operator
@@ -13,6 +12,7 @@ from ..basic.abstractions import GibbsSampling
 from ..basic.distributions import GammaCompoundDirichlet, Multinomial, \
         MultinomialAndConcentration
 from ..util.general import rle, count_transitions, cumsum, rcumsum
+from ..util.cstats import sample_crp_tablecounts
 
 # TODO this file names the conc parameter for beta to be 'gamma', but that's
 # switched from my old code. check it!
@@ -306,25 +306,10 @@ class _WeakLimitHDPHMMTransitionsGibbs(
         self.alphav = self.alpha * self.beta
 
     def _get_m(self,trans_counts):
-        # TODO factor this out into a util function, get rid of weave
-        m = np.zeros_like(trans_counts)
-        N = m.shape[0]
         if not (0 == trans_counts).all():
-            alpha, beta = self.alpha, self.beta
-            scipy.weave.inline(
-            '''
-            for (int i=0; i<N; i++) {
-                for (int j=0; j<N; j++) {
-                    int tot = 0;
-                    for (int k=0; k<trans_counts[N*i+j]; k++) {
-                        tot += ((double)rand())/RAND_MAX < (alpha * beta[j])/(k+alpha*beta[j]);
-                    }
-                    m[N*i+j] = tot;
-                }
-            }
-            ''',
-            ['trans_counts','N','m','alpha','beta'],
-            extra_compile_args=['-O3'])
+            m = sample_crp_tablecounts(self.alpha,trans_counts,self.beta)
+        else:
+            m = np.zeros_like(trans_counts)
         self.m = m
         return m
 
