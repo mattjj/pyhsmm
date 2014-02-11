@@ -49,7 +49,7 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMM(
+posteriormodel = pyhsmm.models.WeakLimitHDPHSMM(
         # NOTE: instead of passing in alpha_0 and gamma_0, we pass in parameters
         # for priors over those concentration parameters
         alpha_a_0=1.,alpha_b_0=1./4,
