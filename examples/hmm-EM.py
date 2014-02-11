@@ -3,6 +3,7 @@ import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
 import matplotlib
+import os
 matplotlib.rcParams['font.size'] = 8
 
 import pyhsmm
@@ -10,44 +11,24 @@ from pyhsmm.util.text import progprint_xrange
 
 save_images = False
 
-#### Data generation
-# Set parameters
-N = 4
-T = 500
-obs_dim = 2
+#### load data
 
-# Set observation hyperparameters (which control the randomly-sampled mean and
-# covariance matrices for each state)
-obs_hypparams = {'mu_0':np.zeros(obs_dim),
-                'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.1,
-                'nu_0':obs_dim+2}
-
-# Construct the true observation and duration distributions
-true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
-
-# Build the true HMM model
-truemodel = pyhsmm.models.StickyHMM(
-        kappa=200.,alpha=50.,gamma=50.,init_state_concentration=50., # big numbers for uniform transitions
-        obs_distns=true_obs_distns)
-
-# Sample data from the true model
-data, labels = truemodel.generate(T)
-
-# Plot the truth
-plt.figure()
-truemodel.plot()
-plt.gcf().suptitle('True HMM')
-if save_images:
-    plt.savefig('truth.png')
+data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))
 
 #### EM
+
+N = 4
+obs_dim = data.shape[1]
+obs_hypparams = {'mu_0':np.zeros(obs_dim),
+                'sigma_0':np.eye(obs_dim),
+                'kappa_0':0.25,
+                'nu_0':obs_dim+2}
 
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
 
 # Build the HMM model that will represent the fitmodel
 fitmodel = pyhsmm.models.HMM(
-        alpha=50.,gamma=50.,init_state_concentration=50., # these are only used for initialization
+        alpha=50.,init_state_concentration=50., # these are only used for initialization
         obs_distns=obs_distns)
 fitmodel.add_data(data)
 

@@ -597,7 +597,7 @@ class _HSMMPossibleChangepointsMixin(object):
     _states_class = states.HSMMStatesPossibleChangepoints
 
     def add_data(self,data,changepoints,**kwargs):
-        super(HSMMPossibleChangepoints,self).add_data(
+        super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
 
     def _get_parallel_kwargss(self,states_objs):

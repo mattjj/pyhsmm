@@ -25,7 +25,7 @@ dur_hypparams = {'alpha_0':2*30,
 true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(N)]
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
-truemodel = pyhsmm.models.HSMM(alpha=6.,gamma=6.,init_state_concentration=6.,
+truemodel = pyhsmm.models.HSMM(alpha=6.,init_state_concentration=6.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
@@ -54,7 +54,7 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=6.,gamma=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=6.,init_state_concentration=6.,
         obs_distns=obs_distns,dur_distns=dur_distns)
 posteriormodel.add_data(data,changepoints,trunc=70)
 
