@@ -1,1 +1,1 @@
-deps/* -diff
+deps/**/* -diff
