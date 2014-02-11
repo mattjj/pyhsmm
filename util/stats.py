@@ -113,6 +113,13 @@ def sample_discrete_from_log(p_log,axis=0,dtype=np.int32):
                 for i in range(p_log.ndim)]],thesize)
     return np.sum(randvals > cumvals,axis=axis,dtype=dtype)
 
+def sample_markov(T,trans_matrix,init_state_distn):
+    out = np.empty(T,dtype=np.int32)
+    out[0] = sample_discrete(init_state_distn)
+    for t in range(1,T):
+        out[t] = sample_discrete(trans_matrix[out[t-1]])
+    return out
+
 def sample_niw(mu,lmbda,kappa,nu):
     '''
     Returns a sample from the normal/inverse-wishart distribution, conjugate
