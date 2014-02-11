@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 
 # TODO move pca to stats
 
-def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label=''):
+def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.):
     '''
     Plots mean and cov ellipsoid into current axes. Must be 2D. lmbda is a covariance matrix.
     '''
@@ -15,8 +15,9 @@ def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label=''):
     ellipse = np.dot(np.linalg.cholesky(lmbda),circle)
 
     if centermarker:
-        plt.plot([mu[0]],[mu[1]],marker='D',color=color,markersize=4)
-    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',linewidth=2,color=color,label=label)
+        plt.plot([mu[0]],[mu[1]],marker='D',color=color,markersize=4,alpha=alpha)
+    plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',
+            linewidth=2,color=color,label=label,alpha=alpha)
 
 
 def plot_gaussian_projection(mu, lmbda, vecs, **kwargs):
