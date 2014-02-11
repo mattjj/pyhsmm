@@ -46,5 +46,5 @@ try:
     def show_line_stats(stream=None):
         _prof.print_stats(stream=stream)
 except ImportError:
-    line_profiler = lambda x: x
+    line_profiled = lambda x: x
 
