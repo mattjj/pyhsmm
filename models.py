@@ -624,7 +624,7 @@ class HSMMHMMEmbedding(HSMMPython):
 class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
-    _trans_class_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method

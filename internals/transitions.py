@@ -524,7 +524,7 @@ class WeakLimitHDPHSMMTransitions(
     pass
 
 class WeakLimitHDPHSMMTransitionsConc(
-        _HSMMTransitionsGibbs,_WeakLimitHDPHMMTransitionsConcGibbs):
+        _WeakLimitHDPHMMTransitionsConcGibbs,_HSMMTransitionsGibbs):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
     pass
 
