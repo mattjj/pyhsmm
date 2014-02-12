@@ -62,7 +62,7 @@ def sample_crp_tablecounts(
 
     tmp = np.empty_like(customers)
     tmp[0,0] = 0
-    tmp.flat[1:] = np.cumsum(np.ravel(customers)[:customers.size-1],dtype=customers.dtype)
+    tmp.flat[1:] = np.cumsum(np.ravel(customers)[:customers.size-1],dtype=tmp.dtype)
     cdef integral[:,::1] starts = tmp
 
     with nogil:
