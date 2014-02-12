@@ -39,7 +39,13 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
                 continue
             pkg = deps.package(file)
             if '*' in name:
-                module_name = deps.fully_qualifeid_name(file)
+                # NOTE: begin matt added
+                # cython pre-0.20 had a typo here
+                try:
+                    module_name = deps.fully_qualifeid_name(file)
+                except AttributeError:
+                    module_name = deps.fully_qualified_name(file)
+                # NOTE: end matt added
                 if module_name in explicit_modules:
                     continue
             else:

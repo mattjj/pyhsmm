@@ -427,13 +427,21 @@ class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,_HMMViterbiEM):
 class HMM(HMMPython):
     _states_class = states.HMMStatesEigen
 
-class WeakLimitHDPHMM(_WeakLimitHDPMixin,HMM):
+class WeakLimitHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: shouldn't really inherit EM or ViterbiEM, but it's convenient!
     _trans_class = transitions.WeakLimitHDPHMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
 
-class DATruncHDPHMM(_WeakLimitHDPMixin,HMM):
+class WeakLimitHDPHMM(_WeakLimitHDPMixin,HMM):
+    _trans_class = transitions.WeakLimitHDPHMMTransitions
+    _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
+
+class DATruncHDPHMM(_WeakLimitHDPMixin,HMMPython):
     # NOTE: weak limit mixin is poorly named; we just want its init method
+    _trans_class = transitions.DATruncHDPHMMTransitions
+    _trans_conc_class = None
+
+class DATruncHDPHMM(_WeakLimitHDPMixin,HMM):
     _trans_class = transitions.DATruncHDPHMMTransitions
     _trans_conc_class = None
 
@@ -621,8 +629,12 @@ class HSMM(HSMMPython):
 class HSMMHMMEmbedding(HSMMPython):
     _states_class = states.HSMMStatesEmbedding
 
-class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
+class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
+    _trans_class = transitions.WeakLimitHDPHSMMTransitions
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+
+class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
@@ -658,7 +670,13 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
 
+class HSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,HSMMPython):
+    pass
+
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMM):
+    pass
+
+class WeakLimitHDPHSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMMPython):
     pass
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):
