@@ -16,11 +16,8 @@ from ..util.cstats import sample_crp_tablecounts
 
 # TODO this file names the conc parameter for beta to be 'gamma', but that's
 # switched from my old code. check it!
-# TODO should probably have a _0 suffix as well
-# TODO WeakLimitSticky concentration resampling classes (that also resample kappa)
-# TODO update HDP left-to-right classes, old versions in scrap.py
-# TODO this class suffers from some serious YAGNI bullshit
 
+# TODO copy_sample
 # TODO separate out bayesian and nonbayesian versions?
 
 ########################
