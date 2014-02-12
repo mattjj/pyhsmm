@@ -151,24 +151,16 @@ namespace hsmm
 
             // sample from duration pmf
             durprob = randseq[randseq_idx++];
-            dur = 0;
-            while (durprob > 0.) {
-                p_d_prior = (dur < T) ? exp(eaDl(dur,state)) : 1.0; // NOTE: 1.0 isnt really used
+            for(dur=0; durprob > 0. && t+dur < T; dur++) {
+                p_d_prior = exp(eaDl(dur,state));
                 if (0.0 == p_d_prior) {
-                    dur += 1;
                     continue;
                 }
-                if (t + dur < T) {
-                    // p_d = p_d_prior * (exp(eaBl.col(state).segment(t,dur+1).sum()
-                    //             + ebetal(t+dur,state) - ebetastarl(t,state)));
-                    p_d = p_d_prior * exp(ecaBl(t+dur+1,state) - ecaBl(t,state)
-                                + ebetal(t+dur,state) - ebetastarl(t,state));
-                } else {
-                    break; // will be fixed in python
-                }
+                p_d = p_d_prior * exp(ecaBl(t+dur+1,state) - ecaBl(t,state)
+                            + ebetal(t+dur,state) - ebetastarl(t,state));
                 durprob -= p_d;
-                dur += 1;
             }
+            // NOTE: if t+dur == T, the duration is censored; it will be fixed up in Python
 
             // set the output
             estateseq.segment(t,dur).setConstant(state);
