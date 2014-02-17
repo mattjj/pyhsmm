@@ -1,8 +1,10 @@
 from __future__ import division
 import numpy as np
-import scipy.linalg
-import copy, itertools, collections
 from numpy.lib.stride_tricks import as_strided as ast
+import scipy.linalg
+import copy, itertools, collections, os, shutil
+from contextlib import closing
+from urllib2 import urlopen
 
 def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
     if A.shape[0] < 5000 and chol is None:
@@ -208,4 +210,10 @@ def hold_out(datalist,frac):
     perm = np.random.permutation(N)
     split = int(np.ceil(frac * N))
     return [datalist[i] for i in perm[split:]], [datalist[i] for i in perm[:split]]
+
+def get_file(remote_url,local_path):
+    if not os.path.isfile(local_path):
+        with closing(urlopen(remote_url)) as remotefile:
+            with open(local_path,'wb') as localfile:
+                shutil.copyfileobj(remotefile,localfile)
 

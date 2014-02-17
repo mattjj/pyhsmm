@@ -2,20 +2,32 @@ from __future__ import division
 import numpy as np
 from numpy import newaxis as na
 from matplotlib import pyplot as plt
+from os.path import join, dirname
 
 from pyhsmm import models, distributions
-from pyhsmm.util.general import sgd_steps, hold_out
+from pyhsmm.util.general import sgd_steps, hold_out, get_file
 from pyhsmm.util.text import progprint_xrange, progprint
 
 np.random.seed(0)
 
+dataurl = 'http://www.mit.edu/~mattjj/data/svi_data.gz'
+datapath = str(join(dirname(__file__),'svi_data.gz'))
+
 ### load data
 
-print 'loading data...'
-alldata = np.array_split(np.loadtxt('svi_data2.txt'),250)
-datas, heldout = hold_out(alldata,0.05)
-T = sum(data.shape[0] for data in datas)
+print 'downloading data...'
+get_file(dataurl,datapath)
 print '...done!'
+
+print 'loading and splitting data...'
+alldata = np.loadtxt(datapath)
+allseqs = np.array_split(alldata,250)
+datas, heldout = hold_out(allseqs,0.05)
+training_size = sum(data.shape[0] for data in datas)
+print '...done!'
+
+print '%d total frames' % sum(data.shape[0] for data in alldata)
+print 'split into %d training and %d test sequences' % (len(datas),len(heldout))
 
 ### inference!
 
@@ -29,10 +41,13 @@ hmm = models.DATruncHDPHMM(
 scores = []
 stepsizes = sgd_steps(tau=0,kappa=0.7,nsteps=len(datas))
 for t, (data, rho_t) in progprint(enumerate(zip(datas,stepsizes))):
-    hmm.meanfield_sgdstep(data, data.shape[0] / T, rho_t)
+    hmm.meanfield_sgdstep(data, data.shape[0] / training_size, rho_t)
 
     if t % 10 == 0:
         scores.append(hmm.log_likelihood(heldout))
 
+plt.figure()
 plt.plot(scores)
+
 plt.show()
+
