@@ -13,13 +13,8 @@ There are also some extensions:
 * [collapsed HDP sampling inference](https://github.com/mattjj/pyhsmm-collapsedinfinite).
 
 ## Building and Running ##
-This library depends on
-* numpy
-* scipy
-* cython
-* matplotlib
-
-You can clone this library and its dependencies into your current working
+This library depends on having numpy, scipy, cython, and matplotlib installed.
+You can clone this library and its other dependencies into your current working
 directory with
 
 ```bash
