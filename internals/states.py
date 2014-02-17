@@ -12,6 +12,7 @@ from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
 # TODO change HSMM message methods to be called messages_log
+# TODO renormalize aDl based on trunc?
 
 class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
