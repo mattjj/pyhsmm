@@ -197,3 +197,15 @@ def count_transitions(stateseq,minlength=None):
         out[a,b] += 1
     return out
 
+def sgd_steps(tau,kappa,nsteps):
+    assert 0.5 < kappa <= 1
+    assert tau >= 0
+    for t in xrange(1,nsteps+1):
+        yield (t+tau)**(-kappa)
+
+def hold_out(datalist,frac):
+    N = len(datalist)
+    perm = np.random.permutation(N)
+    split = int(np.ceil(frac * N))
+    return [datalist[i] for i in perm[split:]], [datalist[i] for i in perm[:split]]
+

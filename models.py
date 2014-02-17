@@ -67,8 +67,16 @@ class _HMMBase(Model):
 
     def log_likelihood(self,data=None,**kwargs):
         if data is not None:
-            self.add_data(data=data,generate=False,**kwargs)
-            return self.states_list.pop().log_likelihood()
+            if isinstance(data,np.ndarray):
+                self.add_data(data=data,generate=False,**kwargs)
+                return self.states_list.pop().log_likelihood()
+            else:
+                assert isinstance(data,list)
+                loglike = 0.
+                for d in data:
+                    self.add_data(data=d,generate=False,**kwargs)
+                    loglike += self.states_list.pop().log_likelihood()
+                return loglike
         else:
             return sum(s.log_likelihood() for s in self.states_list)
 
@@ -332,6 +340,23 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
         for s in self.states_list:
             s.meanfieldupdate()
         return self._vlb()
+
+    def heldout_vlb(self,datas):
+        assert len(self.states_list) == 0
+
+        if isinstance(datas,list):
+            for data in datas:
+                self.add_data(data)
+        else:
+            self.add_data(datas)
+
+        for s in self.states_list:
+            s.meanfieldupdate()
+
+        vlb = self._vlb()
+
+        self.states_list = []
+        return vlb
 
 class _HMMEM(_HMMBase,ModelEM):
     def EM_step(self):
