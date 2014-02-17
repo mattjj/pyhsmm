@@ -14,10 +14,6 @@ from ..basic.distributions import GammaCompoundDirichlet, Multinomial, \
 from ..util.general import rle, count_transitions, cumsum, rcumsum
 from ..util.cstats import sample_crp_tablecounts
 
-# TODO this file names the conc parameter for beta to be 'gamma', but that's
-# switched from my old code. check it!
-
-# TODO copy_sample
 # TODO separate out bayesian and nonbayesian versions?
 
 ########################
@@ -75,6 +71,11 @@ class _HMMTransitionsBase(object):
         else:
             return sum(count_transitions(stateseq,minlength=self.N)
                     for stateseq in stateseqs)
+
+    def copy_sample(self):
+        new = copy.copy(self)
+        new._row_distns = [distn.copy_sample() for distn in self._row_distns]
+        return new
 
 class _HMMTransitionsGibbs(_HMMTransitionsBase):
     def resample(self,stateseqs=[],trans_counts=None):
@@ -225,7 +226,6 @@ class _HSMMTransitionsMeanField(_HSMMTransitionsBase,_HMMTransitionsMeanField):
     pass
 
 class _HSMMTransitionsSVI(_HSMMTransitionsMeanField,_HMMTransitionsSVI):
-    # TODO these gradients aren't quite right
     pass
 
 class HSMMTransitions(_HSMMTransitionsGibbs,
@@ -284,6 +284,11 @@ class _WeakLimitHDPHMMTransitionsBase(_HMMTransitionsBase):
     @alpha.setter
     def alpha(self,val):
         self._alpha = val
+
+    def copy_sample(self):
+        new = super(_WeakLimitHDPHMMTransitionsBase,self).copy_sample()
+        new.beta_obj = self.beta_obj.copy_sample()
+        return new
 
 class _WeakLimitHDPHMMTransitionsGibbs(
         _WeakLimitHDPHMMTransitionsBase,
@@ -362,6 +367,11 @@ class _WeakLimitHDPHMMTransitionsConcGibbs(
     def _resample_alpha(self,trans_counts):
         self.alpha_obj.resample(trans_counts,weighted_cols=self.beta)
         self.alphav = self.alpha * self.beta
+
+    def copy_sample(self):
+        new = super(_WeakLimitHDPHMMTransitionsConcGibbs,self).copy_sample()
+        new.alpha_obj = self.alpha_obj.copy_sample()
+        return new
 
 class WeakLimitHDPHMMTransitionsConc(_WeakLimitHDPHMMTransitionsConcGibbs):
     pass

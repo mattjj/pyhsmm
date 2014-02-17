@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from numpy import newaxis as na
 import itertools, collections, operator, random, abc, copy
 from matplotlib import pyplot as plt
 from matplotlib import cm
@@ -94,31 +95,26 @@ class _HMMBase(Model):
 
     ### predicting
 
-    # TODO remove this section
+    def heldout_viterbi(self,data,**kwargs):
+        self.add_data(data=data,stateseq=np.zeros(len(data)),**kwargs)
+        s = self.states_list.pop()
+        s.Viterbi()
+        return s.stateseq
+
+    def heldout_state_marginals(self,data,**kwargs):
+        self.add_data(data=data,stateseq=np.zeros(len(data)),**kwargs)
+        s = self.states_list.pop()
+        log_margs = s.messages_forwards_log() + s.messages_backwards_log()
+        log_margs -= s.log_likelihood()
+        margs = np.exp(log_margs)
+        margs /= margs.sum(1)[:,na]
+        return margs
 
     def _resample_from_mf(self):
         self.trans_distn._resample_from_mf()
         self.init_state_distn._resample_from_mf()
         for o in self.obs_distns:
             o._resample_from_mf()
-
-
-    def mf_block_predictive_likelihoods(self,test_data,blocklens,nsamples=100,**kwargs):
-        self.add_data(data=test_data,stateseq=np.zeros(test_data.shape[0]),**kwargs)
-        s = self.states_list.pop()
-        alphal = s.messages_forwards_log()
-
-        outss = []
-        for itr in range(nsamples):
-            self._resample_from_mf()
-            outs = []
-            for k in blocklens:
-                outs.append((np.logaddexp.reduce(alphal[k:],axis=1)
-                        - np.logaddexp.reduce(alphal[:-k],axis=1)).mean())
-            outss.append(np.asarray(outs))
-
-        # return outss
-        return reduce(operator.add,outss,0)/nsamples
 
     ### caching
 
