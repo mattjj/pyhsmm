@@ -2,24 +2,23 @@ from __future__ import division
 import numpy as np
 from numpy import newaxis as na
 from matplotlib import pyplot as plt
-from os.path import join, dirname
+from os.path import join, dirname, isfile
 
 from pyhsmm import models, distributions
 from pyhsmm.util.general import sgd_steps, hold_out, get_file
 from pyhsmm.util.text import progprint_xrange, progprint
 
 np.random.seed(0)
-
-dataurl = 'http://www.mit.edu/~mattjj/data/svi_data.gz'
 datapath = str(join(dirname(__file__),'svi_data.gz'))
 
 ### load data
 
-print 'downloading data...'
-get_file(dataurl,datapath)
-print '...done!'
+if not isfile(datapath):
+    print 'download svi_data.gz data and put it in examples/'
+    print 'https://github.com/mattjj/example_data'
+    import sys; sys.exit(1)
 
-print 'loading and splitting data...'
+print 'loading data...'
 alldata = np.loadtxt(datapath)
 allseqs = np.array_split(alldata,250)
 datas, heldout = hold_out(allseqs,0.05)
