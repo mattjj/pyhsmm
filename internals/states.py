@@ -507,7 +507,7 @@ class HMMStatesEigen(HMMStatesPython):
 
     def Viterbi(self):
         from hmm_messages_interface import viterbi
-        return viterbi(self.trans_matrix,self.aBl,self.pi_0,
+        self.stateseq = viterbi(self.trans_matrix,self.aBl,self.pi_0,
                 np.empty(self.aBl.shape[0],dtype='int32'))
 
 
