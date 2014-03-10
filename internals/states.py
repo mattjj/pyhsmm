@@ -384,7 +384,9 @@ class HMMStatesPython(_StatesBase):
 
     @staticmethod
     def _maxsum_messages_backwards(trans_matrix, log_likelihoods):
+        errs = np.seterr(divide='ignore')
         Al = np.log(trans_matrix)
+        np.seterr(**errs)
         aBl = log_likelihoods
 
         scores = np.zeros_like(aBl)
@@ -1173,6 +1175,9 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
     def maximize_forwards(self,scores,args):
         return self.maximize_forwards_hmm(scores,args)
 
+    def Viterbi(self):
+        return self.Viterbi_hmm()
+
     ### for testing, ensures calling parent HMM methods
 
     def generate_states_hmm(self):
@@ -1205,12 +1210,12 @@ class _HSMMStatesIntegerNegativeBinomialBase(HMMStatesEigen, HSMMStatesPython):
         return self.maximize_forwards_hmm(scores,args)
 
     def maxsum_messages_backwards_hmm(self):
-        return HMMStatesEigen.maxsum_messages_backwards_log(self)
+        return HMMStatesEigen.maxsum_messages_backwards(self)
 
     def maximize_forwards_hmm(self,scores,args):
-        ret = HMMStatesEigen.maximize_forwards(self,scores,args)
+        HMMStatesEigen.maximize_forwards(self,scores,args)
         self._map_states()
-        return ret
+        return self.stateseq
 
     def _map_states(self):
         themap = np.arange(self.num_states).repeat(self.rs)
