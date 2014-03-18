@@ -4,7 +4,8 @@ from IPython.parallel import Client
 import os
 from util.general import engine_global_namespace
 
-profile = 'default'
+from warnings import warn
+warn("This code hasn't been tested in a while...") # TODO
 
 # these globals get set, named here for clarity
 client = None
@@ -20,7 +21,10 @@ def reset_engines():
 
 def set_up_engines():
     global client, dv
-    profile = os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"]
+    try:
+        profile = os.environ["PYHSMM_IPYTHON_PARALLEL_PROFILE"]
+    except KeyError:
+        profile = 'default'
     if client is None:
         client = Client(profile=profile)
         dv = client[:]
