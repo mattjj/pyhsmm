@@ -1441,7 +1441,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     def messages_backwards(self):
         errs = np.seterr(divide='ignore')
-        aDl, Al = self.aDl, np.log(self.trans_matrix)
+        aDl, aDsl, Al = self.aDl, self.aDsl, np.log(self.trans_matrix)
         np.seterr(**errs)
         Tblock = self.Tblock
         num_states = Al.shape[0]
@@ -1456,10 +1456,16 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
 
-            np.logaddexp.reduce(betal[tblock:tblock+truncblock]
+            np.logaddexp.reduce(
+                    betal[tblock:tblock+truncblock]
                     + self.block_cumulative_likelihoods(tblock,tblock+truncblock,possible_durations)
-                    + aDl[possible_durations-1] - normalizer,axis=0,out=betastarl[tblock])
-            # TODO TODO put censoring here, must implement likelihood_block
+                    + aDl[possible_durations-1] - normalizer,
+                    axis=0,out=betastarl[tblock])
+            if Tblock-tblock-1 < truncblock and self.right_censoring:
+                np.logaddexp(
+                        betastarl[tblock],
+                        self.block_likelihood_block(tblock,None)+aDsl[possible_durations[-1] -1],
+                        out=betastarl[tblock])
             np.logaddexp.reduce(betastarl[tblock] + Al, axis=1, out=betal[tblock-1])
         betal[-1] = 0.
 
@@ -1473,6 +1479,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
 
     def block_cumulative_likelihood_state(self,startblock,stopblock,state,possible_durations):
         return self.aBBl[startblock:stopblock,state].cumsum(0)[:possible_durations.shape[0]]
+
+    def block_likelihood_block(self,startblock,stopblock):
+        return self.aBBl[startblock:stopblock].sum(0)
 
     ### Gibbs sampling
 
