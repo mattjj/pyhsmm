@@ -1455,6 +1455,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             possible_durations = possible_durations[possible_durations < max(trunc,possible_durations[0]+1)]
             truncblock = len(possible_durations)
             normalizer = np.logaddexp.reduce(aDl[possible_durations-1],axis=0)
+            if Tblock-tblock-1 < truncblock and self.right_censoring:
+                normalizer = np.logaddexp(normalizer,aDsl[possible_durations[-1] -1])
 
             np.logaddexp.reduce(
                     betal[tblock:tblock+truncblock]
