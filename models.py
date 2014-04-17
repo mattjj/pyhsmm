@@ -483,7 +483,7 @@ class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
 class _HSMMBase(_HMMBase):
     _states_class = states.HSMMStatesPython
     _trans_class = transitions.HSMMTransitions
-    _trans_class_conc_class = transitions.HSMMTransitionsConc
+    _trans_conc_class = transitions.HSMMTransitionsConc
     # _init_steady_state_class = initial_state.HSMMSteadyState # TODO
 
     def __init__(self,dur_distns,**kwargs):
@@ -679,7 +679,7 @@ class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMSVI,_HSMMViterbiEM):
 
 class WeakLimitHDPHSMMIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
-    _trans_class_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
 class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM):
     _trans_class = transitions.HSMMTransitions
@@ -688,7 +688,7 @@ class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM):
 
 class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
-    _trans_class_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
 
 class HSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,HSMMPython):
