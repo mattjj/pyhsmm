@@ -524,14 +524,16 @@ class DATruncHDPHMMTransitions(_DATruncHDPHMMTransitionsSVI):
 class WeakLimitHDPHSMMTransitions(
         _HSMMTransitionsGibbs,
         _WeakLimitHDPHMMTransitionsGibbs,
-        _HSMMTransitionsBase,_HMMTransitionsMaxLikelihood):
+        _HSMMTransitionsMaxLikelihood):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
     # NOTE: include MaxLikelihood for convenience, uses
     # _HMMTransitionsBase._count_transitions
     pass
 
 class WeakLimitHDPHSMMTransitionsConc(
-        _WeakLimitHDPHMMTransitionsConcGibbs,_HSMMTransitionsGibbs):
+        _WeakLimitHDPHMMTransitionsConcGibbs,
+        _HSMMTransitionsGibbs,
+        _HSMMTransitionsMaxLikelihood):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
     pass
 
