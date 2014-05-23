@@ -156,3 +156,18 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
 
     return results
 
+
+### MISC / TEMP
+
+def _get_stats(model,grp):
+    datas, changepointss = zip(*grp)
+    mb_states_list = []
+    for data, changepoints in zip(datas,changepointss):
+        model.add_data(data,changepoints=changepoints,stateseq=np.empty(data.shape[0]))
+        mb_states_list.append(model.states_list.pop())
+
+    for s in mb_states_list:
+        s.meanfieldupdate()
+
+    return [s.all_expected_stats for s in mb_states_list]
+
