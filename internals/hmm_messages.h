@@ -79,6 +79,45 @@ namespace hmm
     }
 
     template <typename Type>
+    Type expected_statistics_log(
+            int M, int T,
+            Type *log_trans_potential, Type *log_likelihood_potential,
+            Type *alphal, Type *betal,
+            Type *expected_states, Type *expected_transcounts)
+    {
+        NPArray<Type> eA(log_trans_potential,M,M);
+        NPArray<Type> eaBl(log_likelihood_potential,T,M);
+        NPArray<Type> ebetal(betal,T,M);
+        NPArray<Type> ealphal(alphal,T,M);
+
+        NPArray<Type> eexpected_states(expected_states,T,M);
+        NPArray<Type> eexpected_transcounts(expected_transcounts,M,M);
+
+#ifdef HMM_TEMPS_ON_HEAP
+        Array<Type,Dynamic,Dynamic> pair(M,M);
+#else
+        Type pair_buf[M*M] __attribute__((aligned(16)));
+        NPArray<Type> pair(pair_buf,M,M);
+#endif
+
+        Type cmax;
+        cmax = ealphal.row(T-1).maxCoeff();
+        Type log_normalizer = log((ealphal.row(T-1) - cmax).exp().sum()) + cmax;
+
+        for (int t=0; t<T-1; t++) {
+            pair = eA - log_normalizer;
+            pair.colwise() += ealphal.row(t).transpose().array();
+            pair.rowwise() += ebetal.row(t+1) + eaBl.row(t+1);
+
+            eexpected_transcounts += pair.exp();
+            eexpected_states.row(t) += (ealphal.row(t) + ebetal.row(t) - log_normalizer).exp();
+        }
+        eexpected_states.row(T-1) += (ealphal.row(T-1) - log_normalizer).exp();
+
+        return log_normalizer;
+    }
+
+    template <typename Type>
     Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
             Type *alphan)
     {
@@ -244,6 +283,14 @@ class hmmc
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
             IntType *stateseq)
     { hmm::viterbi(M,T,A,pi0,aBl,stateseq); }
+
+    static FloatType expected_statistics_log(
+            int M, int T,
+            FloatType *log_trans_potential, FloatType *log_likelihood_potential,
+            FloatType *alphal, FloatType *betal,
+            FloatType *expected_states, FloatType *expected_transcounts)
+    { return hmm::expected_statistics_log(M,T,log_trans_potential,log_likelihood_potential,
+            alphal,betal,expected_states,expected_transcounts); }
 };
 
 #endif

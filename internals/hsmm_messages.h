@@ -59,8 +59,8 @@ namespace hsmm
                     ((ebetastarl.row(t) - maxes).exp() + (result - maxes).exp()).log() + maxes;
             }
             for(int i=0; i<M; i++) {
-                if (unlikely(ebetastarl(t,i) != ebetastarl(t,i))) {
-                    ebetastarl(t,i) = -1.0*numeric_limits<Type>::infinity();
+                if (ebetastarl(t,i) != ebetastarl(t,i)) {
+                    ebetastarl(i,t) = -1.0*numeric_limits<Type>::infinity();
                 }
             }
             if (likely(t > 0)) {
@@ -68,8 +68,8 @@ namespace hsmm
                 ebetal.row(t-1) = (eA * (ebetastarl.row(t) - cmax).exp().matrix().transpose()
                         ).array().log() + cmax;
                 for(int i=0; i<M; i++) {
-                    if (unlikely(ebetastarl(t,i) != ebetastarl(t,i))) {
-                        ebetastarl(t,i) = -1.0*numeric_limits<Type>::infinity();
+                    if (ebetastarl(t,i) != ebetastarl(t,i)) {
+                        ebetastarl(i,t) = -1.0*numeric_limits<Type>::infinity();
                     }
                 }
             }

@@ -1,11 +1,8 @@
 # distutils: name = internals.hmm_messages_interface
 # distutils: language = c++
-# distutils: extra_compile_args = -O3 -w -DNDEBUG -fopenmp -DEIGEN_DONT_PARALLELIZE -std=c++11
-# distutils: extra_link_args = -fopenmp
+# distutils: extra_compile_args = -O3 -w -DNDEBUG -std=c++11
 # distutils: include_dirs = deps/Eigen3/
 # cython: boundscheck = False
-
-# TODO E step functions
 
 # NOTE: cython can use templated classes but not templated functions in 0.19.1,
 # hence the wrapper class. no syntax for directly calling static members, though
@@ -36,6 +33,10 @@ cdef extern from "hmm_messages.h":
             int32_t *stateseq, Type *randseq) nogil
         void viterbi(
             int M, int T, Type *A, Type *pi0, Type *aBl, int32_t *stateseq) nogil
+        Type expected_statistics_log(
+            int M, int T, Type *log_trans_potential, Type *log_likelihood_potential,
+            Type *alphal, Type *betal,
+            Type *expected_states, Type *expected_transcounts)
 
 def messages_backwards_log(
         floating[:,::1] A not None,
@@ -57,18 +58,6 @@ def messages_forwards_log(
             &alphal[0,0])
     return alphal
 
-def messages_forwards_normalized(
-        floating[:,::1] A not None,
-        floating[:,::1] aBl not None,
-        floating[::1] pi0 not None,
-        np.ndarray[floating,ndim=2,mode="c"] alphan not None,
-        ):
-    cdef hmmc[floating] ref
-    cdef floating loglike = \
-            ref.messages_forwards_normalized(A.shape[0],aBl.shape[0],&A[0,0],&pi0[0],
-                &aBl[0,0],&alphan[0,0])
-    return alphan, loglike
-
 def sample_forwards_log(
         floating[:,::1] A not None,
         floating[:,::1] aBl not None,
@@ -88,6 +77,48 @@ def sample_forwards_log(
             &betal[0,0],&stateseq[0],&randseq[0])
 
     return stateseq
+
+def expected_statistics_log(
+        np.ndarray[floating,ndim=2,mode='c'] log_trans_potential not None,
+        np.ndarray[floating,ndim=2,mode='c'] log_likelihood_potential not None,
+        np.ndarray[floating,ndim=2,mode='c'] alphal not None,
+        np.ndarray[floating,ndim=2,mode='c'] betal not None,
+        np.ndarray[floating,ndim=2,mode='c'] expected_states not None,
+        np.ndarray[floating,ndim=2,mode='c'] expected_transcounts not None,
+        ):
+    # cdef int t
+    # cdef int T = expected_states.shape[0]
+    # cdef double normalizer = np.logaddexp.reduce(alphal[-1])
+    # for t in range(T-1):
+    #     np.exp(alphal[t] + betal[t] - normalizer,out=expected_states[t])
+    #     expected_transcounts += np.exp(alphal[t][:,None] + betal[t+1]
+    #             + log_likelihood_potential[t+1] + log_trans_potential - normalizer)
+    # np.exp(alphal[T-1] + betal[T-1] - normalizer,out=expected_states[T-1])
+
+    # return expected_states, expected_transcounts, normalizer
+
+    cdef hmmc[floating] ref
+    cdef floating log_normalizer = ref.expected_statistics_log(
+            log_trans_potential.shape[0],alphal.shape[0],
+            &log_trans_potential[0,0],
+            &log_likelihood_potential[0,0],
+            &alphal[0,0],
+            &betal[0,0],
+            &expected_states[0,0],
+            &expected_transcounts[0,0])
+    return expected_states, expected_transcounts, log_normalizer
+
+def messages_forwards_normalized(
+        floating[:,::1] A not None,
+        floating[:,::1] aBl not None,
+        floating[::1] pi0 not None,
+        np.ndarray[floating,ndim=2,mode="c"] alphan not None,
+        ):
+    cdef hmmc[floating] ref
+    cdef floating loglike = \
+            ref.messages_forwards_normalized(A.shape[0],aBl.shape[0],&A[0,0],&pi0[0],
+                &aBl[0,0],&alphan[0,0])
+    return alphan, loglike
 
 def sample_backwards_normalized(
         floating[:,::1] AT not None,

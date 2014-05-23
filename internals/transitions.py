@@ -104,7 +104,7 @@ class _HMMTransitionsMeanField(_HMMTransitionsBase):
             for distn in self._row_distns]))
 
     def meanfieldupdate(self,expected_transcounts):
-        assert isinstance(expected_transcounts,list)
+        assert isinstance(expected_transcounts,list) and len(expected_transcounts) > 0
         trans_softcounts = sum(expected_transcounts)
         for distn, counts in zip(self._row_distns,trans_softcounts):
             distn.meanfieldupdate(None,counts)
@@ -526,8 +526,7 @@ class WeakLimitHDPHSMMTransitions(
         _WeakLimitHDPHMMTransitionsGibbs,
         _HSMMTransitionsMaxLikelihood):
     # NOTE: required data augmentation handled in HSMMTransitions._count_transitions
-    # NOTE: include MaxLikelihood for convenience, uses
-    # _HMMTransitionsBase._count_transitions
+    # NOTE: include MaxLikelihood for convenience
     pass
 
 class WeakLimitHDPHSMMTransitionsConc(

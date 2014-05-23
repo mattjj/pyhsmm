@@ -8,7 +8,8 @@ from matplotlib import cm
 from basic.abstractions import Model, ModelGibbsSampling, \
         ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI
 import basic.distributions
-from internals import states, initial_state, transitions
+from internals import hmm_states, hsmm_states, hsmm_inb_states, \
+        initial_state, transitions
 import util.general
 from util.profiling import line_profiled
 
@@ -19,7 +20,7 @@ from util.profiling import line_profiled
 ################
 
 class _HMMBase(Model):
-    _states_class = states.HMMStatesPython
+    _states_class = hmm_states.HMMStatesPython
     _trans_class = transitions.HMMTransitions
     _trans_conc_class = transitions.HMMTransitionsConc
     _init_state_class = initial_state.HMMInitialState
@@ -277,16 +278,31 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
 
     def _meanfield_update_sweep(self):
         for s in self.states_list:
-            if not hasattr(s,'mf_expectations'):
+            if not hasattr(s,'expected_states'):
                 s.meanfieldupdate()
 
+        self.meanfield_update_parameters()
+        self.meanfield_update_states()
+
+    def meanfield_update_parameters(self):
+        self.meanfield_update_obs_distns()
+        self.meanfield_update_trans_distn()
+        self.meanfield_update_init_state_distn()
+
+    def meanfield_update_obs_distns(self):
         for state, o in enumerate(self.obs_distns):
             o.meanfieldupdate([s.data for s in self.states_list],
-                    [s.mf_expectations[:,state] for s in self.states_list])
+                    [s.expected_states[:,state] for s in self.states_list])
+
+    def meanfield_update_trans_distn(self):
         self.trans_distn.meanfieldupdate(
-                [s.mf_expected_transcounts for s in self.states_list])
+                [s.expected_transcounts for s in self.states_list])
+
+    def meanfield_update_init_state_distn(self):
         self.init_state_distn.meanfieldupdate(None,
-                [s.mf_expectations[0] for s in self.states_list])
+                [s.expected_states[0] for s in self.states_list])
+
+    def meanfield_update_states(self):
         for s in self.states_list:
             s.meanfieldupdate()
 
@@ -299,43 +315,65 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         return vlb
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
-    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize):
+    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
+        ## compute the local mean field step for the minibatch
+        if joblib_jobs == 0:
+            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
+            for s in mb_states_list:
+                s.meanfieldupdate()
+        else:
+            from joblib import Parallel, delayed
+            from parallel import _get_stats
+
+            from warnings import warn
+            warn('this is segfaulting, not sure why') # TODO
+
+            joblib_args = self._get_joblib_args(joblib_jobs,minibatch,**kwargs)
+            assert len(joblib_args) == joblib_jobs
+
+            allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+                    (delayed(_get_stats)(self,arg) for arg in joblib_args)
+
+            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
+            for s, stats in zip(mb_states_list,[s for grp in allstats for s in grp]):
+                s.all_expected_stats = stats
+
+        ## take a global step on the parameters
+        self._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
+
+    def _get_joblib_args(self,joblib_jobs,minibatch):
+        minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
+        return util.general.list_split(minibatch,joblib_jobs)
+
+    def _get_mb_states_list(self,minibatch,**kwargs):
         minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
         mb_states_list = []
         for mb in minibatch:
-            self.add_data(mb,stateseq=np.zeros(mb.shape[0])) # dummy
+            self.add_data(mb,stateseq=np.empty(mb.shape[0]),**kwargs) # dummy to hook stuff up
             mb_states_list.append(self.states_list.pop())
+        return mb_states_list
 
-        for s in mb_states_list:
-            s.meanfieldupdate()
+    def _meanfield_sgdstep_parameters(self,mb_states_list,minibatchfrac,stepsize):
+        self._meanfield_sgdstep_obs_distns(mb_states_list,minibatchfrac,stepsize)
+        self._meanfield_sgdstep_trans_distn(mb_states_list,minibatchfrac,stepsize)
+        self._meanfield_sgdstep_init_state_distn(mb_states_list,minibatchfrac,stepsize)
 
+    def _meanfield_sgdstep_obs_distns(self,mb_states_list,minibatchfrac,stepsize):
         for state, o in enumerate(self.obs_distns):
             o.meanfield_sgdstep(
                     [s.data for s in mb_states_list],
-                    [s.mf_expectations[:,state] for s in mb_states_list],
+                    [s.expected_states[:,state] for s in mb_states_list],
                     minibatchfrac,stepsize)
+
+    def _meanfield_sgdstep_trans_distn(self,mb_states_list,minibatchfrac,stepsize):
         self.trans_distn.meanfield_sgdstep(
-                [s.mf_expected_transcounts for s in mb_states_list],
+                [s.expected_transcounts for s in mb_states_list],
                 minibatchfrac,stepsize)
+
+    def _meanfield_sgdstep_init_state_distn(self,mb_states_list,minibatchfrac,stepsize):
         self.init_state_distn.meanfield_sgdstep(
-                None,[s.mf_expectations[0] for s in mb_states_list],
+                None,[s.expected_states[0] for s in mb_states_list],
                 minibatchfrac,stepsize)
-
-    def _meanfield_sgdstep_batch(self,stepsize):
-        # NOTE: this method is for convenient testing; it holds onto the data
-        # and computes an SGD step with respect to all of it, then reports the
-        # variational lower bound on all of it
-        for s in self.states_list:
-            if not hasattr(s,'mf_expectations'):
-                s.meanfieldupdate()
-
-        self.meanfield_sgdstep([s.data for s in self.states_list],1.,stepsize)
-
-        # NOTE: wasteful to recompute these, but we must do them after the
-        # updates have been computed for the vlb to be valid
-        for s in self.states_list:
-            s.meanfieldupdate()
-        return self._vlb()
 
     def heldout_vlb(self,datas):
         assert len(self.states_list) == 0
@@ -446,7 +484,7 @@ class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,_HMMViterbiEM):
     pass
 
 class HMM(HMMPython):
-    _states_class = states.HMMStatesEigen
+    _states_class = hmm_states.HMMStatesEigen
 
 class WeakLimitHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: shouldn't really inherit EM or ViterbiEM, but it's convenient!
@@ -481,7 +519,7 @@ class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
 #################
 
 class _HSMMBase(_HMMBase):
-    _states_class = states.HSMMStatesPython
+    _states_class = hsmm_states.HSMMStatesPython
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
     # _init_steady_state_class = initial_state.HSMMSteadyState # TODO
@@ -578,20 +616,21 @@ class _HSMMEM(_HSMMBase,_HMMEM):
         super(_HSMMEM,self)._M_step()
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
-                    [np.arange(1,s.T+1) for s in self.states_list],
+                    [np.arange(1,s.expected_durations[state].shape[0]+1)
+                        for s in self.states_list],
                     [s.expected_durations[state] for s in self.states_list])
 
 class _HSMMMeanField(_HSMMBase,_HMMMeanField):
-    def _meanfield_update_sweep(self):
-        # NOTE: need to do states last (in super)
-        for s in self.states_list:
-            if not hasattr(s,'mf_expectations'):
-                s.meanfieldupdate()
+    def meanfield_update_parameters(self):
+        super(_HSMMMeanField,self).meanfield_update_parameters()
+        self.meanfield_update_dur_distns()
+
+    def meanfield_update_dur_distns(self):
         for state, d in enumerate(self.dur_distns):
             d.meanfieldupdate(
-                    [np.arange(1,s.T+1) for s in self.states_list],
-                    [s.mf_expected_durations[state] for s in self.states_list])
-        super(_HSMMMeanField,self)._meanfield_update_sweep()
+                    [np.arange(1,s.expected_durations[state].shape[0]+1)
+                        for s in self.states_list],
+                    [s.expected_durations[state] for s in self.states_list])
 
     def _vlb(self):
         vlb = super(_HSMMMeanField,self)._vlb()
@@ -599,12 +638,16 @@ class _HSMMMeanField(_HSMMBase,_HMMMeanField):
         return vlb
 
 class _HSMMSVI(_HSMMBase,_HMMSVI):
-    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize):
-        super(_HSMMSVI,self).meanfield_sgdstep(minibatch,minibatchfrac,stepsize)
+    def _meanfield_sgdstep_parameters(self,mb_states_list,minibatchfrac,stepsize):
+        super(_HSMMSVI,self)._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
+        self._meanfield_sgdstep_dur_distns(mb_states_list,minibatchfrac,stepsize)
+
+    def _meanfield_sgdstep_dur_distns(self,mb_states_list,minibatchfrac,stepsize):
         for state, d in enumerate(self.dur_distns):
             d.meanfield_sgdstep(
-                    [np.arange(1,s.T+1) for s in self.states_list],
-                    [s.mf_expected_durations[state] for s in self.states_list],
+                    [np.arange(1,s.expected_durations[state].shape[0]+1)
+                        for s in mb_states_list],
+                    [s.expected_durations[state] for s in mb_states_list],
                     minibatchfrac,stepsize)
 
 class _HSMMINBEMMixin(_HMMEM,ModelEM):
@@ -623,11 +666,63 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
 
 class _HSMMPossibleChangepointsMixin(object):
-    _states_class = states.HSMMStatesPossibleChangepoints
+    _states_class = hsmm_states.HSMMStatesPossibleChangepoints
 
     def add_data(self,data,changepoints,**kwargs):
         super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
+
+    def _get_joblib_args(self,joblib_jobs,minibatch,changepoints):
+        if not isinstance(minibatch,(list,tuple)):
+            assert isinstance(minibatch,np.ndarray)
+            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
+            minibatch = [minibatch]
+            changepoints = [changepoints]
+        else:
+            assert  isinstance(changepoints,(list,tuple))  \
+                    and isinstance(changepoints[0],(list,tuple)) \
+                    and isinstance(changepoints[0][0],tuple)
+            assert len(minibatch) == len(changepoints)
+
+        return util.general.list_split(zip(*[minibatch,changepoints]),joblib_jobs)
+
+    def _get_mb_states_list(self,minibatch,changepoints,**kwargs):
+        if not isinstance(minibatch,(list,tuple)):
+            assert isinstance(minibatch,np.ndarray)
+            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
+            minibatch = [minibatch]
+            changepoints = [changepoints]
+        else:
+            assert  isinstance(changepoints,(list,tuple))  \
+                    and isinstance(changepoints[0],(list,tuple)) \
+                    and isinstance(changepoints[0][0],tuple)
+            assert len(minibatch) == len(changepoints)
+
+        mb_states_list = []
+        for data, changes in zip(minibatch,changepoints):
+            self.add_data(data,changepoints=changes,
+                    stateseq=np.empty(data.shape[0]),**kwargs)
+            mb_states_list.append(self.states_list.pop())
+        return mb_states_list
+
+    def log_likelihood(self,data=None,changepoints=None,**kwargs):
+        if data is not None:
+            assert changepoints is not None
+            if isinstance(data,np.ndarray):
+                assert isinstance(changepoints,list)
+                self.add_data(data=data,changepoints=changepoints,
+                        generate=False,**kwargs)
+                return self.states_list.pop().log_likelihood()
+            else:
+                assert isinstance(data,list) and isinstance(changepoints,list) \
+                        and len(changepoints) == len(data)
+                loglike = 0.
+                for d, c in zip(data,changepoints):
+                    self.add_data(data=d,changepoints=c,generate=False,**kwargs)
+                    loglike += self.states_list.pop().log_likelihood()
+                return loglike
+        else:
+            return sum(s.log_likelihood() for s in self.states_list)
 
     def _get_parallel_kwargss(self,states_objs):
         # TODO this is wasteful: it should be in _get_parallel_data
@@ -645,10 +740,10 @@ class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,_HSMMViterbiEM,_HSMM
     _trans_conc_class = transitions.HSMMTransitionsConc
 
 class HSMM(HSMMPython):
-    _states_class = states.HSMMStatesEigen
+    _states_class = hsmm_states.HSMMStatesEigen
 
 class HSMMHMMEmbedding(HSMMPython):
-    _states_class = states.HSMMStatesEmbedding
+    _states_class = hsmm_states.HSMMStatesEmbedding
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
@@ -664,10 +759,10 @@ class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.DATruncHDPHSMMTransitions
     _trans_conc_class = None
 
-class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMSVI,_HSMMViterbiEM):
+class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
-    _states_class = states.HSMMStatesIntegerNegativeBinomial
+    _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomial
 
     def _resample_from_mf(self):
         super(HSMMIntNegBin,self)._resample_from_mf()
@@ -684,7 +779,7 @@ class WeakLimitHDPHSMMIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
 class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
-    _states_class = states.HSMMStatesIntegerNegativeBinomialVariant
+    _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomialVariant
 
 class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
