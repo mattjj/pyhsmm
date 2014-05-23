@@ -7,7 +7,7 @@ from util.cyutil import cythonize # my version of Cython.Build.cythonize
 # NOTE: distutils makes no sense
 
 extra_link_args = []
-extra_compile_args = []
+extra_compile_args = ['-DHMM_TEMPS_ON_HEAP']
 
 if '--with-old-clang' in sys.argv:
     sys.argv.remove('--with-old-clang')
