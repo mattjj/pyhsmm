@@ -407,8 +407,22 @@ class _WeakLimitStickyHDPHMMTransitionsGibbs(
 
 class WeakLimitStickyHDPHMMTransitions(
         _WeakLimitStickyHDPHMMTransitionsGibbs,_HMMTransitionsMaxLikelihood):
-    # NOTE: include MaxLikelihood for convenience
+    # NOTE: includes MaxLikelihood for convenience
     pass
+
+class WeakLimitStickyHDPHMMTransitionsConc(_WeakLimitStickyHDPHMMTransitionsGibbs):
+    def __init__(self,
+            rho_a_0,rho_b_0,
+            alphakappa_a_0,alphakappa_b_0,
+            gamma_a_0,gamma_b_0,
+            **kwargs):
+        self.rho_a_0, self.rho_b_0 = rho_a_0, rho_b_0
+        self.rho = np.random.beta(rho_a_0,rho_b_0)
+
+        # TODO alpha_obj and beta_obj?
+        # TODO on resample, resample alpha and gamma, then resample rho and set
+        # kappa
+
 
 
 # DA Truncation

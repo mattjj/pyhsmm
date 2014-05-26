@@ -11,7 +11,7 @@ from ..util.profiling import line_profiled
 
 PROFILING = False
 
-from hmm_states import _StatesBase, HMMStatesPython
+from hmm_states import _StatesBase, HMMStatesPython, HMMStatesEigen
 
 class HSMMStatesPython(_StatesBase):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
@@ -322,8 +322,7 @@ class HSMMStatesPython(_StatesBase):
 
     ### Gibbs sampling
 
-    def resample(self,temp=None):
-        self.temp = temp
+    def resample(self):
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
@@ -557,6 +556,28 @@ class HSMMStatesEigen(HSMMStatesPython):
             for s, loglike, stateseq in zip(states_list,loglikes,stateseqs):
                 s._normalizer = loglike
                 s.stateseq = stateseq
+
+
+class GeoHSMMStates(HSMMStatesPython):
+    def resample(self):
+        alphan, self._normalizer = HMMStatesEigen._messages_forwards_normalized(
+                self.hmm_trans_matrix,
+                self.pi_0,
+                self.aBl)
+        self.stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,
+                self.hmm_trans_matrix.T.copy())
+
+    @property
+    def hmm_trans_matrix(self):
+        A = self.trans_matrix.copy()
+        ps = np.array([d.p for d in self.dur_distns])
+
+        A *= ps[:,na]
+        A.flat[::A.shape[0]+1] = 1-ps
+        assert np.allclose(1.,A.sum(1))
+
+        return A
 
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):

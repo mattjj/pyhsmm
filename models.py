@@ -754,6 +754,9 @@ class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
+class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
+    _states_class = hsmm_states.GeoHSMMStates
+
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method
     _trans_class = transitions.DATruncHDPHSMMTransitions
