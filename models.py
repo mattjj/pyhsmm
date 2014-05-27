@@ -796,11 +796,6 @@ class HSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,HSMMPython):
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMM):
     pass
 
-class HSMMPossibleChangepointsSeparateTrans(
-        _SeparateTransMixin,
-        HSMMPossibleChangepoints):
-    pass
-
 class WeakLimitHDPHSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMMPython):
     pass
 
@@ -853,3 +848,7 @@ class _SeparateTransMixin(object):
     def Viterbi_EM_step(self):
         raise NotImplementedError
 
+class HSMMPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HSMMPossibleChangepoints):
+    pass
