@@ -64,14 +64,6 @@ class _StatesBase(object):
     def generate_states(self):
         pass
 
-#     def generate_obs(self):
-#         np.bincount(self.stateseq)
-#         obs = []
-#         for state,dur in zip(*rle(self.stateseq)):
-#             obs.append(self.obs_distns[state].rvs(int(dur)))
-#         self.data = np.concatenate(obs)
-#         return self.data
-
     def generate_obs(self):
         counts = np.bincount(self.stateseq,minlength=self.num_states)
         obs = [iter(o.rvs(count)) for o, count in zip(self.obs_distns,counts)]
@@ -100,6 +92,28 @@ class _StatesBase(object):
     def log_likelihood(self):
         pass
 
+class _SeparateTransMixin(object):
+    def __init__(self,group_id,*args,**kwargs):
+        self.group_id = group_id
+        super(_SeparateTransMixin,self).__init__(*args,**kwargs)
+
+    @property
+    def trans_matrix(self):
+        return self.model.trans_distns[self.group_id].trans_matrix
+
+    @property
+    def pi_0(self):
+        return self.model.init_state_distns[self.group_id].pi_0
+
+    @property
+    def mf_trans_matrix(self):
+        return np.maximum(
+                self.model.trans_distns[self.group_id].exp_expected_log_trans_matrix,
+                1e-3)
+
+    @property
+    def mf_pi_0(self):
+        return self.model.init_state_distns[self.group_id].exp_expected_log_init_state_distn
 
 class HMMStatesPython(_StatesBase):
     ### generation

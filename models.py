@@ -742,8 +742,9 @@ class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,_HSMMViterbiEM,_HSMM
 class HSMM(HSMMPython):
     _states_class = hsmm_states.HSMMStatesEigen
 
-class HSMMHMMEmbedding(HSMMPython):
-    _states_class = hsmm_states.HSMMStatesEmbedding
+# NOTE: this class is just for testing things
+class _HSMMHMMEmbedding(HSMMPython):
+    _states_class = hsmm_states._HSMMStatesEmbedding
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
@@ -795,9 +796,60 @@ class HSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,HSMMPython):
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMM):
     pass
 
+class HSMMPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HSMMPossibleChangepoints):
+    pass
+
 class WeakLimitHDPHSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMMPython):
     pass
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):
     pass
+
+##########
+#  meta  #
+##########
+
+class _SeparateTransMixin(object):
+    def __init__(self,*args,**kwargs):
+        super(_SeparateTransMixin,self).__init__(*args,**kwargs)
+        self.trans_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.trans_distn))
+        self.init_state_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.init_state_distn))
+
+    ### Gibbs sampling
+
+    def resample_trans_distn(self):
+        for group_id, trans_distn in self.trans_distns.iteritems():
+            trans_distn.resample([s.stateseq for s in self.states_list
+                if s.group_id == group_id])
+        self._clear_caches()
+
+    def resample_init_state_distn(self):
+        for group_id, init_state_distn in self.init_state_distns.iteritems():
+            init_state_distn.resample([s.stateseq[0] for s in self.states_list
+                if s.group_id == group_id])
+        self._clear_caches()
+
+    ### Mean field
+
+    def meanfield_coordinate_descent_step(self):
+        raise NotImplementedError
+
+    ### SVI
+
+    def meanfield_sgdstep(self,*args,**kwargs):
+        raise NotImplementedError
+
+    ### EM
+
+    def EM_step(self):
+        raise NotImplementedError
+
+    ### Viterbi
+
+    def Viterbi_EM_step(self):
+        raise NotImplementedError
 

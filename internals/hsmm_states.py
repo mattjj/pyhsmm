@@ -11,7 +11,8 @@ from ..util.profiling import line_profiled
 
 PROFILING = False
 
-from hmm_states import _StatesBase, HMMStatesPython, HMMStatesEigen
+from hmm_states import _StatesBase, _SeparateTransMixin, \
+        HMMStatesPython, HMMStatesEigen
 
 class HSMMStatesPython(_StatesBase):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
@@ -860,9 +861,14 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         np.seterr(**errs)
         return np.exp(logpmfs.T)
 
+class HSMMStatesPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesPossibleChangepoints):
+    pass
 
-class HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
-    # NOTE: this class is purely for testing HSMM messages
+
+# NOTE: this class is purely for testing HSMM messages
+class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
 
     @property
     def hmm_aBl(self):
