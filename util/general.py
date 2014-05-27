@@ -243,7 +243,7 @@ def sgd_sampling(tau,kappa,datalist,minibatchsize=1):
 
 # TODO should probably eliminate this function
 def minibatchsize(lst):
-    return sum(d.shape[0] for d in lst)
+    return float(sum(d.shape[0] for d in lst))
 
 ### misc
 
