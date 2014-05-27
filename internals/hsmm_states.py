@@ -861,8 +861,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         return np.exp(logpmfs.T)
 
 
-class HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
-    # NOTE: this class is purely for testing HSMM messages
+
+# NOTE: this class is purely for testing HSMM messages
+class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
 
     @property
     def hmm_aBl(self):

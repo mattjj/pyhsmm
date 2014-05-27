@@ -64,14 +64,6 @@ class _StatesBase(object):
     def generate_states(self):
         pass
 
-#     def generate_obs(self):
-#         np.bincount(self.stateseq)
-#         obs = []
-#         for state,dur in zip(*rle(self.stateseq)):
-#             obs.append(self.obs_distns[state].rvs(int(dur)))
-#         self.data = np.concatenate(obs)
-#         return self.data
-
     def generate_obs(self):
         counts = np.bincount(self.stateseq,minlength=self.num_states)
         obs = [iter(o.rvs(count)) for o, count in zip(self.obs_distns,counts)]
