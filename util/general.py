@@ -218,28 +218,34 @@ def sgd_onepass(tau,kappa,datalist,minibatchsize=1):
 
     if minibatchsize == 1:
         perm = np.random.permutation(N)
-        for t, (idx, rho_t) in enumerate(izip(perm,sgd_steps(tau,kappa))):
-            yield t, (datalist[idx], rho_t)
+        for idx, rho_t in izip(perm,sgd_steps(tau,kappa)):
+            yield datalist[idx], rho_t
     else:
         minibatch_indices = np.array_split(np.random.permutation(N),N/minibatchsize)
-        for t, (indices, rho_t) in enumerate(izip(minibatch_indices,sgd_steps(tau,kappa))):
-            yield t, ([datalist[idx] for idx in indices], rho_t)
+        for indices, rho_t in izip(minibatch_indices,sgd_steps(tau,kappa)):
+            yield [datalist[idx] for idx in indices], rho_t
 
 def sgd_manypass(tau,kappa,datalist,npasses,minibatchsize=1):
-    N = len(datalist)
     for itr in xrange(npasses):
         for x in sgd_onepass(tau,kappa,datalist,minibatchsize=minibatchsize):
             yield x
 
-def sgd_sampling(tau,kappa,datalist,niter):
-    indices = np.random.randint(len(datalist),size=niter)
-    for t, (idx, rho_t) in enumerate(izip(indices,sgd_steps(tau,kappa))):
-        yield t, (datalist[idx], rho_t)
+def sgd_sampling(tau,kappa,datalist,minibatchsize=1):
+    N = len(datalist)
+    if minibatchsize == 1:
+        for rho_t in sgd_steps(tau,kappa):
+            minibatch_index = np.random.choice(N)
+            yield datalist[minibatch_index], rho_t
+    else:
+        for rho_t in sgd_steps(tau,kappa):
+            minibatch_indices = np.random.choice(N,size=minibatchsize,replace=False)
+            yield [datalist[idx] for idx in minibatch_indices], rho_t
 
-# TODO sgd until convergence (advance iterator with .next(error) or something)
-
+# TODO should probably eliminate this function
 def minibatchsize(lst):
     return sum(d.shape[0] for d in lst)
+
+### misc
 
 def random_subset(lst,sz):
     perm = np.random.permutation(len(lst))
