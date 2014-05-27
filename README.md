@@ -1,4 +1,4 @@
-# Inference for Bayesian HSMMs and HMMs #
+# Bayesian inference in HSMMs and HMMs #
 This is a Python library for approximate unsupervised inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
