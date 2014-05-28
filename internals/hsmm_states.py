@@ -62,7 +62,7 @@ class HSMMStatesPython(_StatesBase):
     @property
     def trunc_slice(self):
         if self.left_censoring and self.right_censoring:
-            return [0,-1]
+            return [0,-1] if len(self.stateseq_norep) > 1 else [0]
         elif self.left_censoring:
             return [0]
         elif self.right_censoring:
@@ -1047,8 +1047,9 @@ def hsmm_sample_forwards_log(
     while t < T:
         ## sample the state
         nextstate_distn_log = nextstate_unsmoothed + betastarl[t]
-        state = sample_discrete(np.exp(
-            nextstate_distn_log - np.logaddexp.reduce(nextstate_distn_log)))
+        nextstate_distn = np.exp(nextstate_distn_log - np.logaddexp.reduce(nextstate_distn_log))
+        assert nextstate_distn.sum() > 0
+        state = sample_discrete(nextstate_distn)
 
         ## sample the duration
         dur_logpmf = dur_potentials(t)[:,state]
