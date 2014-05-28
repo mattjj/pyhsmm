@@ -742,8 +742,8 @@ class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,_HSMMViterbiEM,_HSMM
 class HSMM(HSMMPython):
     _states_class = hsmm_states.HSMMStatesEigen
 
-class HSMMHMMEmbedding(HSMMPython):
-    _states_class = hsmm_states.HSMMStatesEmbedding
+# class HSMMHMMEmbedding(HSMMPython):
+#     _states_class = hsmm_states.HSMMStatesEmbedding
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
