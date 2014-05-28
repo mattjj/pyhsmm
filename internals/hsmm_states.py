@@ -66,7 +66,7 @@ class HSMMStatesPython(_StatesBase):
         elif self.left_censoring:
             return [0]
         elif self.right_censoring:
-            return [1]
+            return [1] if len(self.stateseq_norep) > 1 else [0]
         else:
             return []
 
