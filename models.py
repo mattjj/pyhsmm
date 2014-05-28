@@ -495,7 +495,7 @@ class WeakLimitHDPHMM(_WeakLimitHDPMixin,HMM):
     _trans_class = transitions.WeakLimitHDPHMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
 
-class DATruncHDPHMM(_WeakLimitHDPMixin,HMMPython):
+class DATruncHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: weak limit mixin is poorly named; we just want its init method
     _trans_class = transitions.DATruncHDPHMMTransitions
     _trans_conc_class = None
