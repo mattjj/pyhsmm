@@ -4,7 +4,7 @@ np.seterr(divide='ignore')
 from matplotlib import pyplot as plt
 
 import pyhsmm
-from pyhsmm.util.text import progprint_xrange
+from pyhsmm.util.text import progprint_xrange, progprint
 from pyhsmm.util.general import sgd_passes
 
 # TODO generate data from a separatetrans model
@@ -65,21 +65,30 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 
 ### sampling
 
-# for data, changepoints in zip(datas,changepointss):
-#     posteriormodel.add_data(data=data,changepoints=changepoints)
+for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
-# for idx in progprint_xrange(50):
-#     posteriormodel.resample_model()
+for idx in progprint_xrange(50):
+    posteriormodel.resample_model()
 
 ### SVI
 
+# sgdseq = sgd_passes(
+#         tau=0,kappa=0.7,npasses=20,
+#         datalist=zip(range(len(datas)),datas,changepointss))
 
+# for (group_id,data,changepoints), rho_t in progprint(sgdseq):
+#     posteriormodel.meanfield_sgdstep(
+#             data,changepoints=changepoints,group_id=group_id,
+#             minibatchfrac=1./3,stepsize=rho_t)
 
 ### plot
 
 plt.figure()
+for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+    posteriormodel.add_data(data,changepoints=changepoints,group_id=idx)
+    posteriormodel.states_list[-1].mf_Viterbi()
 posteriormodel.plot()
-plt.gcf().suptitle('HDP-HSMM sampled after 100 iterations')
 
 plt.show()
 

@@ -864,5 +864,5 @@ class _SeparateTransMixin(object):
 class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):
-    pass
+    _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
 
