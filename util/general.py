@@ -213,22 +213,18 @@ def hold_out(datalist,frac):
     split = int(np.ceil(frac * N))
     return [datalist[i] for i in perm[split:]], [datalist[i] for i in perm[:split]]
 
-def sgd_onepass(tau,kappa,datalist,minibatchsize=1):
+def sgd_passes(tau,kappa,datalist,minibatchsize=1,npasses=1):
     N = len(datalist)
 
-    if minibatchsize == 1:
-        perm = np.random.permutation(N)
-        for idx, rho_t in izip(perm,sgd_steps(tau,kappa)):
-            yield datalist[idx], rho_t
-    else:
-        minibatch_indices = np.array_split(np.random.permutation(N),N/minibatchsize)
-        for indices, rho_t in izip(minibatch_indices,sgd_steps(tau,kappa)):
-            yield [datalist[idx] for idx in indices], rho_t
-
-def sgd_manypass(tau,kappa,datalist,npasses,minibatchsize=1):
-    for itr in xrange(npasses):
-        for x in sgd_onepass(tau,kappa,datalist,minibatchsize=minibatchsize):
-            yield x
+    for superitr in xrange(npasses):
+        if minibatchsize == 1:
+            perm = np.random.permutation(N)
+            for idx, rho_t in izip(perm,sgd_steps(tau,kappa)):
+                yield datalist[idx], rho_t
+        else:
+            minibatch_indices = np.array_split(np.random.permutation(N),N/minibatchsize)
+            for indices, rho_t in izip(minibatch_indices,sgd_steps(tau,kappa)):
+                yield [datalist[idx] for idx in indices], rho_t
 
 def sgd_sampling(tau,kappa,datalist,minibatchsize=1):
     N = len(datalist)

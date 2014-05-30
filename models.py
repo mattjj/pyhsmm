@@ -865,3 +865,4 @@ class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):
     pass
+

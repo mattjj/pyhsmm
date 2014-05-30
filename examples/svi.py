@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from os.path import join, dirname, isfile
 
 from pyhsmm import models, distributions
-from pyhsmm.util.general import sgd_onepass, hold_out, get_file
+from pyhsmm.util.general import sgd_passes, hold_out, get_file
 from pyhsmm.util.text import progprint_xrange, progprint
 
 np.random.seed(0)
@@ -38,7 +38,7 @@ hmm = models.HMM(
         alpha=10.,init_state_concentration=1.)
 
 scores = []
-sgdseq = sgd_onepass(tau=0,kappa=0.7,datalist=datas)
+sgdseq = sgd_passes(tau=0,kappa=0.7,datalist=datas)
 for t, (data, rho_t) in progprint(enumerate(sgdseq)):
     hmm.meanfield_sgdstep(data, data.shape[0] / training_size, rho_t)
 

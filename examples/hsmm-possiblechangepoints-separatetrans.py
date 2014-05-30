@@ -5,6 +5,10 @@ from matplotlib import pyplot as plt
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
+from pyhsmm.util.general import sgd_passes
+
+# TODO generate data from a separatetrans model
+# TODO call SVI instead
 
 #####################
 #  data generation  #
@@ -55,14 +59,23 @@ Nmax = 25
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(alpha=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
+        alpha=6.,init_state_concentration=6.,
         obs_distns=obs_distns,dur_distns=dur_distns)
 
-for data, changepoints in zip(datas,changepointss):
-    posteriormodel.add_data(data=data,changepoints=changepoints)
+### sampling
 
-for idx in progprint_xrange(50):
-    posteriormodel.resample_model()
+# for data, changepoints in zip(datas,changepointss):
+#     posteriormodel.add_data(data=data,changepoints=changepoints)
+
+# for idx in progprint_xrange(50):
+#     posteriormodel.resample_model()
+
+### SVI
+
+
+
+### plot
 
 plt.figure()
 posteriormodel.plot()
