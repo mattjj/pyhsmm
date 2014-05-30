@@ -372,7 +372,7 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
 
     def _meanfield_sgdstep_init_state_distn(self,mb_states_list,minibatchfrac,stepsize):
         self.init_state_distn.meanfield_sgdstep(
-                None,[s.expected_states[0] for s in mb_states_list],
+                [s.expected_states[0] for s in mb_states_list],
                 minibatchfrac,stepsize)
 
     def heldout_vlb(self,datas):
@@ -409,7 +409,7 @@ class _HMMEM(_HMMBase,ModelEM):
                     [s.expectations[:,state] for s in self.states_list])
 
         self.init_state_distn.max_likelihood(
-                None,weights=[s.expectations[0] for s in self.states_list])
+                weights=[s.expectations[0] for s in self.states_list])
 
         self.trans_distn.max_likelihood(
                 expected_transcounts=[s.expected_transcounts for s in self.states_list])
@@ -818,24 +818,38 @@ class _SeparateTransMixin(object):
     def resample_trans_distn(self):
         for group_id, trans_distn in self.trans_distns.iteritems():
             trans_distn.resample([s.stateseq for s in self.states_list
-                if s.group_id == group_id])
+                if hash(s.group_id) == hash(group_id)])
         self._clear_caches()
 
     def resample_init_state_distn(self):
         for group_id, init_state_distn in self.init_state_distns.iteritems():
             init_state_distn.resample([s.stateseq[0] for s in self.states_list
-                if s.group_id == group_id])
+                if hash(s.group_id) == hash(group_id)])
         self._clear_caches()
 
     ### Mean field
 
-    def meanfield_coordinate_descent_step(self):
+    def meanfield_update_trans_distn(self):
+        raise NotImplementedError
+
+    def meanfield_update_init_state_distn(self):
         raise NotImplementedError
 
     ### SVI
 
-    def meanfield_sgdstep(self,*args,**kwargs):
-        raise NotImplementedError
+    def _meanfield_sgdstep_trans_distn(self,mb_states_list,minibatchfrac,stepsize):
+        for group_id, trans_distn in self.trans_distns.iteritems():
+            trans_distn.meanfield_sgdstep(
+                    [s.expected_transcounts for s in mb_states_list
+                        if hash(s.group_id) == hash(group_id)],
+                    minibatchfrac,stepsize)
+
+    def _meanfield_sgdstep_init_state_distn(self,mb_states_list,minibatchfrac,stepsize):
+        for group_id, init_state_distn in self.init_state_distns.iteritems():
+            init_state_distn.meanfield_sgdstep(
+                    [s.expected_states[0] for s in mb_states_list
+                        if hash(s.group_id) == hash(group_id)],
+                    minibatchfrac,stepsize)
 
     ### EM
 
