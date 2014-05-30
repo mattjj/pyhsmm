@@ -420,7 +420,7 @@ class _DATruncHDPHMMTransitionsBase(_HMMTransitionsBase):
         self.gamma = gamma
         self._alpha = alpha
         if beta is None:
-            beta = np.ones(num_states) / (num_states+1)
+            beta = np.ones(num_states) / (num_states + 1)
             # beta = self._sample_GEM(gamma,num_states)
         assert not np.isnan(beta).any()
 
