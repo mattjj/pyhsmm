@@ -93,7 +93,8 @@ class _StatesBase(object):
         pass
 
 class _SeparateTransMixin(object):
-    def __init__(self,group_id,*args,**kwargs):
+    def __init__(self,group_id,**kwargs):
+        assert not isinstance(group_id,np.ndarray)
         self.group_id = group_id
         super(_SeparateTransMixin,self).__init__(*args,**kwargs)
 
