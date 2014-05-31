@@ -257,3 +257,14 @@ def list_split(lst,num):
     assert num > 0
     return [lst[start::num] for start in range(num)]
 
+def indicators_to_changepoints(indseq,which='ends'):
+    shift = 1 if which == 'ends' else 0
+    changes = list(shift + np.where(indseq)[0])
+
+    if changes[0] != 0:
+        changes.insert(0,0)
+    if changes[-1] != len(indseq):
+        changes.append(len(indseq))
+
+    return zip(changes[:-1],changes[1:])
+
