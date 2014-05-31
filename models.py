@@ -230,47 +230,6 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         new.states_list = [s.copy_sample(new) for s in self.states_list]
         return new
 
-    ### parallel
-
-    def add_data_parallel(self,data,broadcast=False,**kwargs):
-        import parallel
-        self.add_data(data=data,**kwargs)
-        if broadcast:
-            parallel.broadcast_data(self._get_parallel_data(data))
-        else:
-            parallel.add_data(self._get_parallel_data(self.states_list[-1]))
-
-    def resample_model_parallel(self,temp=None):
-        self.resample_parameters(temp=temp)
-        self.resample_states_parallel(temp=temp)
-
-    def resample_states_parallel(self,temp=None):
-        import parallel
-        states_to_resample = self.states_list
-        self.states_list = [] # removed because we push the global model
-        raw = parallel.map_on_each(
-                self._state_sampler,
-                [self._get_parallel_data(s) for s in states_to_resample],
-                kwargss=self._get_parallel_kwargss(states_to_resample),
-                engine_globals=dict(global_model=self,temp=temp))
-        for s, stateseq in zip(states_to_resample,raw):
-            s.stateseq = stateseq
-        self.states_list = states_to_resample
-
-    def _get_parallel_data(self,states_obj):
-        return states_obj.data
-
-    def _get_parallel_kwargss(self,states_objs):
-        # this method is broken out so that it can be overridden
-        return None
-
-    @staticmethod
-    @util.general.engine_global_namespace # access to engine globals
-    def _state_sampler(data,**kwargs):
-        # expects globals: global_model, temp
-        global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
-        return global_model.states_list.pop().stateseq
-
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):
         self._meanfield_update_sweep(joblib_jobs=joblib_jobs)
@@ -600,12 +559,6 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
         new.dur_distns = [d.copy_sample() for d in self.dur_distns]
         return new
 
-    ### parallel
-
-    def _get_parallel_kwargss(self,states_objs):
-        return [dict(trunc=s.trunc,left_censoring=s.left_censoring,
-                    right_censoring=s.right_censoring) for s in states_objs]
-
 class _HSMMEM(_HSMMBase,_HMMEM):
     def _M_step(self):
         super(_HSMMEM,self)._M_step()
@@ -704,13 +657,6 @@ class _HSMMPossibleChangepointsMixin(object):
                 return loglike
         else:
             return sum(s.log_likelihood() for s in self.states_list)
-
-    def _get_parallel_kwargss(self,states_objs):
-        # TODO this is wasteful: it should be in _get_parallel_data
-        dcts = super(HSMMPossibleChangepoints,self)._get_parallel_kwargss(states_objs)
-        for dct, states_obj in zip(dcts,states_objs):
-            dct.update(dict(changepoints=states_obj.changepoints))
-        return dcts
 
 #################
 #  HSMM Models  #
