@@ -68,14 +68,14 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 
 ### sampling
 
-for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+#     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
-for idx in progprint_xrange(100):
-    posteriormodel.resample_model(joblib_jobs=1)
+# for idx in progprint_xrange(100):
+#     posteriormodel.resample_model(joblib_jobs=1)
 
-plt.figure()
-posteriormodel.plot()
+# plt.figure()
+# posteriormodel.plot()
 
 
 ### SVI
@@ -97,17 +97,17 @@ posteriormodel.plot()
 
 ### mean field
 
-# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-#     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
-# scores = []
-# for idx in progprint_xrange(50):
-#     scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
+scores = []
+for idx in progprint_xrange(50):
+    scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
 
-# plt.figure()
-# plt.plot(scores)
-# plt.figure()
-# posteriormodel.plot()
+plt.figure()
+plt.plot(scores)
+plt.figure()
+posteriormodel.plot()
 
 
 plt.show()

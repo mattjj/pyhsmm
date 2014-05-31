@@ -13,8 +13,6 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
-# TODO get rid of logical indexing with a data abstraction
-
 ################
 #  HMM Mixins  #
 ################
@@ -638,21 +636,25 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
 class _HSMMPossibleChangepointsMixin(object):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
 
-    def add_data(self,data,changepoints,**kwargs):
+    def add_data(self,data,changepoints=None,**kwargs):
         super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
 
-    def _get_mb_states_list(self,minibatch,changepoints,**kwargs):
-        if not isinstance(minibatch,(list,tuple)):
-            assert isinstance(minibatch,np.ndarray)
-            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
-            minibatch = [minibatch]
-            changepoints = [changepoints]
-        else:
-            assert  isinstance(changepoints,(list,tuple))  \
-                    and isinstance(changepoints[0],(list,tuple)) \
-                    and isinstance(changepoints[0][0],tuple)
-            assert len(minibatch) == len(changepoints)
+    def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
+        if changepoints is not None:
+            if not isinstance(minibatch,(list,tuple)):
+                assert isinstance(minibatch,np.ndarray)
+                assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
+                minibatch = [minibatch]
+                changepoints = [changepoints]
+            else:
+                assert  isinstance(changepoints,(list,tuple))  \
+                        and isinstance(changepoints[0],(list,tuple)) \
+                        and isinstance(changepoints[0][0],tuple)
+                assert len(minibatch) == len(changepoints)
+
+        changepoints = changepoints if changepoints is not None \
+                else [None]*len(minibatch)
 
         mb_states_list = []
         for data, changes in zip(minibatch,changepoints):
@@ -663,15 +665,17 @@ class _HSMMPossibleChangepointsMixin(object):
 
     def log_likelihood(self,data=None,changepoints=None,**kwargs):
         if data is not None:
-            assert changepoints is not None
             if isinstance(data,np.ndarray):
                 assert isinstance(changepoints,list)
                 self.add_data(data=data,changepoints=changepoints,
                         generate=False,**kwargs)
                 return self.states_list.pop().log_likelihood()
             else:
-                assert isinstance(data,list) and isinstance(changepoints,list) \
-                        and len(changepoints) == len(data)
+                assert isinstance(data,list) and (changepoints is None
+                    or isinstance(changepoints,list) and len(changepoints) == len(data))
+                changepoints = changepoints if changepoints is not None \
+                        else [None]*len(data)
+
                 loglike = 0.
                 for d, c in zip(data,changepoints):
                     self.add_data(data=d,changepoints=c,generate=False,**kwargs)

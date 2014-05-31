@@ -582,7 +582,10 @@ class GeoHSMMStates(HSMMStatesPython):
 
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
-    def __init__(self,model,data,changepoints,**kwargs):
+    def __init__(self,model,data,changepoints=None,**kwargs):
+        changepoints = changepoints if changepoints is not None \
+                else [(t,t+1) for t in xrange(data.shape[0])]
+
         self.changepoints = changepoints
         self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
