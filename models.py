@@ -272,17 +272,20 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         return global_model.states_list.pop().stateseq
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
-    def meanfield_coordinate_descent_step(self):
-        self._meanfield_update_sweep()
+    def meanfield_coordinate_descent_step(self,joblib_jobs=0):
+        self._meanfield_update_sweep(joblib_jobs=joblib_jobs)
         return self._vlb()
 
-    def _meanfield_update_sweep(self):
-        for s in self.states_list:
-            if not hasattr(s,'expected_states'):
-                s.meanfieldupdate()
+    def _meanfield_update_sweep(self,joblib_jobs=0):
+        # NOTE: we want to update the states factor last to make the VLB
+        # computation efficient, but to update the parameters first we have to
+        # ensure everything in states_list has expected statistics computed
+        self._meanfield_update_states_list(
+            [s for s in self.states_list if not hasattr(s,'expected_states')],
+            joblib_jobs)
 
         self.meanfield_update_parameters()
-        self.meanfield_update_states()
+        self.meanfield_update_states(joblib_jobs)
 
     def meanfield_update_parameters(self):
         self.meanfield_update_obs_distns()
@@ -302,9 +305,15 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         self.init_state_distn.meanfieldupdate(None,
                 [s.expected_states[0] for s in self.states_list])
 
-    def meanfield_update_states(self):
-        for s in self.states_list:
-            s.meanfieldupdate()
+    def meanfield_update_states(self,joblib_jobs=0):
+        self._meanfield_update_states_list(self.states_list,joblib_jobs=joblib_jobs)
+
+    def _meanfield_update_states_list(self,states_list,joblib_jobs=0):
+        if joblib_jobs == 0:
+            for s in states_list:
+                s.meanfieldupdate()
+        else:
+            self._joblib_meanfield_update_states(self.states_list,joblib_jobs)
 
     def _vlb(self):
         vlb = 0.
@@ -314,36 +323,37 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
-class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
+    ### joblib parallel stuff here
+
+    def _joblib_meanfield_update_states(self,states_list,joblib_jobs):
+        from joblib import Parallel, delayed
+        from parallel import _get_stats
+
+        from warnings import warn
+        warn('this is segfaulting on OS X only, not sure why')
+
+        joblib_args = self._get_joblib_args(states_list,joblib_jobs)
+        allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+                (delayed(_get_stats)(self,arg) for arg in joblib_args)
+
+        for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
+            s.all_expected_stats = stats
+
+    def _get_joblib_args(self,states_list,joblib_jobs):
+        return util.general.list_split([s.data for s in states_list],joblib_jobs)
+
+class _HMMSVI(_HMMBase,_HMMMeanField,ModelMeanFieldSVI):
     def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
         ## compute the local mean field step for the minibatch
+        mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
         if joblib_jobs == 0:
-            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
             for s in mb_states_list:
                 s.meanfieldupdate()
         else:
-            from joblib import Parallel, delayed
-            from parallel import _get_stats
-
-            from warnings import warn
-            warn('this is segfaulting, not sure why') # TODO
-
-            joblib_args = self._get_joblib_args(joblib_jobs,minibatch,**kwargs)
-            assert len(joblib_args) == joblib_jobs
-
-            allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(_get_stats)(self,arg) for arg in joblib_args)
-
-            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
-            for s, stats in zip(mb_states_list,[s for grp in allstats for s in grp]):
-                s.all_expected_stats = stats
+            self._joblib_meanfield_update_states(mb_states_list,joblib_jobs)
 
         ## take a global step on the parameters
         self._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
-
-    def _get_joblib_args(self,joblib_jobs,minibatch):
-        minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
-        return util.general.list_split(minibatch,joblib_jobs)
 
     def _get_mb_states_list(self,minibatch,**kwargs):
         minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
@@ -374,23 +384,6 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
         self.init_state_distn.meanfield_sgdstep(
                 [s.expected_states[0] for s in mb_states_list],
                 minibatchfrac,stepsize)
-
-    def heldout_vlb(self,datas):
-        assert len(self.states_list) == 0
-
-        if isinstance(datas,list):
-            for data in datas:
-                self.add_data(data)
-        else:
-            self.add_data(datas)
-
-        for s in self.states_list:
-            s.meanfieldupdate()
-
-        vlb = self._vlb()
-
-        self.states_list = []
-        return vlb
 
 class _HMMEM(_HMMBase,ModelEM):
     def EM_step(self):
@@ -672,19 +665,10 @@ class _HSMMPossibleChangepointsMixin(object):
         super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
 
-    def _get_joblib_args(self,joblib_jobs,minibatch,changepoints):
-        if not isinstance(minibatch,(list,tuple)):
-            assert isinstance(minibatch,np.ndarray)
-            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
-            minibatch = [minibatch]
-            changepoints = [changepoints]
-        else:
-            assert  isinstance(changepoints,(list,tuple))  \
-                    and isinstance(changepoints[0],(list,tuple)) \
-                    and isinstance(changepoints[0][0],tuple)
-            assert len(minibatch) == len(changepoints)
-
-        return util.general.list_split(zip(*[minibatch,changepoints]),joblib_jobs)
+    def _get_joblib_args(self,states_list,joblib_jobs):
+        return util.general.list_split(
+                [(s.data,{'changepoints':s.changepoints}) for s in states_list],
+                joblib_jobs)
 
     def _get_mb_states_list(self,minibatch,changepoints,**kwargs):
         if not isinstance(minibatch,(list,tuple)):

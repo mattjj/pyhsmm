@@ -160,10 +160,14 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
 ### MISC / TEMP
 
 def _get_stats(model,grp):
-    datas, changepointss = zip(*grp)
+    if len(grp) > 0 and isinstance(grp[0],(list,tuple)):
+        datas, kwargss = zip(*grp)
+    else:
+        datas, kwargss = zip(grp,[{}]*len(grp))
+
     mb_states_list = []
-    for data, changepoints in zip(datas,changepointss):
-        model.add_data(data,changepoints=changepoints,stateseq=np.empty(data.shape[0]))
+    for data, kwargs in zip(datas,kwargss):
+        model.add_data(data,stateseq=np.empty(data.shape[0]),**kwargs)
         mb_states_list.append(model.states_list.pop())
 
     for s in mb_states_list:
