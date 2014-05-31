@@ -302,7 +302,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
                 [s.expected_transcounts for s in self.states_list])
 
     def meanfield_update_init_state_distn(self):
-        self.init_state_distn.meanfieldupdate(None,
+        self.init_state_distn.meanfieldupdate(
                 [s.expected_states[0] for s in self.states_list])
 
     def meanfield_update_states(self,joblib_jobs=0):
