@@ -98,17 +98,16 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 ### mean field
 
 for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=0)
-    # posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
 scores = []
-for idx in progprint_xrange(25):
+for idx in progprint_xrange(50):
     scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
 
-# plt.figure()
-# plt.plot(scores)
-# plt.figure()
-# posteriormodel.plot()
+plt.figure()
+plt.plot(scores)
+plt.figure()
+posteriormodel.plot()
 
 
 plt.show()
