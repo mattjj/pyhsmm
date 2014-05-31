@@ -313,7 +313,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             for s in states_list:
                 s.meanfieldupdate()
         else:
-            self._joblib_meanfield_update_states(self.states_list,joblib_jobs)
+            self._joblib_meanfield_update_states(self,states_list,joblib_jobs)
 
     def _vlb(self):
         vlb = 0.
@@ -342,7 +342,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
     def _get_joblib_args(self,states_list,joblib_jobs):
         return util.general.list_split([s.data for s in states_list],joblib_jobs)
 
-class _HMMSVI(_HMMBase,_HMMMeanField,ModelMeanFieldSVI):
+class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
         ## compute the local mean field step for the minibatch
         mb_states_list = self._get_mb_states_list(minibatch,**kwargs)

@@ -96,7 +96,7 @@ class _SeparateTransMixin(object):
     def __init__(self,group_id,**kwargs):
         assert not isinstance(group_id,np.ndarray)
         self.group_id = group_id
-        super(_SeparateTransMixin,self).__init__(*args,**kwargs)
+        super(_SeparateTransMixin,self).__init__(**kwargs)
 
     @property
     def trans_matrix(self):
