@@ -181,7 +181,7 @@ class _HMMBase(Model):
         plt.gcf() #.set_size_inches((10,10))
 
         if len(self.states_list) > 0:
-            colors = self._get_colors()
+            colors = self._get_colors(self.states_list)
             num_subfig_cols = len(self.states_list)
             for subfig_idx,s in enumerate(self.states_list):
                 plt.subplot(2,num_subfig_cols,1+subfig_idx)
@@ -343,6 +343,8 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         return util.general.list_split([s.data for s in states_list],joblib_jobs)
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
+    # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
+    # joblib stuff to work
     def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
         ## compute the local mean field step for the minibatch
         mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
@@ -563,7 +565,7 @@ class _HSMMBase(_HMMBase):
 
     def plot(self,color=None):
         plt.gcf() #.set_size_inches((10,10))
-        colors = self._get_colors()
+        colors = self._get_colors(self.states_list)
 
         num_subfig_cols = len(self.states_list)
         for subfig_idx,s in enumerate(self.states_list):
@@ -814,10 +816,27 @@ class _SeparateTransMixin(object):
     ### Mean field
 
     def meanfield_update_trans_distn(self):
-        raise NotImplementedError
+        for group_id, trans_distn in self.trans_distns.iteritems():
+            states_list = [s for s in self.states_list if hash(s.group_id) == hash(group_id)]
+            if len(states_list) > 0:
+                trans_distn.meanfieldupdate([s.expected_transcounts for s in states_list])
 
     def meanfield_update_init_state_distn(self):
-        raise NotImplementedError
+        for group_id, init_state_distn in self.init_state_distns.iteritems():
+            states_list = [s for s in self.states_list if hash(s.group_id) == hash(group_id)]
+            if len(states_list) > 0:
+                init_state_distn.meanfieldupdate([s.expected_states[0] for s in states_list])
+
+    def _vlb(self):
+        vlb = 0.
+        vlb += sum(s.get_vlb() for s in self.states_list)
+        vlb += sum(trans_distn.get_vlb()
+                for trans_distn in self.trans_distns.itervalues())
+        vlb += sum(init_state_distn.get_vlb()
+                for init_state_distn in self.init_state_distns.itervalues())
+        vlb += sum(o.get_vlb() for o in self.obs_distns)
+        return vlb
+
 
     ### SVI
 
@@ -848,5 +867,10 @@ class _SeparateTransMixin(object):
 class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):
+    _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
+class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        WeakLimitHDPHSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
 

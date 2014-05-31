@@ -38,7 +38,7 @@ class HMMInitialState(Categorical):
         pass
 
 
-    def meanfieldupdate(self,expeced_initial_states_list):
+    def meanfieldupdate(self,expected_initial_states_list):
         super(HMMInitialState,self).meanfieldupdate(None,expected_initial_states_list)
 
     def meanfield_sgdstep(self,expected_initial_states_list,minibatchfrac,stepsize):
