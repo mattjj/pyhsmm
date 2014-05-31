@@ -77,38 +77,39 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 # plt.figure()
 # posteriormodel.plot()
 
-### mean field
-
-for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-    # posteriormodel.add_data(data=data,changepoints=changepoints,group_id=0)
-    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
-
-scores = []
-for idx in progprint_xrange(50):
-    scores.append(posteriormodel.meanfield_coordinate_descent_step())
-
-plt.figure()
-plt.plot(scores)
-
-plt.figure()
-posteriormodel.plot()
 
 ### SVI
 
-# sgdseq = sgd_passes(
-#         tau=0,kappa=0.7,npasses=20,
-#         datalist=zip(range(len(datas)),datas,changepointss))
+sgdseq = sgd_passes(
+        tau=0,kappa=0.7,npasses=20,
+        datalist=zip(range(len(datas)),datas,changepointss))
 
-# for (group_id,data,changepoints), rho_t in progprint(sgdseq):
-#     posteriormodel.meanfield_sgdstep(
-#             data,changepoints=changepoints,group_id=group_id,
-#             minibatchfrac=1./3,stepsize=rho_t)
+for (group_id,data,changepoints), rho_t in progprint(sgdseq):
+    posteriormodel.meanfield_sgdstep(
+            data,changepoints=changepoints,group_id=group_id,
+            minibatchfrac=1./len(datas),stepsize=rho_t)
+
+plt.figure()
+for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+    posteriormodel.add_data(data,changepoints=changepoints,group_id=idx)
+    posteriormodel.states_list[-1].mf_Viterbi()
+posteriormodel.plot()
+
+### mean field
+
+# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+#     # posteriormodel.add_data(data=data,changepoints=changepoints,group_id=0)
+#     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+
+# scores = []
+# for idx in progprint_xrange(25):
+#     scores.append(posteriormodel.meanfield_coordinate_descent_step())
 
 # plt.figure()
-# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-#     posteriormodel.add_data(data,changepoints=changepoints,group_id=idx)
-#     posteriormodel.states_list[-1].mf_Viterbi()
+# plt.plot(scores)
+# plt.figure()
 # posteriormodel.plot()
+
 
 plt.show()
 
