@@ -196,9 +196,9 @@ class _HMMBase(Model):
             self.plot_observations()
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
-    def resample_model(self):
+    def resample_model(self,joblib_jobs=0):
         self.resample_parameters()
-        self.resample_states()
+        self.resample_states(joblib_jobs=joblib_jobs)
 
     def resample_parameters(self):
         self.resample_obs_distns()
@@ -218,9 +218,12 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
         self._clear_caches()
 
-    def resample_states(self):
-        for s in self.states_list:
-            s.resample()
+    def resample_states(self,joblib_jobs=0):
+        if joblib_jobs == 0:
+            for s in self.states_list:
+                s.resample()
+        else:
+            self._joblib_resample_states(self.states_list,joblib_jobs)
 
     def copy_sample(self):
         new = copy.copy(self)
@@ -229,6 +232,25 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         new.init_state_distn = self.init_state_distn.copy_sample()
         new.states_list = [s.copy_sample(new) for s in self.states_list]
         return new
+
+    ### joblib parallel stuff here
+
+    def _joblib_resample_states(self,states_list,joblib_jobs):
+        from joblib import Parallel, delayed
+        from parallel import _get_sampled_stateseq
+
+        from warnings import warn
+        warn('joblib is segfaulting on OS X only, not sure why')
+
+        if len(states_list) > 0:
+            joblib_args = util.general.list_split(
+                    [(s.data,s._kwargs) for s in states_list],
+                    joblib_jobs)
+            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+                    (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
+
+            for s, stateseq in zip(states_list,[seq for grp in raw_stateseqs for seq in grp]):
+                s.stateseq = stateseq
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):
@@ -289,7 +311,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         from parallel import _get_stats
 
         from warnings import warn
-        warn('this is segfaulting on OS X only, not sure why')
+        warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(
