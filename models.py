@@ -313,7 +313,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             for s in states_list:
                 s.meanfieldupdate()
         else:
-            self._joblib_meanfield_update_states(self,states_list,joblib_jobs)
+            self._joblib_meanfield_update_states(states_list,joblib_jobs)
 
     def _vlb(self):
         vlb = 0.
@@ -332,15 +332,15 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         from warnings import warn
         warn('this is segfaulting on OS X only, not sure why')
 
-        joblib_args = self._get_joblib_args(states_list,joblib_jobs)
-        allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                (delayed(_get_stats)(self,arg) for arg in joblib_args)
+        if len(states_list) > 0:
+            joblib_args = util.general.list_split(
+                    [(s.data,s._kwargs) for s in states_list],
+                    joblib_jobs)
+            allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+                    (delayed(_get_stats)(self,arg) for arg in joblib_args)
 
-        for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
-            s.all_expected_stats = stats
-
-    def _get_joblib_args(self,states_list,joblib_jobs):
-        return util.general.list_split([s.data for s in states_list],joblib_jobs)
+            for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
+                s.all_expected_stats = stats
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
@@ -666,11 +666,6 @@ class _HSMMPossibleChangepointsMixin(object):
     def add_data(self,data,changepoints,**kwargs):
         super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
-
-    def _get_joblib_args(self,states_list,joblib_jobs):
-        return util.general.list_split(
-                [(s.data,{'changepoints':s.changepoints}) for s in states_list],
-                joblib_jobs)
 
     def _get_mb_states_list(self,minibatch,changepoints,**kwargs):
         if not isinstance(minibatch,(list,tuple)):

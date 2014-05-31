@@ -160,10 +160,7 @@ def call_with_all(fn,broadcasted_datas,kwargss,engine_globals=None):
 ### MISC / TEMP
 
 def _get_stats(model,grp):
-    if len(grp) > 0 and isinstance(grp[0],(list,tuple)):
-        datas, kwargss = zip(*grp)
-    else:
-        datas, kwargss = zip(grp,[{}]*len(grp))
+    datas, kwargss = zip(*grp)
 
     mb_states_list = []
     for data, kwargs in zip(datas,kwargss):

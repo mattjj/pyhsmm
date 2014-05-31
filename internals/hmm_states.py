@@ -96,6 +96,8 @@ class _SeparateTransMixin(object):
     def __init__(self,group_id,**kwargs):
         assert not isinstance(group_id,np.ndarray)
         self.group_id = group_id
+        self._kwargs = dict(self_kwargs,group_id=group_id) \
+                if hasattr(self,'_kwargs') else dict(group_id=group_id)
         super(_SeparateTransMixin,self).__init__(**kwargs)
 
     @property

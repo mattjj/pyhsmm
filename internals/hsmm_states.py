@@ -591,6 +591,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         assert sum(self.segmentlens) == data.shape[0]
         assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
 
+        self._kwargs = dict(self._kwargs,changepoints=changepoints) \
+                if hasattr(self,'_kwargs') else dict(changepoints=changepoints)
+
         super(HSMMStatesPossibleChangepoints,self).__init__(
                 model,T=len(changepoints),data=data,**kwargs)
 
