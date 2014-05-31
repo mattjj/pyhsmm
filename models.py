@@ -666,7 +666,7 @@ class _HSMMPossibleChangepointsMixin(object):
     def log_likelihood(self,data=None,changepoints=None,**kwargs):
         if data is not None:
             if isinstance(data,np.ndarray):
-                assert isinstance(changepoints,list)
+                assert isinstance(changepoints,list) or changepoints is None
                 self.add_data(data=data,changepoints=changepoints,
                         generate=False,**kwargs)
                 return self.states_list.pop().log_likelihood()
