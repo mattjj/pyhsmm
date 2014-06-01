@@ -979,6 +979,7 @@ def hsmm_messages_backwards_log(
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
     betal, betastarl,
     left_censoring=False, right_censoring=True):
+    errs = np.seterr(invalid='ignore') # logaddexp(-inf,-inf)
 
     T, _ = betal.shape
 
@@ -999,6 +1000,7 @@ def hsmm_messages_backwards_log(
     else:
         raise NotImplementedError
 
+    np.seterr(**errs)
     return betal, betastarl, normalizer
 
 def hsmm_messages_forwards_log(
