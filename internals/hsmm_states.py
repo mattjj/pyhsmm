@@ -369,7 +369,6 @@ class HSMMStatesPython(_StatesBase):
                 self.cumulative_obs_potentials, self.reverse_cumulative_obs_potentials,
                 self.dur_potentials, self.reverse_dur_potentials,
                 self.dur_survival_potentials, self.reverse_dur_survival_potentials)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     def meanfieldupdate(self):
         self.clear_caches()
@@ -378,7 +377,6 @@ class HSMMStatesPython(_StatesBase):
                 self.mf_cumulative_obs_potentials, self.mf_reverse_cumulative_obs_potentials,
                 self.mf_dur_potentials, self.mf_reverse_dur_potentials,
                 self.mf_dur_survival_potentials, self.mf_reverse_dur_survival_potentials)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     @property
     def all_expected_stats(self):
@@ -389,6 +387,7 @@ class HSMMStatesPython(_StatesBase):
     def all_expected_stats(self,vals):
         self.expected_states, self.expected_transcounts, \
                 self.expected_durations, self._normalizer = vals
+        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     # here's the real work
 
@@ -581,7 +580,10 @@ class GeoHSMMStates(HSMMStatesPython):
 
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
-    def __init__(self,model,data,changepoints,**kwargs):
+    def __init__(self,model,data,changepoints=None,**kwargs):
+        changepoints = changepoints if changepoints is not None \
+                else [(t,t+1) for t in xrange(data.shape[0])]
+
         self.changepoints = changepoints
         self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
         self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
@@ -589,6 +591,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         assert all(l > 0 for l in self.segmentlens)
         assert sum(self.segmentlens) == data.shape[0]
         assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
+
+        self._kwargs = dict(self._kwargs,changepoints=changepoints) \
+                if hasattr(self,'_kwargs') else dict(changepoints=changepoints)
 
         super(HSMMStatesPossibleChangepoints,self).__init__(
                 model,T=len(changepoints),data=data,**kwargs)

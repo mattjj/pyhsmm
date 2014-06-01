@@ -37,6 +37,18 @@ class HMMInitialState(Categorical):
     def clear_caches(self):
         pass
 
+
+    def meanfieldupdate(self,expected_initial_states_list):
+        super(HMMInitialState,self).meanfieldupdate(None,expected_initial_states_list)
+
+    def meanfield_sgdstep(self,expected_initial_states_list,minibatchfrac,stepsize):
+        super(HMMInitialState,self).meanfield_sgdstep(
+                None,expected_initial_states_list,minibatchfrac,stepsize)
+
+    def max_likelihood(self,expected_initial_states_list):
+        super(HMMInitialState,self).max_likelihood(None,expected_initial_states_list)
+
+
 class StartInZero(GibbsSampling,MaxLikelihood):
     def __init__(self,num_states,**kwargs):
         self.pi_0 = np.zeros(num_states)

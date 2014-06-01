@@ -120,9 +120,10 @@ class _HMMTransitionsMeanField(_HMMTransitionsBase):
 class _HMMTransitionsSVI(_HMMTransitionsMeanField):
     def meanfield_sgdstep(self,expected_transcounts,minibatchfrac,stepsize):
         assert isinstance(expected_transcounts,list)
-        trans_softcounts = sum(expected_transcounts)
-        for distn, counts in zip(self._row_distns,trans_softcounts):
-            distn.meanfield_sgdstep(None,counts,minibatchfrac,stepsize)
+        if len(expected_transcounts) > 0:
+            trans_softcounts = sum(expected_transcounts)
+            for distn, counts in zip(self._row_distns,trans_softcounts):
+                distn.meanfield_sgdstep(None,counts,minibatchfrac,stepsize)
         return self
 
 class HMMTransitions(

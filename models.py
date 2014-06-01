@@ -13,8 +13,6 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
-# TODO get rid of logical indexing with a data abstraction
-
 ################
 #  HMM Mixins  #
 ################
@@ -181,7 +179,7 @@ class _HMMBase(Model):
         plt.gcf() #.set_size_inches((10,10))
 
         if len(self.states_list) > 0:
-            colors = self._get_colors()
+            colors = self._get_colors(self.states_list)
             num_subfig_cols = len(self.states_list)
             for subfig_idx,s in enumerate(self.states_list):
                 plt.subplot(2,num_subfig_cols,1+subfig_idx)
@@ -196,9 +194,9 @@ class _HMMBase(Model):
             self.plot_observations()
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
-    def resample_model(self):
+    def resample_model(self,joblib_jobs=0):
         self.resample_parameters()
-        self.resample_states()
+        self.resample_states(joblib_jobs=joblib_jobs)
 
     def resample_parameters(self):
         self.resample_obs_distns()
@@ -218,9 +216,12 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
         self._clear_caches()
 
-    def resample_states(self):
-        for s in self.states_list:
-            s.resample()
+    def resample_states(self,joblib_jobs=0):
+        if joblib_jobs == 0:
+            for s in self.states_list:
+                s.resample()
+        else:
+            self._joblib_resample_states(self.states_list,joblib_jobs)
 
     def copy_sample(self):
         new = copy.copy(self)
@@ -230,59 +231,40 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         new.states_list = [s.copy_sample(new) for s in self.states_list]
         return new
 
-    ### parallel
+    ### joblib parallel stuff here
 
-    def add_data_parallel(self,data,broadcast=False,**kwargs):
-        import parallel
-        self.add_data(data=data,**kwargs)
-        if broadcast:
-            parallel.broadcast_data(self._get_parallel_data(data))
-        else:
-            parallel.add_data(self._get_parallel_data(self.states_list[-1]))
+    def _joblib_resample_states(self,states_list,joblib_jobs):
+        from joblib import Parallel, delayed
+        from parallel import _get_sampled_stateseq
 
-    def resample_model_parallel(self,temp=None):
-        self.resample_parameters(temp=temp)
-        self.resample_states_parallel(temp=temp)
+        from warnings import warn
+        warn('joblib is segfaulting on OS X only, not sure why')
 
-    def resample_states_parallel(self,temp=None):
-        import parallel
-        states_to_resample = self.states_list
-        self.states_list = [] # removed because we push the global model
-        raw = parallel.map_on_each(
-                self._state_sampler,
-                [self._get_parallel_data(s) for s in states_to_resample],
-                kwargss=self._get_parallel_kwargss(states_to_resample),
-                engine_globals=dict(global_model=self,temp=temp))
-        for s, stateseq in zip(states_to_resample,raw):
-            s.stateseq = stateseq
-        self.states_list = states_to_resample
+        if len(states_list) > 0:
+            joblib_args = util.general.list_split(
+                    [(s.data,s._kwargs) for s in states_list],
+                    joblib_jobs)
+            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+                    (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
 
-    def _get_parallel_data(self,states_obj):
-        return states_obj.data
-
-    def _get_parallel_kwargss(self,states_objs):
-        # this method is broken out so that it can be overridden
-        return None
-
-    @staticmethod
-    @util.general.engine_global_namespace # access to engine globals
-    def _state_sampler(data,**kwargs):
-        # expects globals: global_model, temp
-        global_model.add_data(data=data,initialize_from_prior=False,temp=temp,**kwargs)
-        return global_model.states_list.pop().stateseq
+            for s, stateseq in zip(states_list,[seq for grp in raw_stateseqs for seq in grp]):
+                s.stateseq = stateseq
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
-    def meanfield_coordinate_descent_step(self):
-        self._meanfield_update_sweep()
+    def meanfield_coordinate_descent_step(self,joblib_jobs=0):
+        self._meanfield_update_sweep(joblib_jobs=joblib_jobs)
         return self._vlb()
 
-    def _meanfield_update_sweep(self):
-        for s in self.states_list:
-            if not hasattr(s,'expected_states'):
-                s.meanfieldupdate()
+    def _meanfield_update_sweep(self,joblib_jobs=0):
+        # NOTE: we want to update the states factor last to make the VLB
+        # computation efficient, but to update the parameters first we have to
+        # ensure everything in states_list has expected statistics computed
+        self._meanfield_update_states_list(
+            [s for s in self.states_list if not hasattr(s,'expected_states')],
+            joblib_jobs)
 
         self.meanfield_update_parameters()
-        self.meanfield_update_states()
+        self.meanfield_update_states(joblib_jobs)
 
     def meanfield_update_parameters(self):
         self.meanfield_update_obs_distns()
@@ -299,12 +281,18 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
                 [s.expected_transcounts for s in self.states_list])
 
     def meanfield_update_init_state_distn(self):
-        self.init_state_distn.meanfieldupdate(None,
+        self.init_state_distn.meanfieldupdate(
                 [s.expected_states[0] for s in self.states_list])
 
-    def meanfield_update_states(self):
-        for s in self.states_list:
-            s.meanfieldupdate()
+    def meanfield_update_states(self,joblib_jobs=0):
+        self._meanfield_update_states_list(self.states_list,joblib_jobs=joblib_jobs)
+
+    def _meanfield_update_states_list(self,states_list,joblib_jobs=0):
+        if joblib_jobs == 0:
+            for s in states_list:
+                s.meanfieldupdate()
+        else:
+            self._joblib_meanfield_update_states(states_list,joblib_jobs)
 
     def _vlb(self):
         vlb = 0.
@@ -314,36 +302,39 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
-class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
-    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
-        ## compute the local mean field step for the minibatch
-        if joblib_jobs == 0:
-            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
-            for s in mb_states_list:
-                s.meanfieldupdate()
-        else:
-            from joblib import Parallel, delayed
-            from parallel import _get_stats
+    ### joblib parallel stuff here
 
-            from warnings import warn
-            warn('this is segfaulting, not sure why') # TODO
+    def _joblib_meanfield_update_states(self,states_list,joblib_jobs):
+        from joblib import Parallel, delayed
+        from parallel import _get_stats
 
-            joblib_args = self._get_joblib_args(joblib_jobs,minibatch,**kwargs)
-            assert len(joblib_args) == joblib_jobs
+        from warnings import warn
+        warn('joblib is segfaulting on OS X only, not sure why')
 
+        if len(states_list) > 0:
+            joblib_args = util.general.list_split(
+                    [(s.data,s._kwargs) for s in states_list],
+                    joblib_jobs)
             allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_stats)(self,arg) for arg in joblib_args)
 
-            mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
-            for s, stats in zip(mb_states_list,[s for grp in allstats for s in grp]):
+            for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
+
+class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
+    # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
+    # joblib stuff to work
+    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
+        ## compute the local mean field step for the minibatch
+        mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
+        if joblib_jobs == 0:
+            for s in mb_states_list:
+                s.meanfieldupdate()
+        else:
+            self._joblib_meanfield_update_states(mb_states_list,joblib_jobs)
 
         ## take a global step on the parameters
         self._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
-
-    def _get_joblib_args(self,joblib_jobs,minibatch):
-        minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
-        return util.general.list_split(minibatch,joblib_jobs)
 
     def _get_mb_states_list(self,minibatch,**kwargs):
         minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
@@ -372,25 +363,8 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
 
     def _meanfield_sgdstep_init_state_distn(self,mb_states_list,minibatchfrac,stepsize):
         self.init_state_distn.meanfield_sgdstep(
-                None,[s.expected_states[0] for s in mb_states_list],
+                [s.expected_states[0] for s in mb_states_list],
                 minibatchfrac,stepsize)
-
-    def heldout_vlb(self,datas):
-        assert len(self.states_list) == 0
-
-        if isinstance(datas,list):
-            for data in datas:
-                self.add_data(data)
-        else:
-            self.add_data(datas)
-
-        for s in self.states_list:
-            s.meanfieldupdate()
-
-        vlb = self._vlb()
-
-        self.states_list = []
-        return vlb
 
 class _HMMEM(_HMMBase,ModelEM):
     def EM_step(self):
@@ -409,7 +383,7 @@ class _HMMEM(_HMMBase,ModelEM):
                     [s.expectations[:,state] for s in self.states_list])
 
         self.init_state_distn.max_likelihood(
-                None,weights=[s.expectations[0] for s in self.states_list])
+                weights=[s.expectations[0] for s in self.states_list])
 
         self.trans_distn.max_likelihood(
                 expected_transcounts=[s.expected_transcounts for s in self.states_list])
@@ -495,7 +469,7 @@ class WeakLimitHDPHMM(_WeakLimitHDPMixin,HMM):
     _trans_class = transitions.WeakLimitHDPHMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
 
-class DATruncHDPHMM(_WeakLimitHDPMixin,HMMPython):
+class DATruncHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: weak limit mixin is poorly named; we just want its init method
     _trans_class = transitions.DATruncHDPHMMTransitions
     _trans_conc_class = None
@@ -570,7 +544,7 @@ class _HSMMBase(_HMMBase):
 
     def plot(self,color=None):
         plt.gcf() #.set_size_inches((10,10))
-        colors = self._get_colors()
+        colors = self._get_colors(self.states_list)
 
         num_subfig_cols = len(self.states_list)
         for subfig_idx,s in enumerate(self.states_list):
@@ -604,12 +578,6 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
         new = super(_HSMMGibbsSampling,self).copy_sample()
         new.dur_distns = [d.copy_sample() for d in self.dur_distns]
         return new
-
-    ### parallel
-
-    def _get_parallel_kwargss(self,states_objs):
-        return [dict(trunc=s.trunc,left_censoring=s.left_censoring,
-                    right_censoring=s.right_censoring) for s in states_objs]
 
 class _HSMMEM(_HSMMBase,_HMMEM):
     def _M_step(self):
@@ -668,35 +636,25 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
 class _HSMMPossibleChangepointsMixin(object):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
 
-    def add_data(self,data,changepoints,**kwargs):
+    def add_data(self,data,changepoints=None,**kwargs):
         super(_HSMMPossibleChangepointsMixin,self).add_data(
                 data=data,changepoints=changepoints,**kwargs)
 
-    def _get_joblib_args(self,joblib_jobs,minibatch,changepoints):
-        if not isinstance(minibatch,(list,tuple)):
-            assert isinstance(minibatch,np.ndarray)
-            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
-            minibatch = [minibatch]
-            changepoints = [changepoints]
-        else:
-            assert  isinstance(changepoints,(list,tuple))  \
-                    and isinstance(changepoints[0],(list,tuple)) \
-                    and isinstance(changepoints[0][0],tuple)
-            assert len(minibatch) == len(changepoints)
+    def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
+        if changepoints is not None:
+            if not isinstance(minibatch,(list,tuple)):
+                assert isinstance(minibatch,np.ndarray)
+                assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
+                minibatch = [minibatch]
+                changepoints = [changepoints]
+            else:
+                assert  isinstance(changepoints,(list,tuple))  \
+                        and isinstance(changepoints[0],(list,tuple)) \
+                        and isinstance(changepoints[0][0],tuple)
+                assert len(minibatch) == len(changepoints)
 
-        return util.general.list_split(zip(*[minibatch,changepoints]),joblib_jobs)
-
-    def _get_mb_states_list(self,minibatch,changepoints,**kwargs):
-        if not isinstance(minibatch,(list,tuple)):
-            assert isinstance(minibatch,np.ndarray)
-            assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
-            minibatch = [minibatch]
-            changepoints = [changepoints]
-        else:
-            assert  isinstance(changepoints,(list,tuple))  \
-                    and isinstance(changepoints[0],(list,tuple)) \
-                    and isinstance(changepoints[0][0],tuple)
-            assert len(minibatch) == len(changepoints)
+        changepoints = changepoints if changepoints is not None \
+                else [None]*len(minibatch)
 
         mb_states_list = []
         for data, changes in zip(minibatch,changepoints):
@@ -707,15 +665,17 @@ class _HSMMPossibleChangepointsMixin(object):
 
     def log_likelihood(self,data=None,changepoints=None,**kwargs):
         if data is not None:
-            assert changepoints is not None
             if isinstance(data,np.ndarray):
-                assert isinstance(changepoints,list)
+                assert isinstance(changepoints,list) or changepoints is None
                 self.add_data(data=data,changepoints=changepoints,
                         generate=False,**kwargs)
                 return self.states_list.pop().log_likelihood()
             else:
-                assert isinstance(data,list) and isinstance(changepoints,list) \
-                        and len(changepoints) == len(data)
+                assert isinstance(data,list) and (changepoints is None
+                    or isinstance(changepoints,list) and len(changepoints) == len(data))
+                changepoints = changepoints if changepoints is not None \
+                        else [None]*len(data)
+
                 loglike = 0.
                 for d, c in zip(data,changepoints):
                     self.add_data(data=d,changepoints=c,generate=False,**kwargs)
@@ -723,13 +683,6 @@ class _HSMMPossibleChangepointsMixin(object):
                 return loglike
         else:
             return sum(s.log_likelihood() for s in self.states_list)
-
-    def _get_parallel_kwargss(self,states_objs):
-        # TODO this is wasteful: it should be in _get_parallel_data
-        dcts = super(HSMMPossibleChangepoints,self)._get_parallel_kwargss(states_objs)
-        for dct, states_obj in zip(dcts,states_objs):
-            dct.update(dict(changepoints=states_obj.changepoints))
-        return dcts
 
 #################
 #  HSMM Models  #
