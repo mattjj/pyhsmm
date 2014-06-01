@@ -370,7 +370,6 @@ class HSMMStatesPython(_StatesBase):
                 self.cumulative_obs_potentials, self.reverse_cumulative_obs_potentials,
                 self.dur_potentials, self.reverse_dur_potentials,
                 self.dur_survival_potentials, self.reverse_dur_survival_potentials)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     def meanfieldupdate(self):
         self.clear_caches()
@@ -379,7 +378,6 @@ class HSMMStatesPython(_StatesBase):
                 self.mf_cumulative_obs_potentials, self.mf_reverse_cumulative_obs_potentials,
                 self.mf_dur_potentials, self.mf_reverse_dur_potentials,
                 self.mf_dur_survival_potentials, self.mf_reverse_dur_survival_potentials)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     @property
     def all_expected_stats(self):
@@ -390,6 +388,7 @@ class HSMMStatesPython(_StatesBase):
     def all_expected_stats(self,vals):
         self.expected_states, self.expected_transcounts, \
                 self.expected_durations, self._normalizer = vals
+        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     # here's the real work
 

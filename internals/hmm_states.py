@@ -348,12 +348,12 @@ class HMMStatesPython(_StatesBase):
     @all_expected_stats.setter
     def all_expected_stats(self,vals):
         self.expected_states, self.expected_transcounts, self._normalizer = vals
+        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     def meanfieldupdate(self):
         self.clear_caches()
         self.all_expected_stats = self._expected_statistics(
                 self.mf_trans_matrix,self.mf_pi_0,self.mf_aBl)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
 
     def get_vlb(self):
         if self._normalizer is None:
@@ -391,9 +391,8 @@ class HMMStatesPython(_StatesBase):
 
     def E_step(self):
         self.clear_caches()
-        self.expected_states, self.expected_transcounts, self._normalizer \
-                = self._expected_statistics(self.trans_matrix,self.pi_0,self.aBl)
-        self.stateseq = self.expected_states.argmax(1) # for plotting
+        self.all_expected_stats = self._expected_statistics(
+                self.trans_matrix,self.pi_0,self.aBl)
 
     ### Viterbi
 
