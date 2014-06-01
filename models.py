@@ -105,11 +105,8 @@ class _HMMBase(Model):
     def heldout_state_marginals(self,data,**kwargs):
         self.add_data(data=data,stateseq=np.zeros(len(data)),**kwargs)
         s = self.states_list.pop()
-        log_margs = s.messages_forwards_log() + s.messages_backwards_log()
-        log_margs -= s.log_likelihood()
-        margs = np.exp(log_margs)
-        margs /= margs.sum(1)[:,na]
-        return margs
+        s.E_step()
+        return s.expected_states
 
     def _resample_from_mf(self):
         self.trans_distn._resample_from_mf()
