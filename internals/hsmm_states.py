@@ -850,7 +850,13 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             # compute the pmf over those steps
             durprobs = self.dur_distns[state].pmf(possible_durations)
             # TODO censoring: the last possible duration isn't quite right
-            durprobs /= durprobs.sum()
+            durprobssum = durprobs.sum()
+            durprobs /= durprobssum
+
+            # If no duration is possible, then pick the first duration
+            if durprobssum == 0:
+                durprobs[0] = 1.0
+                durprobs[1:] = 0.0
 
             # sample it
             blockdur = sample_discrete(durprobs) + 1
