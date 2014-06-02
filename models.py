@@ -377,10 +377,10 @@ class _HMMEM(_HMMBase,ModelEM):
     def _M_step(self):
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data for s in self.states_list],
-                    [s.expectations[:,state] for s in self.states_list])
+                    [s.expected_states[:,state] for s in self.states_list])
 
         self.init_state_distn.max_likelihood(
-                weights=[s.expectations[0] for s in self.states_list])
+                weights=[s.expected_states[0] for s in self.states_list])
 
         self.trans_distn.max_likelihood(
                 expected_transcounts=[s.expected_transcounts for s in self.states_list])
