@@ -45,8 +45,10 @@ class HMMInitialState(Categorical):
         super(HMMInitialState,self).meanfield_sgdstep(
                 None,expected_initial_states_list,minibatchfrac,stepsize)
 
-    def max_likelihood(self,expected_initial_states_list):
-        super(HMMInitialState,self).max_likelihood(None,expected_initial_states_list)
+    def max_likelihood(self,samples=None,expected_states_list=None):
+        super(HMMInitialState,self).max_likelihood(
+                data=samples,weights=expected_states_list)
+
 
 
 class StartInZero(GibbsSampling,MaxLikelihood):

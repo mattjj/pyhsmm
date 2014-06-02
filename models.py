@@ -380,7 +380,7 @@ class _HMMEM(_HMMBase,ModelEM):
                     [s.expected_states[:,state] for s in self.states_list])
 
         self.init_state_distn.max_likelihood(
-                weights=[s.expected_states[0] for s in self.states_list])
+                expected_states_list=[s.expected_states[0] for s in self.states_list])
 
         self.trans_distn.max_likelihood(
                 expected_transcounts=[s.expected_transcounts for s in self.states_list])
@@ -418,7 +418,7 @@ class _HMMViterbiEM(_HMMBase,ModelMAPEM):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
         self.init_state_distn.max_likelihood(
-                np.array([s.stateseq[0] for s in self.states_list]))
+                samples=np.array([s.stateseq[0] for s in self.states_list]))
 
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
