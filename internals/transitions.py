@@ -89,12 +89,20 @@ class _HMMTransitionsMaxLikelihood(_HMMTransitionsBase):
     def max_likelihood(self,stateseqs=None,expected_transcounts=None):
         trans_counts = sum(expected_transcounts) if stateseqs is None \
                 else self._count_transitions(stateseqs)
+
         # NOTE: could just call max_likelihood on each trans row, but this way
         # it handles a few lazy-initialization cases (e.g. if _row_distns aren't
         # initialized)
         errs = np.seterr(invalid='ignore',divide='ignore')
-        self.trans_matrix = np.nan_to_num(trans_counts / trans_counts.sum(1)[:,na])
+        trans_matrix = np.nan_to_num(trans_counts / trans_counts.sum(1)[:,na])
         np.seterr(**errs)
+
+        # all-zero rows get set to uniform
+        trans_matrix[trans_matrix.sum(1) == 0] = 1./trans_matrix.shape[0]
+        assert np.allclose(trans_matrix.sum(1),1.)
+
+        self.trans_matrix = trans_matrix
+
         return self
 
 class _HMMTransitionsMeanField(_HMMTransitionsBase):
@@ -218,9 +226,17 @@ class _HSMMTransitionsMaxLikelihood(_HSMMTransitionsBase,_HMMTransitionsMaxLikel
         # NOTE: we could just call max_likelihood on each trans row, but this
         # way it's a bit nicer
         errs = np.seterr(invalid='ignore',divide='ignore')
-        self.trans_matrix = np.nan_to_num(trans_counts / trans_counts.sum(1)[:,na])
+        trans_matrix = np.nan_to_num(trans_counts / trans_counts.sum(1)[:,na])
         np.seterr(**errs)
-        assert np.allclose(0,np.diag(self.trans_matrix))
+
+        # all-zero rows get set to uniform
+        trans_matrix[trans_matrix.sum(1) == 0] = 1./(trans_matrix.shape[0]-1)
+        trans_matrix.flat[::trans_matrix.shape[0]+1] = 0.
+
+        self.trans_matrix = trans_matrix
+        assert np.allclose(0.,np.diag(self.trans_matrix))
+        assert np.allclose(1.,self.trans_matrix.sum(1))
+
         return self
 
 class _HSMMTransitionsMeanField(_HSMMTransitionsBase,_HMMTransitionsMeanField):

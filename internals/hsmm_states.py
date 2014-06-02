@@ -579,7 +579,6 @@ class GeoHSMMStates(HSMMStatesPython):
         return A
 
     def E_step(self):
-        # NOTE: this doesn't set expected_durations!
         alphal = HMMStatesEigen._messages_forwards_log(
                 self.hmm_trans_matrix,
                 self.pi_0,
@@ -594,6 +593,11 @@ class GeoHSMMStates(HSMMStatesPython):
                         alphal,
                         betal)
 
+        # using these is untested!
+        self._expected_ns = np.diag(self.expected_transcounts).copy()
+        self._expected_tots = self.expected_transcounts.sum(1)
+        self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
+
     @property
     def expected_durations(self):
         raise NotImplementedError
@@ -601,6 +605,8 @@ class GeoHSMMStates(HSMMStatesPython):
     @expected_durations.setter
     def expected_durations(self,val):
         raise NotImplementedError
+
+    # TODO viterbi!
 
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
