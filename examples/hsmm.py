@@ -51,7 +51,7 @@ posteriormodel.add_data(data,trunc=60) # duration truncation speeds things up wh
 
 models = []
 for idx in progprint_xrange(150):
-    posteriormodel.resample_model(joblib_jobs=1)
+    posteriormodel.resample_model()
     if (idx+1) % 10 == 0:
         models.append(copy.deepcopy(posteriormodel))
 

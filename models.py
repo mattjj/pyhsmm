@@ -337,7 +337,7 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
         minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
         mb_states_list = []
         for mb in minibatch:
-            self.add_data(mb,stateseq=np.empty(mb.shape[0]),**kwargs) # dummy to hook stuff up
+            self.add_data(mb,generate=False,**kwargs)
             mb_states_list.append(self.states_list.pop())
         return mb_states_list
 
@@ -680,8 +680,7 @@ class _HSMMPossibleChangepointsMixin(object):
 
         mb_states_list = []
         for data, changes in zip(minibatch,changepoints):
-            self.add_data(data,changepoints=changes,
-                    stateseq=np.empty(data.shape[0]),**kwargs)
+            self.add_data(data,changepoints=changes,generate=False,**kwargs)
             mb_states_list.append(self.states_list.pop())
         return mb_states_list
 

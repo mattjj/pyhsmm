@@ -13,7 +13,7 @@ class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,model,T=None,data=None,stateseq=None,
-            initialize_from_prior=True):
+            generate=True,initialize_from_prior=True):
         self.model = model
 
         self.T = T if T is not None else data.shape[0]
@@ -23,7 +23,7 @@ class _StatesBase(object):
 
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
-        else:
+        elif generate:
             if data is not None and not initialize_from_prior:
                 self.resample()
             else:
