@@ -244,8 +244,9 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
 
-            for s, stateseq in zip(states_list,[seq for grp in raw_stateseqs for seq in grp]):
-                s.stateseq = stateseq
+            for s, (stateseq, log_likelihood) in zip(
+                    states_list,[seq for grp in raw_stateseqs for seq in grp]):
+                s.stateseq, s._normalizer = stateseq, log_likelihood
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):
