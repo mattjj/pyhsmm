@@ -36,7 +36,7 @@ class _StatesBase(object):
         new.stateseq = self.stateseq.copy()
         return new
 
-    _kwargs = {}
+    _kwargs = {} # used in subclasses for joblib stuff
 
     ### model properties
 
