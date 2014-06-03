@@ -36,6 +36,8 @@ class _StatesBase(object):
         new.stateseq = self.stateseq.copy()
         return new
 
+    _kwargs = {}
+
     ### model properties
 
     @property
