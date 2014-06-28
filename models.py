@@ -463,6 +463,19 @@ class _WeakLimitHDPMixin(object):
         super(_WeakLimitHDPMixin,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
 
+class _HMMPossibleChangepointsMixin(object):
+    _states_class = hmm_states.HMMStatesPossibleChangepoints
+
+    def add_data(self,data,changepoints=None,**kwargs):
+        super(_HMMPossibleChangepointsMixin,self).add_data(
+                data=data,changepoints=changepoints,**kwargs)
+
+    def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
+        raise NotImplementedError # TODO
+
+    def log_likelihood(self,data=None,changepoints=None,**kwargs):
+        raise NotImplementedError # TODO
+
 ################
 #  HMM models  #
 ################
@@ -500,6 +513,9 @@ class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
                 kappa=kappa,alpha=alpha,gamma=gamma,trans_matrix=trans_matrix)
         super(WeakLimitStickyHDPHMM,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
+
+class HMMPossibleChangepoints(_HMMPossibleChangepointsMixin,HMM):
+    pass
 
 #################
 #  HSMM Mixins  #
@@ -655,6 +671,7 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
     def _Viterbi_M_step_trans_distn(self):
         self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
 
+# TODO inherit from _HMMPossibleChangepointsMixin
 class _HSMMPossibleChangepointsMixin(object):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
 

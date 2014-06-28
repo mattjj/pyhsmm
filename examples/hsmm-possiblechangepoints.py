@@ -11,7 +11,7 @@ from pyhsmm.util.text import progprint_xrange
 #####################
 
 N = 4
-T = 1000
+T = 2000
 obs_dim = 2
 
 obs_hypparams = {'mu_0':np.zeros(obs_dim),
@@ -66,3 +66,4 @@ posteriormodel.plot()
 plt.gcf().suptitle('HDP-HSMM sampled after 100 iterations')
 
 plt.show()
+

@@ -649,20 +649,6 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         else:
             self.blockstateseq = stateseq[self.segmentstarts]
 
-    # @property
-    # def stateseq_norep(self):
-    #     if self._stateseq_norep is None:
-    #         self._stateseq_norep, self._repeats_censored = rle(self.stateseq)
-    #     self._durations_censored = self._repeats_censored.repeat(self.segmentlens)
-    #     return self._stateseq_norep
-
-    # @property
-    # def durations_censored(self):
-    #     if self._durations_censored is None:
-    #         self._stateseq_norep, self._repeats_censored = rle(self.stateseq)
-    #     self._durations_censored = self._repeats_censored.repeat(self.segmentlens)
-    #     return self._durations_censored
-
     ### model parameter properties
 
     @property
@@ -737,34 +723,9 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self._aDsl = aDsl
         return self._aDsl
 
-    # @property
-    # def betal(self):
-    #     if self._betal is None:
-    #         self._betal = np.empty((self.Tblock,self.num_states))
-    #     return self._betal
-
-    # @property
-    # def betastarl(self):
-    #     if self._betastarl is None:
-    #         self._betastarl = np.empty((self.Tblock,self.num_states))
-    #     return self._betastarl
-
-    # @property
-    # def alphal(self):
-    #     if self._alphal is None:
-    #         self._alphal = np.empty((self.Tblock,self.num_states))
-    #     return self._alphal
-
-    # @property
-    # def alphastarl(self):
-    #     if self._alphastarl is None:
-    #         self._alphastarl = np.empty((self.Tblock,self.num_states))
-    #     return self._alphastarl
-
     ### message passing
 
     # TODO caching
-    # TODO trunc
 
     # TODO wrap the duration stuff into single functions. reduces passing
     # around, reduces re-computation in this case

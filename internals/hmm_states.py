@@ -9,6 +9,10 @@ from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 PROFILING = False
 
+######################
+#  Mixins and bases  #
+######################
+
 class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
 
@@ -119,6 +123,85 @@ class _SeparateTransMixin(object):
     @property
     def mf_pi_0(self):
         return self.model.init_state_distns[self.group_id].exp_expected_log_init_state_distn
+
+class _PossibleChangepointsMixin(object):
+    def __init__(self,model,data,changepoints=None,**kwargs):
+        changepoints = changepoints if changepoints is not None \
+                else [(t,t+1) for t in xrange(data.shape[0])]
+
+        self.changepoints = changepoints
+        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+
+        assert all(l > 0 for l in self.segmentlens)
+        assert sum(self.segmentlens) == data.shape[0]
+        assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
+
+        self._kwargs = dict(self._kwargs,changepoints=changepoints)
+
+        super(_PossibleChangepointsMixin,self).__init__(
+                model,T=len(changepoints),data=data,**kwargs)
+
+    def clear_caches(self):
+        self._aBBl = self._mf_aBBl = None
+        self._stateseq = None
+        super(_PossibleChangepointsMixin,self).clear_caches()
+
+    @property
+    def Tblock(self):
+        return len(self.changepoints)
+
+    @property
+    def Tfull(self):
+        return self.data.shape[0]
+
+    @property
+    def stateseq(self):
+        if self._stateseq is None:
+            self._stateseq = self.blockstateseq.repeat(self.segmentlens)
+        return self._stateseq
+
+    @stateseq.setter
+    def stateseq(self,stateseq):
+        assert len(stateseq) == self.Tblock or len(stateseq) == self.Tfull
+        if len(stateseq) == self.Tblock:
+            self.blockstateseq = stateseq
+        else:
+            self.blockstateseq = stateseq[self.segmentstarts]
+
+    def _expected_states(self,*args,**kwargs):
+        expected_states = \
+            super(_PossibleChangepointsMixin,self)._expected_states(*args,**kwargs)
+        return expected_states.repeat(self.segmentlens,axis=0)
+
+    @property
+    def aBl(self):
+        if self._aBBl is None:
+            aBl = super(_PossibleChangepointsMixin,self).aBl
+            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+        return self._aBBl
+
+    @property
+    def mf_aBl(self):
+        if self._mf_aBBl is None:
+            aBl = super(_PossibleChangepointsMixin,self).mf_aBl
+            aBBl = self._mf_aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+        return self._mf_aBBl
+
+    def plot(self,*args,**kwargs):
+        from matplotlib import pyplot as plt
+        super(_PossibleChangepointsMixin,self).plot(*args,**kwargs)
+        plt.xlim((0,self.Tfull))
+
+    # TODO do generate() and generate_states() actually work?
+
+####################
+#  States classes  #
+####################
 
 class HMMStatesPython(_StatesBase):
     ### generation
@@ -554,5 +637,8 @@ class HMMStatesEigen(HMMStatesPython):
                 np.empty(self.aBl.shape[0],dtype='int32'))
 
 class HMMStatesEigenSeparateTrans(_SeparateTransMixin,HMMStatesEigen):
+    pass
+
+class HMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HMMStatesEigen):
     pass
 
