@@ -861,6 +861,10 @@ class _SeparateTransMixin(object):
     def Viterbi_EM_step(self):
         raise NotImplementedError
 
+class HMMSeparateTrans(
+        _SeparateTransMixin,HMM):
+    _states_class = hmm_states.HMMStatesEigenSeparateTrans
+
 class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):

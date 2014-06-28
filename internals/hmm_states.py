@@ -98,7 +98,7 @@ class _SeparateTransMixin(object):
     def __init__(self,group_id,**kwargs):
         assert not isinstance(group_id,np.ndarray)
         self.group_id = group_id
-        self._kwargs = dict(self_kwargs,group_id=group_id) \
+        self._kwargs = dict(self._kwargs,group_id=group_id) \
                 if hasattr(self,'_kwargs') else dict(group_id=group_id)
         super(_SeparateTransMixin,self).__init__(**kwargs)
 
@@ -552,4 +552,7 @@ class HMMStatesEigen(HMMStatesPython):
         from hmm_messages_interface import viterbi
         self.stateseq = viterbi(self.trans_matrix,self.aBl,self.pi_0,
                 np.empty(self.aBl.shape[0],dtype='int32'))
+
+class HMMStatesEigenSeparateTrans(_SeparateTransMixin,HMMStatesEigen):
+    pass
 
