@@ -13,7 +13,7 @@ class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,model,T=None,data=None,stateseq=None,
-            initialize_from_prior=True,**kwargs):
+            generate=True,initialize_from_prior=True):
         self.model = model
 
         self.T = T if T is not None else data.shape[0]
@@ -23,9 +23,9 @@ class _StatesBase(object):
 
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
-        else:
+        elif generate:
             if data is not None and not initialize_from_prior:
-                self.resample(**kwargs)
+                self.resample()
             else:
                 self.generate_states()
 
@@ -35,6 +35,8 @@ class _StatesBase(object):
         new.model = newmodel
         new.stateseq = self.stateseq.copy()
         return new
+
+    _kwargs = {} # used in subclasses for joblib stuff
 
     ### model properties
 
@@ -248,18 +250,16 @@ class HMMStatesPython(_StatesBase):
 
     ### Gibbs sampling
 
-    def resample_log(self,temp=None):
-        self.temp = temp
+    def resample_log(self):
         betal = self.messages_backwards_log()
         self.sample_forwards_log(betal)
 
-    def resample_normalized(self,temp=None):
-        self.temp = temp
+    def resample_normalized(self):
         alphan = self.messages_forwards_normalized()
         self.sample_backwards_normalized(alphan)
 
-    def resample(self,temp=None):
-        return self.resample_normalized(temp=temp)
+    def resample(self):
+        return self.resample_normalized()
 
     @staticmethod
     def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):

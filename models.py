@@ -4,6 +4,7 @@ from numpy import newaxis as na
 import itertools, collections, operator, random, abc, copy
 from matplotlib import pyplot as plt
 from matplotlib import cm
+from warnings import warn
 
 from basic.abstractions import Model, ModelGibbsSampling, \
         ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI
@@ -103,11 +104,8 @@ class _HMMBase(Model):
     def heldout_state_marginals(self,data,**kwargs):
         self.add_data(data=data,stateseq=np.zeros(len(data)),**kwargs)
         s = self.states_list.pop()
-        log_margs = s.messages_forwards_log() + s.messages_backwards_log()
-        log_margs -= s.log_likelihood()
-        margs = np.exp(log_margs)
-        margs /= margs.sum(1)[:,na]
-        return margs
+        s.E_step()
+        return s.expected_states
 
     def _resample_from_mf(self):
         self.trans_distn._resample_from_mf()
@@ -237,7 +235,6 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         from joblib import Parallel, delayed
         from parallel import _get_sampled_stateseq
 
-        from warnings import warn
         warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
@@ -247,8 +244,9 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
 
-            for s, stateseq in zip(states_list,[seq for grp in raw_stateseqs for seq in grp]):
-                s.stateseq = stateseq
+            for s, (stateseq, log_likelihood) in zip(
+                    states_list,[seq for grp in raw_stateseqs for seq in grp]):
+                s.stateseq, s._normalizer = stateseq, log_likelihood
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):
@@ -308,7 +306,6 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         from joblib import Parallel, delayed
         from parallel import _get_stats
 
-        from warnings import warn
         warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
@@ -340,7 +337,7 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
         minibatch = minibatch if isinstance(minibatch,list) else [minibatch]
         mb_states_list = []
         for mb in minibatch:
-            self.add_data(mb,stateseq=np.empty(mb.shape[0]),**kwargs) # dummy to hook stuff up
+            self.add_data(mb,generate=False,**kwargs)
             mb_states_list.append(self.states_list.pop())
         return mb_states_list
 
@@ -378,13 +375,20 @@ class _HMMEM(_HMMBase,ModelEM):
             s.E_step()
 
     def _M_step(self):
+        self._M_step_obs_distns()
+        self._M_step_init_state_distn()
+        self._M_step_trans_distn()
+
+    def _M_step_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data for s in self.states_list],
-                    [s.expectations[:,state] for s in self.states_list])
+                    [s.expected_states[:,state] for s in self.states_list])
 
+    def _M_step_init_state_distn(self):
         self.init_state_distn.max_likelihood(
-                weights=[s.expectations[0] for s in self.states_list])
+                expected_states_list=[s.expected_states[0] for s in self.states_list])
 
+    def _M_step_trans_distn(self):
         self.trans_distn.max_likelihood(
                 expected_transcounts=[s.expected_transcounts for s in self.states_list])
 
@@ -411,21 +415,30 @@ class _HMMViterbiEM(_HMMBase,ModelMAPEM):
     def Viterbi_EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run Viterbi EM'
         self._clear_caches()
+        self._Viterbi_E_step()
+        self._Viterbi_M_step()
 
-        ## Viterbi step
+    def _Viterbi_E_step(self):
         for s in self.states_list:
             s.Viterbi()
 
-        ## M step
+    def _Viterbi_M_step(self):
+        self._Viterbi_M_step_obs_distns()
+        self._Viterbi_M_step_init_state_distn()
+        self._Viterbi_M_step_trans_distn()
+
+    def _Viterbi_M_step_obs_distns(self):
         for state, distn in enumerate(self.obs_distns):
             distn.max_likelihood([s.data[s.stateseq == state] for s in self.states_list])
 
+    def _Viterbi_M_step_init_state_distn(self):
         self.init_state_distn.max_likelihood(
-                np.array([s.stateseq[0] for s in self.states_list]))
+                samples=np.array([s.stateseq[0] for s in self.states_list]))
 
+    def _Viterbi_M_step_trans_distn(self):
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
-    MAP_EM_step = Viterbi_EM_step
+    MAP_EM_step = Viterbi_EM_step # for the ModelMAPEM interface
 
 class _WeakLimitHDPMixin(object):
     def __init__(self,
@@ -582,6 +595,9 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
 class _HSMMEM(_HSMMBase,_HMMEM):
     def _M_step(self):
         super(_HSMMEM,self)._M_step()
+        self._M_step_dur_distns()
+
+    def _M_step_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
                     [np.arange(1,s.expected_durations[state].shape[0]+1)
@@ -629,9 +645,15 @@ class _HSMMINBEMMixin(_HMMEM,ModelEM):
 class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
     def Viterbi_EM_step(self):
         super(_HSMMViterbiEM,self).Viterbi_EM_step()
+        self._Viterbi_M_step_dur_distns()
+
+    def _Viterbi_M_step_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.max_likelihood(
                     [s.durations[s.stateseq_norep == state] for s in self.states_list])
+
+    def _Viterbi_M_step_trans_distn(self):
+        self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
 
 class _HSMMPossibleChangepointsMixin(object):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
@@ -658,8 +680,7 @@ class _HSMMPossibleChangepointsMixin(object):
 
         mb_states_list = []
         for data, changes in zip(minibatch,changepoints):
-            self.add_data(data,changepoints=changes,
-                    stateseq=np.empty(data.shape[0]),**kwargs)
+            self.add_data(data,changepoints=changes,generate=False,**kwargs)
             mb_states_list.append(self.states_list.pop())
         return mb_states_list
 
@@ -709,6 +730,15 @@ class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
 
 class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
     _states_class = hsmm_states.GeoHSMMStates
+
+    def _M_step_dur_distns(self):
+        warn('untested!')
+        for state, distn in enumerate(self.dur_distns):
+            distn.max_likelihood(
+                    stats=(
+                        sum(s._expected_ns[state] for s in self.states_list),
+                        sum(s._expected_tots[state] for s in self.states_list),
+                        ))
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method

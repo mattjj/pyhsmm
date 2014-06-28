@@ -579,6 +579,36 @@ class GeoHSMMStates(HSMMStatesPython):
 
         return A
 
+    def E_step(self):
+        alphal = HMMStatesEigen._messages_forwards_log(
+                self.hmm_trans_matrix,
+                self.pi_0,
+                self.aBl)
+        betal = HMMStatesEigen._messages_backwards_log(
+                self.hmm_trans_matrix,
+                self.aBl)
+        self.expected_states, self.expected_transcounts, self._normalizer = \
+                HMMStatesPython._expected_statistics_from_messages(
+                        self.hmm_trans_matrix,
+                        self.aBl,
+                        alphal,
+                        betal)
+
+        # using these is untested!
+        self._expected_ns = np.diag(self.expected_transcounts).copy()
+        self._expected_tots = self.expected_transcounts.sum(1)
+        self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
+
+    @property
+    def expected_durations(self):
+        raise NotImplementedError
+
+    @expected_durations.setter
+    def expected_durations(self,val):
+        raise NotImplementedError
+
+    # TODO viterbi!
+
 
 class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def __init__(self,model,data,changepoints=None,**kwargs):
@@ -593,8 +623,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         assert sum(self.segmentlens) == data.shape[0]
         assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
 
-        self._kwargs = dict(self._kwargs,changepoints=changepoints) \
-                if hasattr(self,'_kwargs') else dict(changepoints=changepoints)
+        self._kwargs = dict(self._kwargs,changepoints=changepoints)
 
         super(HSMMStatesPossibleChangepoints,self).__init__(
                 model,T=len(changepoints),data=data,**kwargs)
@@ -821,7 +850,13 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             # compute the pmf over those steps
             durprobs = self.dur_distns[state].pmf(possible_durations)
             # TODO censoring: the last possible duration isn't quite right
-            durprobs /= durprobs.sum()
+            durprobssum = durprobs.sum()
+            durprobs /= durprobssum
+
+            # If no duration is possible, then pick the first duration
+            if durprobssum == 0:
+                durprobs[0] = 1.0
+                durprobs[1:] = 0.0
 
             # sample it
             blockdur = sample_discrete(durprobs) + 1
@@ -984,6 +1019,7 @@ def hsmm_messages_backwards_log(
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
     betal, betastarl,
     left_censoring=False, right_censoring=True):
+    errs = np.seterr(invalid='ignore') # logaddexp(-inf,-inf)
 
     T, _ = betal.shape
 
@@ -1004,6 +1040,7 @@ def hsmm_messages_backwards_log(
     else:
         raise NotImplementedError
 
+    np.seterr(**errs)
     return betal, betastarl, normalizer
 
 def hsmm_messages_forwards_log(
