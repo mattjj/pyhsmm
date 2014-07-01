@@ -480,10 +480,47 @@ class _HMMPossibleChangepointsMixin(object):
                 data=data,changepoints=changepoints,**kwargs)
 
     def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
-        raise NotImplementedError # TODO
+        if changepoints is not None:
+            if not isinstance(minibatch,(list,tuple)):
+                assert isinstance(minibatch,np.ndarray)
+                assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
+                minibatch = [minibatch]
+                changepoints = [changepoints]
+            else:
+                assert  isinstance(changepoints,(list,tuple))  \
+                        and isinstance(changepoints[0],(list,tuple)) \
+                        and isinstance(changepoints[0][0],tuple)
+                assert len(minibatch) == len(changepoints)
+
+        changepoints = changepoints if changepoints is not None \
+                else [None]*len(minibatch)
+
+        mb_states_list = []
+        for data, changes in zip(minibatch,changepoints):
+            self.add_data(data,changepoints=changes,generate=False,**kwargs)
+            mb_states_list.append(self.states_list.pop())
+        return mb_states_list
 
     def log_likelihood(self,data=None,changepoints=None,**kwargs):
-        raise NotImplementedError # TODO
+        if data is not None:
+            if isinstance(data,np.ndarray):
+                assert isinstance(changepoints,list) or changepoints is None
+                self.add_data(data=data,changepoints=changepoints,
+                        generate=False,**kwargs)
+                return self.states_list.pop().log_likelihood()
+            else:
+                assert isinstance(data,list) and (changepoints is None
+                    or isinstance(changepoints,list) and len(changepoints) == len(data))
+                changepoints = changepoints if changepoints is not None \
+                        else [None]*len(data)
+
+                loglike = 0.
+                for d, c in zip(data,changepoints):
+                    self.add_data(data=d,changepoints=c,generate=False,**kwargs)
+                    loglike += self.states_list.pop().log_likelihood()
+                return loglike
+        else:
+            return sum(s.log_likelihood() for s in self.states_list)
 
 ################
 #  HMM models  #
@@ -680,56 +717,8 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
     def _Viterbi_M_step_trans_distn(self):
         self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
 
-# TODO inherit from _HMMPossibleChangepointsMixin
-class _HSMMPossibleChangepointsMixin(object):
+class _HSMMPossibleChangepointsMixin(_HMMPossibleChangepointsMixin):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
-
-    def add_data(self,data,changepoints=None,**kwargs):
-        super(_HSMMPossibleChangepointsMixin,self).add_data(
-                data=data,changepoints=changepoints,**kwargs)
-
-    def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
-        if changepoints is not None:
-            if not isinstance(minibatch,(list,tuple)):
-                assert isinstance(minibatch,np.ndarray)
-                assert isinstance(changepoints,list) and isinstance(changepoints[0],tuple)
-                minibatch = [minibatch]
-                changepoints = [changepoints]
-            else:
-                assert  isinstance(changepoints,(list,tuple))  \
-                        and isinstance(changepoints[0],(list,tuple)) \
-                        and isinstance(changepoints[0][0],tuple)
-                assert len(minibatch) == len(changepoints)
-
-        changepoints = changepoints if changepoints is not None \
-                else [None]*len(minibatch)
-
-        mb_states_list = []
-        for data, changes in zip(minibatch,changepoints):
-            self.add_data(data,changepoints=changes,generate=False,**kwargs)
-            mb_states_list.append(self.states_list.pop())
-        return mb_states_list
-
-    def log_likelihood(self,data=None,changepoints=None,**kwargs):
-        if data is not None:
-            if isinstance(data,np.ndarray):
-                assert isinstance(changepoints,list) or changepoints is None
-                self.add_data(data=data,changepoints=changepoints,
-                        generate=False,**kwargs)
-                return self.states_list.pop().log_likelihood()
-            else:
-                assert isinstance(data,list) and (changepoints is None
-                    or isinstance(changepoints,list) and len(changepoints) == len(data))
-                changepoints = changepoints if changepoints is not None \
-                        else [None]*len(data)
-
-                loglike = 0.
-                for d, c in zip(data,changepoints):
-                    self.add_data(data=d,changepoints=c,generate=False,**kwargs)
-                    loglike += self.states_list.pop().log_likelihood()
-                return loglike
-        else:
-            return sum(s.log_likelihood() for s in self.states_list)
 
 #################
 #  HSMM Models  #
@@ -742,8 +731,8 @@ class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,_HSMMViterbiEM,_HSMM
 class HSMM(HSMMPython):
     _states_class = hsmm_states.HSMMStatesEigen
 
-# class HSMMHMMEmbedding(HSMMPython):
-#     _states_class = hsmm_states.HSMMStatesEmbedding
+class GeoHSMM(HSMMPython):
+    _states_class = hsmm_states.GeoHSMMStates
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
@@ -797,14 +786,10 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
-
-class HSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,HSMMPython):
+class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
     pass
 
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMM):
-    pass
-
-class WeakLimitHDPHSMMPossibleChangepointsPython(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMMPython):
     pass
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):

@@ -11,6 +11,7 @@ from ..util.profiling import line_profiled
 
 PROFILING = False
 
+import hmm_states
 from hmm_states import _StatesBase, _SeparateTransMixin, \
         HMMStatesPython, HMMStatesEigen
 
@@ -107,7 +108,8 @@ class HSMMStatesPython(_StatesBase):
 
     ### generation
 
-    # TODO rewrite this thing
+    # TODO make this generic, just call hsmm_sample_forwards_log with zero
+    # potentials?
     def generate_states(self):
         if self.left_censoring:
             raise NotImplementedError
@@ -597,6 +599,7 @@ class GeoHSMMStates(HSMMStatesPython):
         # using these is untested!
         self._expected_ns = np.diag(self.expected_transcounts).copy()
         self._expected_tots = self.expected_transcounts.sum(1)
+
         self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
 
     @property
@@ -610,75 +613,20 @@ class GeoHSMMStates(HSMMStatesPython):
     # TODO viterbi!
 
 
-class HSMMStatesPossibleChangepoints(HSMMStatesPython):
-    def __init__(self,model,data,changepoints=None,**kwargs):
-        changepoints = changepoints if changepoints is not None \
-                else [(t,t+1) for t in xrange(data.shape[0])]
-
-        self.changepoints = changepoints
-        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
-        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
-
-        assert all(l > 0 for l in self.segmentlens)
-        assert sum(self.segmentlens) == data.shape[0]
-        assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
-
-        self._kwargs = dict(self._kwargs,changepoints=changepoints)
-
-        super(HSMMStatesPossibleChangepoints,self).__init__(
-                model,T=len(changepoints),data=data,**kwargs)
-
-    def clear_caches(self):
-        self._aBBl = self._mf_aBBl = None
-        super(HSMMStatesPossibleChangepoints,self).clear_caches()
-
-    ### properties for the outside world
-
+class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMStatesPython):
     @property
     def stateseq(self):
-        return self.blockstateseq.repeat(self.segmentlens)
+        return super(_PossibleChangepointsMixin,self).stateseq
 
     @stateseq.setter
     def stateseq(self,stateseq):
-        self._stateseq_norep = None
-        self._durations_censored = None
+        hmm_states._PossibleChangepointsMixin.stateseq.fset(self,stateseq)
+        HSMMStatesPython.stateseq.fset(self,self.stateseq)
 
-        assert len(stateseq) == self.Tblock or len(stateseq) == self.Tfull
-        if len(stateseq) == self.Tblock:
-            self.blockstateseq = stateseq
-        else:
-            self.blockstateseq = stateseq[self.segmentstarts]
+class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates):
+    pass
 
-    ### model parameter properties
-
-    @property
-    def Tblock(self):
-        return len(self.changepoints)
-
-    @property
-    def Tfull(self):
-        return self.data.shape[0]
-
-    @property
-    def aBBl(self):
-        if self._aBBl is None:
-            aBl = self.aBl
-            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
-            for idx, (start,stop) in enumerate(self.changepoints):
-                aBBl[idx] = aBl[start:stop].sum(0)
-        return self._aBBl
-
-    @property
-    def mf_aBBl(self):
-        if self._mf_aBBl is None:
-            aBl = self.mf_aBl
-            aBBl = self._mf_aBBl = np.empty((self.Tblock,self.num_states))
-            for idx, (start,stop) in enumerate(self.changepoints):
-                aBBl[idx] = aBl[start:stop].sum(0)
-        return self._mf_aBBl
-
-    # TODO reduce repetition with parent in next 4 props
-
+class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython):
     @property
     def aDl(self):
         # just like parent aDl, except we use Tfull
@@ -733,7 +681,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     # backwards messages potentials
 
     def cumulative_obs_potentials(self,tblock):
-        return self.aBBl[tblock:].cumsum(0)[:self.trunc]
+        return self.aBl[tblock:].cumsum(0)[:self.trunc]
 
     def dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
@@ -747,7 +695,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     # forwards messages potentials
 
     def reverse_cumulative_obs_potentials(self,tblock):
-        return rcumsum(self.aBBl[:tblock+1])\
+        return rcumsum(self.aBl[:tblock+1])\
                 [-self.trunc if self.trunc is not None else None:]
 
     def reverse_dur_potentials(self,tblock):
@@ -764,10 +712,10 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     # mean field messages potentials
 
     def mf_cumulative_obs_potentials(self,tblock):
-        return self.mf_aBBl[tblock:].cumsum(0)[:self.trunc]
+        return self.mf_aBl[tblock:].cumsum(0)[:self.trunc]
 
     def mf_reverse_cumulative_obs_potentials(self,tblock):
-        return rcumsum(self.mf_aBBl[:tblock+1])\
+        return rcumsum(self.mf_aBl[:tblock+1])\
                 [-self.trunc if self.trunc is not None else None:]
 
     def mf_dur_potentials(self,tblock):
@@ -835,16 +783,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def generate(self):
         raise NotImplementedError
 
-    def plot(self,*args,**kwargs):
-        super(HSMMStatesPossibleChangepoints,self).plot(*args,**kwargs)
-        plt.xlim((0,self.Tfull))
-
     # TODO E step refactor
     # TODO trunc
-
-    def _expected_states(self,*args,**kwargs):
-        expected_states = super(HSMMStatesPossibleChangepoints,self)._expected_states(*args,**kwargs)
-        return expected_states.repeat(self.segmentlens,axis=0)
 
     def _expected_durations(self,
             dur_potentials,cumulative_obs_potentials,
@@ -870,7 +810,6 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
 
 # NOTE: this class is purely for testing HSMM messages
 class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
-
     @property
     def hmm_aBl(self):
         return np.repeat(self.aBl,self.T,axis=1)
@@ -1033,8 +972,6 @@ def hsmm_messages_forwards_log(
 
     return alphal, alphastarl, normalizer
 
-
-# TODO test with trunc
 def hsmm_sample_forwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentails,
