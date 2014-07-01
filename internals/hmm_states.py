@@ -92,7 +92,8 @@ class _StatesBase(object):
             data = self.data
             aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
+                aBl[:,idx] = obs_distn.log_likelihood(data)
+                aBl[np.isnan(data).any(1)] = 0.
         return self._aBl
 
     @abc.abstractmethod

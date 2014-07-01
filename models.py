@@ -802,6 +802,21 @@ class _SeparateTransMixin(object):
         self.init_state_distns = collections.defaultdict(
                 lambda: copy.deepcopy(self.init_state_distn))
 
+    def __getstate__(self):
+        dct = self.__dict__.copy()
+        dct['trans_distns'] = dict(self.trans_distns.items())
+        dct['init_state_distns'] = dict(self.init_state_distns.items())
+        return dct
+
+    def __setstate__(self,dct):
+        self.__dict__.update(dct)
+        self.trans_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.trans_distn))
+        self.init_state_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.init_state_distn))
+        self.trans_distns.update(dct['trans_distns'])
+        self.init_state_distns.update(dct['init_state_distns'])
+
     ### Gibbs sampling
 
     def resample_trans_distn(self):
