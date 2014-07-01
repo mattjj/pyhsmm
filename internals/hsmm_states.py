@@ -154,7 +154,7 @@ class HSMMStatesPython(_StatesBase):
             aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
                 aBl[:,idx] = obs_distn.log_likelihood(data)
-                aBl[np.isnan(data).any(1)] = 0.
+            aBl[np.isnan(aBl).any(1)] = 0.
         return self._aBl
 
     @property
