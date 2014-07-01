@@ -219,6 +219,15 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             for s in self.states_list:
                 s.resample()
         else:
+            # Freeze out the transition distributions
+            if isinstance(self.trans_distns, collections.defaultdict):
+                # Touch all trans_distns to make sure they're created
+                [self.trans_distns[s.group_id] for s in self.states_list]
+                self.trans_distns = dict(self.trans_distns.items())
+            if isinstance(self.init_state_distns, collections.defaultdict):
+                [self.init_state_distns[s.group_id] for s in self.states_list]
+                self.init_state_distns = dict(self.init_state_distns.items())
+
             self._joblib_resample_states(self.states_list,joblib_jobs)
 
     def copy_sample(self):
@@ -886,6 +895,19 @@ class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
+    def resample_states(self,joblib_jobs=0):
+        # Freeze out the separate trans_distns (they don't pickle, otherwise)
+        if isinstance(self.trans_distns, collections.defaultdict):
+            # Touch all trans_distns to make sure they're created
+            [self.trans_distns[s.group_id] for s in self.states_list]
+            self.trans_distns = dict(self.trans_distns.items())
+        if isinstance(self.init_state_distns, collections.defaultdict):
+            [self.init_state_distns[s.group_id] for s in self.states_list]
+            self.init_state_distns = dict(self.init_state_distns.items())
+
+        super(HSMMPossibleChangepointsSeparateTrans, self).resample_states(joblib_jobs=joblib_jobs)
+
 
 class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
