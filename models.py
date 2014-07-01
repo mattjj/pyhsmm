@@ -14,7 +14,7 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
-PROFILING = False
+PROFILING = True
 
 ################
 #  HMM Mixins  #
@@ -895,4 +895,23 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
+
+##########
+#  temp  #
+##########
+
+class Temp(HSMMPossibleChangepointsSeparateTrans):
+    _states_class = hsmm_states.TempStates
+
+    def resample_obs_distns(self):
+        from util.temp import getstats
+        allstats = getstats(
+                len(self.obs_distns),
+                [s.stateseq for s in self.states_list],
+                [s.data for s in self.states_list])
+
+        for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+            distn.resample(stats=stats)
+        self._clear_caches()
 

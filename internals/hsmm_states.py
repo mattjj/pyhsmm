@@ -9,7 +9,7 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
-PROFILING = False
+PROFILING = True
 
 import hmm_states
 from hmm_states import _StatesBase, _SeparateTransMixin, \
@@ -821,6 +821,28 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
         HSMMStatesPossibleChangepoints):
     pass
 
+
+class TempStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    @property
+    def aBl(self):
+        if self._aBl is None:
+            sigmas = np.array([d.sigmas for d in self.obs_distns])
+            Js = 1./sigmas
+            mus = np.array([d.mu for d in self.obs_distns])
+            aBl = -1./2*(
+                (np.einsum('ni,ni,ki->nk',self.data,self.data,Js)
+                    - np.einsum('ni,ki,ki->nk',self.data,2*mus,Js))
+                +
+                (mus**2*Js - np.log(2*np.pi*sigmas)).sum(1))
+            aBl[np.isnan(aBl).any(1)] = 0.
+
+            aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+
+            self._aBl = aBl
+            self._aBBl = aBBl
+        return self._aBBl
 
 # NOTE: this class is purely for testing HSMM messages
 class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
