@@ -268,7 +268,7 @@ class HSMMStatesPython(_StatesBase):
 
     def cumulative_obs_potentials(self,t):
         stop = None if self.trunc is None else min(self.T,t+self.trunc)
-        return np.cumsum(self.aBl[t:stop],axis=0)
+        return np.cumsum(self.aBl[t:stop],axis=0), 0.
 
     def dur_potentials(self,t):
         stop = self.T-t if self.trunc is None else min(self.T-t,self.trunc)
@@ -325,7 +325,9 @@ class HSMMStatesPython(_StatesBase):
 
     ### Gibbs sampling
 
+    @line_profiled
     def resample(self):
+        self.aBl
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
@@ -394,7 +396,6 @@ class HSMMStatesPython(_StatesBase):
 
     # here's the real work
 
-    @line_profiled
     def _expected_statistics(self,
             trans_potentials, initial_state_potential,
             cumulative_obs_potentials, reverse_cumulative_obs_potentials,
@@ -627,6 +628,10 @@ class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates
     pass
 
 class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython):
+    def clear_caches(self):
+        self._caBl = None
+        super(HSMMStatesPossibleChangepoints,self).clear_caches()
+
     @property
     def aDl(self):
         # just like parent aDl, except we use Tfull
@@ -680,8 +685,16 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
 
     # backwards messages potentials
 
+    @property
+    def caBl(self):
+        if self._caBl is None:
+            self._caBl = np.vstack((np.zeros(self.num_states),self.aBl.cumsum(0)))
+        return self._caBl
+
+
     def cumulative_obs_potentials(self,tblock):
-        return self.aBl[tblock:].cumsum(0)[:self.trunc]
+        return self.caBl[tblock+1:][:self.trunc], self.caBl[tblock]
+        # return self.aBl[tblock:].cumsum(0)[:self.trunc]
 
     def dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
@@ -914,6 +927,7 @@ class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
 
 ### HSMM messages
 
+@line_profiled
 def hsmm_messages_backwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
@@ -925,11 +939,12 @@ def hsmm_messages_backwards_log(
 
     betal[-1] = 0.
     for t in xrange(T-1,-1,-1):
-        cB = cumulative_obs_potentials(t)
+        cB, offset = cumulative_obs_potentials(t)
         np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
                 axis=0, out=betastarl[t])
+        betastarl[t] -= offset
         if right_censoring:
-            np.logaddexp(betastarl[t], cB[-1] + dur_survival_potentials(t),
+            np.logaddexp(betastarl[t], cB[-1] - offset + dur_survival_potentials(t),
                     out=betastarl[t])
         np.logaddexp.reduce(betastarl[t] + trans_potentials(t-1),
                 axis=1, out=betal[t-1])
@@ -943,6 +958,7 @@ def hsmm_messages_backwards_log(
     np.seterr(**errs)
     return betal, betastarl, normalizer
 
+@line_profiled
 def hsmm_messages_forwards_log(
     trans_potential, initial_state_potential,
     reverse_cumulative_obs_potentials, reverse_dur_potentials, reverse_dur_survival_potentials,
@@ -972,6 +988,7 @@ def hsmm_messages_forwards_log(
 
     return alphal, alphastarl, normalizer
 
+@line_profiled
 def hsmm_sample_forwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentails,
@@ -998,12 +1015,13 @@ def hsmm_sample_forwards_log(
 
         ## sample the duration
         dur_logpmf = dur_potentials(t)[:,state]
-        obs = cumulative_obs_potentials(t)[:,state]
+        obs, offset = cumulative_obs_potentials(t)
+        obs, offset = obs[:,state], offset[state]
         durprob = np.random.random()
 
         dur = 0 # NOTE: always incremented at least once
         while durprob > 0 and dur < dur_logpmf.shape[0] and t+dur < T:
-            p_d = np.exp(dur_logpmf[dur] + obs[dur]
+            p_d = np.exp(dur_logpmf[dur] + obs[dur] - offset
                     + betal[t+dur,state] - betastarl[t,state])
 
             assert not np.isnan(p_d)
@@ -1018,6 +1036,7 @@ def hsmm_sample_forwards_log(
 
     return stateseq, durations
 
+@line_profiled
 def hsmm_maximizing_assignment(
     N, T,
     trans_potentials, initial_state_potential,

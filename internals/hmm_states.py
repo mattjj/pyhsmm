@@ -7,6 +7,7 @@ import abc, copy, warnings
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
+
 PROFILING = False
 
 ######################
@@ -337,6 +338,7 @@ class HMMStatesPython(_StatesBase):
         betal = self.messages_backwards_log()
         self.sample_forwards_log(betal)
 
+    @line_profiled
     def resample_normalized(self):
         alphan = self.messages_forwards_normalized()
         self.sample_backwards_normalized(alphan)
@@ -640,5 +642,10 @@ class HMMStatesEigenSeparateTrans(_SeparateTransMixin,HMMStatesEigen):
     pass
 
 class HMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HMMStatesEigen):
+    pass
+
+class HMMStatesPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HMMStatesPossibleChangepoints):
     pass
 

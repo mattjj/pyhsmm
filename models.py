@@ -14,6 +14,8 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
+PROFILING = False
+
 ################
 #  HMM Mixins  #
 ################
@@ -192,10 +194,12 @@ class _HMMBase(Model):
             self.plot_observations()
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
+    @line_profiled
     def resample_model(self,joblib_jobs=0):
         self.resample_parameters()
         self.resample_states(joblib_jobs=joblib_jobs)
 
+    @line_profiled
     def resample_parameters(self):
         self.resample_obs_distns()
         self.resample_trans_distn()
@@ -624,11 +628,11 @@ class _HSMMBase(_HMMBase):
             self.plot_durations(colors=colors,states_objs=[s])
 
 class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
+    @line_profiled
     def resample_parameters(self):
         self.resample_dur_distns()
         super(_HSMMGibbsSampling,self).resample_parameters()
 
-    @line_profiled
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
