@@ -1062,11 +1062,12 @@ def hsmm_maximizing_assignment(
 
     beta_scores[-1] = 0.
     for t in xrange(T-1,-1,-1):
-        cB = cumulative_obs_potentials(t)
+        cB, offset = cumulative_obs_potentials(t)
 
         vals = beta_scores[t:t+cB.shape[0]] + cB + dur_potentials(t)
         if right_censoring:
             vals = np.vstack((vals,cB[-1] + dur_survival_potentials(t)))
+        vals -= offset
 
         vals.max(axis=0,out=betastar_scores[t])
         vals.argmax(axis=0,out=betastar_args[t])
