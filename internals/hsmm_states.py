@@ -627,6 +627,10 @@ class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates
     pass
 
 class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython):
+    def clear_caches(self):
+        self._caBl = None
+        super(HSMMStatesPossibleChangepoints,self).clear_caches()
+
     @property
     def aDl(self):
         # just like parent aDl, except we use Tfull
@@ -680,8 +684,15 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
 
     # backwards messages potentials
 
+    @property
+    def caBl(self):
+        if self._caBl is None:
+            self._caBl = np.vstack((np.zeros(self.num_states),self.aBl.cumsum(0)))
+        return self._caBl
+
     def cumulative_obs_potentials(self,tblock):
-        return self.aBl[tblock:].cumsum(0)[:self.trunc]
+        return (self.caBl[tblock+1:][:self.trunc] - self.caBl[tblock])
+        # return self.aBl[tblock:].cumsum(0)[:self.trunc]
 
     def dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
