@@ -14,6 +14,8 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
+PROFILING = True
+
 ################
 #  HMM Mixins  #
 ################
@@ -192,10 +194,12 @@ class _HMMBase(Model):
             self.plot_observations()
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
+    @line_profiled
     def resample_model(self,joblib_jobs=0):
         self.resample_parameters()
         self.resample_states(joblib_jobs=joblib_jobs)
 
+    @line_profiled
     def resample_parameters(self):
         self.resample_obs_distns()
         self.resample_trans_distn()
@@ -624,11 +628,11 @@ class _HSMMBase(_HMMBase):
             self.plot_durations(colors=colors,states_objs=[s])
 
 class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
+    @line_profiled
     def resample_parameters(self):
         self.resample_dur_distns()
         super(_HSMMGibbsSampling,self).resample_parameters()
 
-    @line_profiled
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
@@ -798,6 +802,21 @@ class _SeparateTransMixin(object):
         self.init_state_distns = collections.defaultdict(
                 lambda: copy.deepcopy(self.init_state_distn))
 
+    def __getstate__(self):
+        dct = self.__dict__.copy()
+        dct['trans_distns'] = dict(self.trans_distns.items())
+        dct['init_state_distns'] = dict(self.init_state_distns.items())
+        return dct
+
+    def __setstate__(self,dct):
+        self.__dict__.update(dct)
+        self.trans_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.trans_distn))
+        self.init_state_distns = collections.defaultdict(
+                lambda: copy.deepcopy(self.init_state_distn))
+        self.trans_distns.update(dct['trans_distns'])
+        self.init_state_distns.update(dct['init_state_distns'])
+
     ### Gibbs sampling
 
     def resample_trans_distn(self):
@@ -876,4 +895,23 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
+
+##########
+#  temp  #
+##########
+
+class Temp(HSMMPossibleChangepointsSeparateTrans):
+    _states_class = hsmm_states.TempStates
+
+    def resample_obs_distns(self):
+        from util.temp import getstats
+        allstats = getstats(
+                len(self.obs_distns),
+                [s.stateseq for s in self.states_list],
+                [s.data for s in self.states_list])
+
+        for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+            distn.resample(stats=stats)
+        self._clear_caches()
 
