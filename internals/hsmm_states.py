@@ -148,16 +148,6 @@ class HSMMStatesPython(_StatesBase):
     ### array properties for homog model
 
     @property
-    def aBl(self):
-        if self._aBl is None:
-            data = self.data
-            aBl = self._aBl = np.empty((data.shape[0],self.num_states))
-            for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = obs_distn.log_likelihood(data)
-            aBl[np.isnan(aBl).any(1)] = 0.
-        return self._aBl
-
-    @property
     def aDl(self):
         if self._aDl is None:
             aDl = np.empty((self.T,self.num_states))
@@ -1072,11 +1062,12 @@ def hsmm_maximizing_assignment(
 
     beta_scores[-1] = 0.
     for t in xrange(T-1,-1,-1):
-        cB = cumulative_obs_potentials(t)
+        cB, offset = cumulative_obs_potentials(t)
 
         vals = beta_scores[t:t+cB.shape[0]] + cB + dur_potentials(t)
         if right_censoring:
             vals = np.vstack((vals,cB[-1] + dur_survival_potentials(t)))
+        vals -= offset
 
         vals.max(axis=0,out=betastar_scores[t])
         vals.argmax(axis=0,out=betastar_args[t])

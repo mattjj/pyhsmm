@@ -784,7 +784,7 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
 class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
     pass
 
-class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMM):
+class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMMPython):
     pass
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):

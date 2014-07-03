@@ -17,22 +17,23 @@ N = 4
 T = 1000
 obs_dim = 2
 
-obs_hypparams = {'mu_0':np.zeros(obs_dim),
-                'sigma_0':np.eye(obs_dim),
-                'kappa_0':0.2,
-                'nu_0':obs_dim+2}
+obs_hypparams = dict(
+        mu_0=np.zeros(obs_dim),
+        nus_0=1./10*np.ones(obs_dim),
+        alphas_0=np.ones(obs_dim),
+        betas_0=np.ones(obs_dim),
+        )
 
-dur_hypparams = {'alpha_0':4*30,
-                 'beta_0':4}
+dur_hypparams = dict(alpha_0=2*30,beta_0=2)
 
-true_obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(N)]
+true_obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in range(N)]
 true_dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in range(N)]
 
 truemodel = pyhsmm.models.HSMM(alpha=6.,init_state_concentration=6.,
                                obs_distns=true_obs_distns,
                                dur_distns=true_dur_distns)
 
-datas = [truemodel.generate(T)[0] for itr in range(3)]
+datas = [truemodel.generate(T)[0] for itr in range(2)]
 
 plt.figure()
 truemodel.plot()
@@ -53,9 +54,9 @@ for s in truemodel.states_list:
 #  posterior inference  #
 #########################
 
-Nmax = 20
+Nmax = 10
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
 # posteriormodel = pyhsmm.models.WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
@@ -68,14 +69,17 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 
 ### sampling
 
-# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-#     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
-# for idx in progprint_xrange(100):
-#     posteriormodel.resample_model(joblib_jobs=1)
+for idx in progprint_xrange(100):
+    posteriormodel.resample_model()
 
-# plt.figure()
-# posteriormodel.plot()
+for s in posteriormodel.states_list:
+    s.Viterbi()
+
+plt.figure()
+posteriormodel.plot()
 
 
 ### SVI
@@ -97,17 +101,17 @@ posteriormodel = pyhsmm.models.HSMMPossibleChangepointsSeparateTrans(
 
 ### mean field
 
-for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
-    posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
+# for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
+#     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
-scores = []
-for idx in progprint_xrange(50):
-    scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
+# scores = []
+# for idx in progprint_xrange(50):
+#     scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
 
-plt.figure()
-plt.plot(scores)
-plt.figure()
-posteriormodel.plot()
+# plt.figure()
+# plt.plot(scores)
+# plt.figure()
+# posteriormodel.plot()
 
 
 plt.show()
