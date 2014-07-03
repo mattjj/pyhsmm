@@ -170,6 +170,7 @@ class _PossibleChangepointsMixin(object):
             self.blockstateseq = stateseq
         else:
             self.blockstateseq = stateseq[self.segmentstarts]
+        self._stateseq = None
 
     def _expected_states(self,*args,**kwargs):
         expected_states = \
