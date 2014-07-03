@@ -812,18 +812,16 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
     pass
 
 
-class TempStates(HSMMStatesPossibleChangepointsSeparateTrans):
+class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
     @property
     def aBl(self):
         if self._aBl is None:
             sigmas = np.array([d.sigmas for d in self.obs_distns])
             Js = 1./sigmas
             mus = np.array([d.mu for d in self.obs_distns])
-            aBl = -1./2*(
-                (np.einsum('ni,ni,ki->nk',self.data,self.data,Js)
-                    - np.einsum('ni,ki,ki->nk',self.data,2*mus,Js))
-                +
-                (mus**2*Js - np.log(2*np.pi*sigmas)).sum(1))
+            aBl = (np.einsum('ni,ni,ki->nk',self.data,self.data,Js)
+                    - np.einsum('ni,ki,ki->nk',self.data,2*mus,Js)) \
+                  + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(1)
             aBl[np.isnan(aBl).any(1)] = 0.
 
             aBBl = np.empty((self.Tblock,self.num_states))
@@ -832,10 +830,50 @@ class TempStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
             self._aBl = aBl
             self._aBBl = aBBl
+
         return self._aBBl
 
+class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    @property
+    def aBl(self):
+        if self._all_likes is None:
+            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+            Js = 1./(2*sigmas)
+            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
 
+            # data is indexed n, dimensions indexed i (summed out),
+            #   states indexed j, components indexed k
 
+            # all_likes is T x Nstates x Ncomponents
+            all_likes = self._all_likes = \
+                    (np.einsum('ni,ni,jki->njk',self.data,self.data,Js)
+                        - np.einsum('ni,jki,jki->njk',self.data,2*mus,Js)) \
+                    + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(2)
+
+            # weights is Nstates x Ncomponents
+            weights = np.array([np.log(d.weights) for d in self.obs_distns])
+            all_likes += weights[na,...]
+
+            # aBl is T x Nstates
+            aBl = self._aBl = np.logaddexp.reduce(all_likes, axis=2)
+
+            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+
+        return self._aBBl
+
+    def resample(self):
+        super(DiagGaussGMMStates,self).resample()
+
+        from util.temp import sample_mixture_components
+        self.component_labels = sample_mixture_components(self.stateseq,self._all_likes)
+
+    # TODO joblib function has to return the mixture component membership
+
+# NOTE: we could collect stats in these resample methods so that the master
+# never has to touch the data. but that takes another pass over the data anyway,
+# and we can be more parallel using omp threads.
 
 ### HSMM messages
 

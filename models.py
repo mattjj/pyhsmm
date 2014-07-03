@@ -901,10 +901,12 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
 #  temp  #
 ##########
 
-class Temp(HSMMPossibleChangepointsSeparateTrans):
-    _states_class = hsmm_states.TempStates
+class DiagGaussHSMMPossibleChangepointsSeparateTrans(
+        HSMMPossibleChangepointsSeparateTrans):
+    _states_class = hsmm_states.DiagGaussStates
 
     def resample_obs_distns(self):
+        # collect the statistics using fast code
         from util.temp import getstats
         allstats = getstats(
                 len(self.obs_distns),
@@ -914,4 +916,21 @@ class Temp(HSMMPossibleChangepointsSeparateTrans):
         for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
             distn.resample(stats=stats)
         self._clear_caches()
+
+# TODO
+# class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
+#         HSMMPossibleChangepointsSeparateTrans):
+
+#     def resample_obs_distns(self):
+#         from util.temp import getstatsgmm
+#         allstats = getstatsgmm(
+#                 len(self.obs_distns),
+#                 len(self.obs_distns[0].components),
+#                 [s.stateseq for s in self.states_list],
+#                 [s.labels for s in self.states_list],
+#                 [s.data for s in self.states_list])
+
+#         for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+#             distn.resample(stats=stats)
+#         self._clear_caches()
 
