@@ -159,7 +159,8 @@ class _HMMBase(Model):
                 if state in used_states:
                     o.plot(
                         color=cmap(colors[state]),
-                        data=[s.data[s.stateseq == state] if s.data is not None else None
+                        data=[s.data[(s.stateseq == state) & (~np.isnan(s.data).any(1))]
+                                if s.data is not None else None
                             for s in states_objs],
                         indices=[np.where(s.stateseq == state)[0] for s in states_objs],
                         label='%d' % state)
