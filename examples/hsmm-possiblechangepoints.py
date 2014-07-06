@@ -70,14 +70,19 @@ posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans
 
 posteriormodel.add_data(data,changepoints,group_id=0)
 
+likes = []
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()
+    likes.append(posteriormodel.log_likelihood())
 
 posteriormodel.states_list[0].Viterbi()
 
 plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('HDP-HSMM sampled after 100 iterations')
+
+plt.figure()
+plt.plot(likes)
 
 
 plt.show()

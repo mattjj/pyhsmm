@@ -30,7 +30,6 @@ class dummy
         }
     }
 
-    // TODO TODO handle nans in data
     static void gmm_likes(
             int T, int Tblock, int N, int K, int D,
             Type *data, Type *weights,
@@ -55,15 +54,17 @@ class dummy
             eaBBl.row(tbl).setZero();
 
             for (int t=start; t<end; t++) {
-                temp = (eJs * edata.row(t).square().matrix().transpose()).array();
-                temp -= (emus_times_Js * edata.row(t).matrix().transpose()).array();
-                temp += enormalizers;
+                if (likely((edata.row(t) == edata.row(t)).all())) {
+                    temp = (eJs * edata.row(t).square().matrix().transpose()).array();
+                    temp -= (emus_times_Js * edata.row(t).matrix().transpose()).array();
+                    temp += enormalizers;
 
-                for (int n=0; n<N; n++) {
-                    themax = temp.segment(n*K,K).maxCoeff();
-                    eaBBl(tbl,n) +=
-                        log(eweights.row(n) * (temp.segment(n*K,K) - themax).exp().matrix())
-                        + themax;
+                    for (int n=0; n<N; n++) {
+                        themax = temp.segment(n*K,K).maxCoeff();
+                        eaBBl(tbl,n) +=
+                            log(eweights.row(n) * (temp.segment(n*K,K) - themax).exp().matrix())
+                            + themax;
+                    }
                 }
             }
         }
