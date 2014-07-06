@@ -36,6 +36,8 @@ plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 
+data[100:120] = data[200:220] = np.nan
+
 # !!! get the changepoints !!!
 # NOTE: usually these would be estimated by some external process; here I'm
 # totally cheating and just getting them from the truth

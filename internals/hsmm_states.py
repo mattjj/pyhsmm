@@ -830,7 +830,6 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
             self._aBl = aBl
             self._aBBl = aBBl
-        import ipdb; ipdb.set_trace()
         return self._aBBl
 
     @property
@@ -957,7 +956,7 @@ def hsmm_sample_forwards_log(
     left_censoring=False, right_censoring=True):
 
     T, _ = betal.shape
-    stateseq = np.empty(T,dtype=np.int)
+    stateseq = np.empty(T,dtype=np.int32)
     durations = []
 
     t = 0
@@ -1026,7 +1025,7 @@ def hsmm_maximizing_assignment(
         vals.argmax(axis=1,out=beta_args[t-1])
     beta_scores[-1] = 0.
 
-    stateseq = np.empty(T,dtype=np.int)
+    stateseq = np.empty(T,dtype=np.int32)
 
     t = 0
     state = (betastar_scores[t] + initial_state_potential).argmax()
