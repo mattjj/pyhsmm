@@ -55,11 +55,19 @@ obs_distns = [pyhsmm.basic.models.MixtureDistribution(
         alpha_0=1.,
         components=[pyhsmm.distributions.DiagonalGaussian(**obs_hypparams)
             for component in xrange(2)]) for state in xrange(Nmax)]
+
+# obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
+
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
 posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         alpha=6.,init_state_concentration=6.,
         obs_distns=obs_distns,dur_distns=dur_distns)
+
+# posteriormodel = pyhsmm.models.DiagGaussHSMMPossibleChangepointsSeparateTrans(
+#         alpha=6.,init_state_concentration=6.,
+#         obs_distns=obs_distns,dur_distns=dur_distns)
+
 posteriormodel.add_data(data,changepoints,group_id=0)
 
 for idx in progprint_xrange(100):

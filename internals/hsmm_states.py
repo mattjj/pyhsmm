@@ -813,7 +813,6 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
 
 
 class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
-    # TODO test
     @property
     def aBl(self):
         if self._aBl is None:
@@ -831,11 +830,11 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
             self._aBl = aBl
             self._aBBl = aBBl
-
+        import ipdb; ipdb.set_trace()
         return self._aBBl
 
     @property
-    def slow_aBl(self):
+    def aBl_slow(self):
         return super(DiagGaussStates,self).aBl
 
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
