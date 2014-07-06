@@ -836,7 +836,7 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
     @property
     def aBl(self):
-        if self._all_likes is None:
+        if self._aBBl is None:
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
             Js = 1./(2*sigmas)
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
@@ -845,7 +845,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             #   states indexed j, components indexed k
 
             # all_likes is T x Nstates x Ncomponents
-            all_likes = self._all_likes = \
+            all_likes = \
                     (np.einsum('ni,ni,jki->njk',self.data,self.data,Js)
                         - np.einsum('ni,jki,jki->njk',self.data,2*mus,Js)) \
                     + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(2)
@@ -863,17 +863,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
         return self._aBBl
 
-    def resample(self):
-        super(DiagGaussGMMStates,self).resample()
-
-        from util.temp import sample_mixture_components
-        self.component_labels = sample_mixture_components(self.stateseq,self._all_likes)
-
-    # TODO joblib function has to return the mixture component membership
-
-# NOTE: we could collect stats in these resample methods so that the master
-# never has to touch the data. but that takes another pass over the data anyway,
-# and we can be more parallel using omp threads.
+    # TODO try eigen version to avoid big temp arrays
 
 ### HSMM messages
 
