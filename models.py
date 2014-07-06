@@ -929,18 +929,6 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
-    # TODO resample jointly for efficient memory passes and less copying, do
-    # stats gathering and label resampling in C++ for parallelism and fewer temps
-    # def resample_obs_distns(self):
-    #     from util.temp import getstatsgmm
-    #     allstats = getstatsgmm(
-    #             len(self.obs_distns),
-    #             len(self.obs_distns[0].components),
-    #             [s.stateseq for s in self.states_list],
-    #             [s.labels for s in self.states_list],
-    #             [s.data for s in self.states_list])
-
-    #     for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-    #         distn.resample(stats=stats)
-    #     self._clear_caches()
+    # TODO stat gathering in global low-level code
+    # TODO mixture label resampling in global low-level code
 
