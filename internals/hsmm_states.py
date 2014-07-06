@@ -839,25 +839,25 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
         return super(DiagGaussStates,self).aBl
 
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
-    # TODO test
     @property
     def aBl(self):
+        return self.aBl_eigen
+
+    @property
+    def aBl_einsum(self):
         if self._aBBl is None:
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
             Js = -1./(2*sigmas)
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
 
-            # data is indexed n, dimensions indexed i (summed out),
-            #   states indexed j, components indexed k
-
             # all_likes is T x Nstates x Ncomponents
             all_likes = \
                     (np.einsum('td,td,nkd->tnk',self.data,self.data,Js)
-                        - np.einsum('td,nkd,nkd->tnk',self.data,2*mus,Js)) \
-                    + (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(2)
+                        - np.einsum('td,nkd,nkd->tnk',self.data,2*mus,Js))
+            all_likes += (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(2)
 
             # weights is Nstates x Ncomponents
-            weights = np.array([np.log(d.weights) for d in self.obs_distns])
+            weights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
             all_likes += weights[na,...]
 
             # aBl is T x Nstates
@@ -867,24 +867,24 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
 
+        import ipdb; ipdb.set_trace()
         return self._aBBl
 
-    # TODO test
     @property
     def aBl_eigen(self):
         if self._aBBl is None:
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
-            weights = np.array([np.log(d.weights) for d in self.obs_distns])
+            weights = np.array([d.weights.weights for d in self.obs_distns])
             changepoints = np.array(self.changepoints).astype('int32')
 
-            from util.temp import gmm_likes
+            from ..util.temp import gmm_likes
             self._aBBl = np.empty((self.Tblock,self.num_states))
             gmm_likes(self.data,sigmas,mus,weights,changepoints,self._aBBl)
         return self._aBBl
 
     @property
-    def slow_aBl(self):
+    def aBl_slow(self):
         return super(DiagGaussGMMStates,self).aBl
 
 ### HSMM messages

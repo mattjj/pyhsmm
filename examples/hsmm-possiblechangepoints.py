@@ -36,9 +36,6 @@ plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 
-data[50:60] = data[100:110] = np.nan
-
-
 # !!! get the changepoints !!!
 # NOTE: usually these would be estimated by some external process; here I'm
 # totally cheating and just getting them from the truth
@@ -54,12 +51,16 @@ print changepoints
 
 Nmax = 25
 
-obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.basic.models.MixtureDistribution(
+        alpha_0=1.,
+        components=[pyhsmm.distributions.DiagonalGaussian(**obs_hypparams)
+            for component in xrange(2)]) for state in xrange(Nmax)]
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=6.,init_state_concentration=6.,
+posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
+        alpha=6.,init_state_concentration=6.,
         obs_distns=obs_distns,dur_distns=dur_distns)
-posteriormodel.add_data(data,changepoints)
+posteriormodel.add_data(data,changepoints,group_id=0)
 
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()
