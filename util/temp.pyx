@@ -18,6 +18,11 @@ cdef extern from "temp.h":
         void getstats(
             int M, int T, int D, int32_t *stateseq, Type *data,
             Type *stats) nogil
+        void gmm_likes(
+            int T, int N, int K, int D,
+            Type *data, Type *sigmas, Type *mus, Type *weights,
+            int32_t *changepoints,
+            Type *aBBl)
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -51,4 +56,28 @@ def getstats(num_states, stateseqs, datas):
         sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
         ret.append((n,xbar,sumsq))
     return ret
+
+# NOTE: this one isn't parallelized because it should be called once per data
+# sequence and there is joblib parallelism happening over data sequences. We
+# could openmp it with fewer threads...
+# NOTE: N states
+#       K mixture components
+#       D dimensional data
+def gmm_likes(
+        floating[:,::1] data,        # T x D
+        floating[:,:,::1] sigmas,    # N x K x D
+        floating[:,:,::1] mus,       # N x K x D
+        floating[:,::1] weights,     # N x K
+        int32_t[:,::1] changepoints, # T x 2
+        floating[:,::1] aBBl,        # T x N
+        ):
+    cdef dummy[floating] ref
+    cdef int T = data.shape[0]
+    cdef int N = sigmas.shape[0]
+    cdef int K = sigmas.shape[1]
+    cdef int D = sigmas.shape[2]
+    ref.gmm_likes(T,N,K,D,
+        &data[0,0],&sigmas[0,0,0],&mus[0,0,0],&weights[0,0],&changepoints[0,0],
+        &aBBl[0,0])
+    return aBBl
 

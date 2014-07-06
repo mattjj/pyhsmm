@@ -834,9 +834,10 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
         return self._aBBl
 
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    # TODO test this
     @property
     def aBl(self):
-        if self._all_likes is None:
+        if self._aBBl is None:
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
             Js = 1./(2*sigmas)
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
@@ -845,7 +846,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             #   states indexed j, components indexed k
 
             # all_likes is T x Nstates x Ncomponents
-            all_likes = self._all_likes = \
+            all_likes = \
                     (np.einsum('ni,ni,jki->njk',self.data,self.data,Js)
                         - np.einsum('ni,jki,jki->njk',self.data,2*mus,Js)) \
                     + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(2)
@@ -863,13 +864,19 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
         return self._aBBl
 
-    def resample(self):
-        super(DiagGaussGMMStates,self).resample()
+    # TODO test this
+    @property
+    def aBl_eigen(self):
+        if self._aBBl is None:
+            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+            weights = np.array([np.log(d.weights) for d in self.obs_distns])
+            changepoints = np.array(self.changepoints).astype('int32')
 
-        from util.temp import sample_mixture_components
-        self.component_labels = sample_mixture_components(self.stateseq,self._all_likes)
-
-    # TODO joblib function has to return the mixture component membership
+            from util.temp import gmm_likes
+            self._aBBl = np.empty((self.Tblock,self.num_states))
+            gmm_likes(self.data,sigmas,mus,weights,changepoints,self._aBBl)
+        return self._aBBl
 
 # NOTE: we could collect stats in these resample methods so that the master
 # never has to touch the data. but that takes another pass over the data anyway,

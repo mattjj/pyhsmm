@@ -907,31 +907,40 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
     _states_class = hsmm_states.DiagGaussStates
 
     def resample_obs_distns(self):
-        # collect the statistics using fast code
-        from util.temp import getstats
-        allstats = getstats(
-                len(self.obs_distns),
-                [s.stateseq for s in self.states_list],
-                [s.data for s in self.states_list])
+        # collects the statistics using fast code
+        assert all(s.data.dtype == np.float64 for s in self.states_list)
+        assert all(s.stateseq.dtype == np.int32 for s in self.states_list)
 
-        for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-            distn.resample(stats=stats)
+        if len(self.states_list) > 0:
+            from util.temp import getstats
+            allstats = getstats(
+                    len(self.obs_distns),
+                    [s.stateseq for s in self.states_list],
+                    [s.data for s in self.states_list])
+
+            for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+                distn.resample(stats=stats)
+        else:
+            for distn in self.obs_distns:
+                distn.resample()
         self._clear_caches()
 
-# TODO
-# class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
-#         HSMMPossibleChangepointsSeparateTrans):
+class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
+        HSMMPossibleChangepointsSeparateTrans):
+    _states_class = hsmm_states.DiagGaussGMMStates
 
-#     def resample_obs_distns(self):
-#         from util.temp import getstatsgmm
-#         allstats = getstatsgmm(
-#                 len(self.obs_distns),
-#                 len(self.obs_distns[0].components),
-#                 [s.stateseq for s in self.states_list],
-#                 [s.labels for s in self.states_list],
-#                 [s.data for s in self.states_list])
+    # TODO resample jointly for efficient memory passes and less copying, do
+    # stats gathering and label resampling in C++ for parallelism and fewer temps
+    # def resample_obs_distns(self):
+    #     from util.temp import getstatsgmm
+    #     allstats = getstatsgmm(
+    #             len(self.obs_distns),
+    #             len(self.obs_distns[0].components),
+    #             [s.stateseq for s in self.states_list],
+    #             [s.labels for s in self.states_list],
+    #             [s.data for s in self.states_list])
 
-#         for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-#             distn.resample(stats=stats)
-#         self._clear_caches()
+    #     for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+    #         distn.resample(stats=stats)
+    #     self._clear_caches()
 

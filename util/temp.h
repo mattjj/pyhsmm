@@ -27,5 +27,18 @@ class dummy
             }
         }
     }
+
+    static void gmm_likes(
+            int T, int N, int K, int D,
+            Type *data, Type *sigmas, Type *mus, Type *weights,
+            int32_t *changepoints,
+            Type *aBBl)
+    {
+        NPArray<Type> edata(data,T,D);
+        NPArray<Type> esigmas(sigmas,N,K*D);
+        NPArray<Type> emus(mus,N,K*D);
+        NPArray<Type> eweights(weights,N,K);
+        NPArray<Type> eaBBl(aBBl,T,N);
+    }
 };
 
