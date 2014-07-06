@@ -813,15 +813,16 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
 
 
 class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    # TODO test
     @property
     def aBl(self):
         if self._aBl is None:
             sigmas = np.array([d.sigmas for d in self.obs_distns])
-            Js = 1./sigmas
+            Js = -1./(2*sigmas)
             mus = np.array([d.mu for d in self.obs_distns])
-            aBl = (np.einsum('ni,ni,ki->nk',self.data,self.data,Js)
-                    - np.einsum('ni,ki,ki->nk',self.data,2*mus,Js)) \
-                  + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(1)
+            aBl = (np.einsum('td,td,nd->tn',self.data,self.data,Js)
+                    - np.einsum('td,nd,nd->tn',self.data,2*mus,Js)) \
+                  + (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(1)
             aBl[np.isnan(aBl).any(1)] = 0.
 
             aBBl = np.empty((self.Tblock,self.num_states))
@@ -833,12 +834,17 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
         return self._aBBl
 
+    @property
+    def slow_aBl(self):
+        return super(DiagGaussStates,self).aBl
+
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    # TODO test
     @property
     def aBl(self):
         if self._aBBl is None:
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
-            Js = 1./(2*sigmas)
+            Js = -1./(2*sigmas)
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
 
             # data is indexed n, dimensions indexed i (summed out),
@@ -846,9 +852,9 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
             # all_likes is T x Nstates x Ncomponents
             all_likes = \
-                    (np.einsum('ni,ni,jki->njk',self.data,self.data,Js)
-                        - np.einsum('ni,jki,jki->njk',self.data,2*mus,Js)) \
-                    + (mus**2*Js - np.log(2*np.pi*sigmas)).sum(2)
+                    (np.einsum('td,td,nkd->tnk',self.data,self.data,Js)
+                        - np.einsum('td,nkd,nkd->tnk',self.data,2*mus,Js)) \
+                    + (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(2)
 
             # weights is Nstates x Ncomponents
             weights = np.array([np.log(d.weights) for d in self.obs_distns])
@@ -862,6 +868,10 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
                 aBBl[idx] = aBl[start:stop].sum(0)
 
         return self._aBBl
+
+    @property
+    def slow_aBl(self):
+        return super(DiagGaussGMMStates,self).aBl
 
     # TODO try eigen version to avoid big temp arrays
 
