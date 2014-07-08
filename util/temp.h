@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <stdint.h> // int32_t
-#include <iostream> // cout, endl
+#include <omp.h> // omp_get_num_threads, omp_get_thread_num
+#include <limits> // infinity
 
 #include "nptypes.h"
 #include "util.h"
@@ -53,7 +54,7 @@ class dummy
 
 #pragma omp parallel
         {
-            Type temp_buf[N*K];
+            Type temp_buf[N*K] __attribute__((aligned(16)));
             NPVectorArray<Type> temp(temp_buf,N*K);
             Type themax;
 
@@ -79,6 +80,95 @@ class dummy
                 }
             }
         }
+    }
+
+    static void hsmm_messages_reduction_verticalpartition(
+            int T, int N, Type *betal, Type *cB, Type *dur_potentials, Type *out)
+    {
+        NPSubArray<Type> ebetal(betal,T,N);
+        NPSubArray<Type> ecB(cB,T,N);
+        NPSubArray<Type> edp(dur_potentials,T,N);
+
+        Map<Array<Type,1,Dynamic> > eout(out,1,N);
+
+        Eigen::initParallel();
+
+#pragma omp parallel
+        {
+            if (omp_get_thread_num() < N) {
+                int num_threads = omp_get_num_threads();
+                int blocklen = 1 + ((N - 1) / min(N,num_threads));
+                int start = blocklen * omp_get_thread_num();
+                blocklen = min(blocklen, N-start);
+
+                Type maxes_buf[blocklen] __attribute__((aligned(16)));
+                Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,blocklen);
+
+#ifdef TEMPS_ON_STACK
+                Type thesum_buf[T*blocklen] __attribute__((aligned(16)));
+                NPArray<Type> thesum(thesum_buf,T,blocklen);
+#else
+                Array<Type,Dynamic,Dynamic> thesum(T,blocklen);
+#endif
+
+                thesum = ebetal.block(0,start,T,blocklen) + ecB.block(0,start,T,blocklen)
+                    + edp.block(0,start,T,blocklen);
+                maxes = thesum.colwise().maxCoeff();
+
+                eout.segment(start,blocklen)
+                    = (thesum.rowwise() - maxes).exp().colwise().sum().log() + maxes;
+            }
+        }
+    }
+
+    static void hsmm_messages_reduction_horizontalpartition(
+            int T, int N, Type *betal, Type *cB, Type *dur_potentials, Type *out)
+    {
+        NPArray<Type> ebetal(betal,T,N);
+        NPArray<Type> ecB(cB,T,N);
+        NPArray<Type> edp(dur_potentials,T,N);
+
+        Eigen::initParallel();
+
+        int max_num_threads = omp_get_max_threads();
+        Type out_buf[max_num_threads*N] __attribute__((aligned(16)));
+
+        NPArray<Type> eout(out_buf,max_num_threads,N);
+        eout.setConstant(-numeric_limits<Type>::infinity());
+
+#pragma omp parallel
+        {
+            int thread_num = omp_get_thread_num();
+            int num_threads = omp_get_num_threads();
+            int blocklen = 1 + ((T - 1) / num_threads);
+            int start = blocklen * thread_num;
+            blocklen = min(blocklen, T-start);
+
+            Type maxes_buf[N] __attribute__((aligned(16)));
+            Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
+
+#ifdef TEMPS_ON_STACK
+            Type thesum_buf[blocklen*N] __attribute__((aligned(16)));
+            NPArray<Type> thesum(thesum_buf,blocklen,N);
+#else
+            Array<Type,Dynamic,Dynamic> thesum(blocklen,N);
+#endif
+
+            thesum = ebetal.block(start,0,blocklen,N) + ecB.block(start,0,blocklen,N)
+                + edp.block(start,0,blocklen,N);
+            maxes = thesum.colwise().maxCoeff();
+
+            eout.block(thread_num,0,1,N) =
+                (thesum.rowwise() - maxes).exp().colwise().sum().log() + maxes;
+        }
+
+        Type maxes_buf[N] __attribute__((aligned(16)));
+        Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
+
+        maxes = eout.colwise().maxCoeff();
+        eout.rowwise() -= maxes;
+        Map<Array<Type,1,Dynamic>,Aligned>(out,1,N) =
+            eout.exp().colwise().sum().log() + maxes;
     }
 };
 

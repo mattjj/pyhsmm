@@ -10,6 +10,8 @@ from libcpp.vector cimport vector
 from libc.stdint cimport int32_t, int64_t
 from cython cimport floating
 
+# TODO put back floating (forced to double)
+
 from cython.parallel import prange
 
 # TODO pass in num threads
@@ -27,6 +29,12 @@ cdef extern from "temp.h":
             int32_t *changepoints,
             Type *aBBl)
         void initParallel()
+        void hsmm_messages_reduction_verticalpartition(
+            int T, int N, Type *betal, Type *cB, Type *dur_potentials,
+            Type *out)
+        void hsmm_messages_reduction_horizontalpartition(
+            int T, int N, Type *betal, Type *cB, Type *dur_potentials,
+            Type *out)
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -64,23 +72,23 @@ def getstats(num_states, stateseqs, datas):
     return ret
 
 def gmm_likes(
-        floating[:,::1] data not None,        # T x D
-        floating[:,:,::1] sigmas not None,    # N x K x D
-        floating[:,:,::1] mus not None,       # N x K x D
-        floating[:,::1] weights not None,     # N x K
+        double[:,::1] data not None,        # T x D
+        double[:,:,::1] sigmas not None,    # N x K x D
+        double[:,:,::1] mus not None,       # N x K x D
+        double[:,::1] weights not None,     # N x K
         int32_t[:,::1] changepoints not None, # T x 2
-        floating[:,::1] aBBl not None,        # T x N
+        double[:,::1] aBBl not None,        # T x N
         ):
-    cdef dummy[floating] ref
+    cdef dummy[double] ref
     cdef int T = data.shape[0]
     cdef int Tblock = aBBl.shape[0]
     cdef int N = sigmas.shape[0]
     cdef int K = sigmas.shape[1]
     cdef int D = sigmas.shape[2]
 
-    cdef floating[:,:,::1] Js = -1./(2*np.asarray(sigmas))
-    cdef floating[:,:,::1] mus_times_Js = 2*np.asarray(mus)*np.asarray(Js)
-    cdef floating[:,::1] normalizers = \
+    cdef double[:,:,::1] Js = -1./(2*np.asarray(sigmas))
+    cdef double[:,:,::1] mus_times_Js = 2*np.asarray(mus)*np.asarray(Js)
+    cdef double[:,::1] normalizers = \
             (np.asarray(mus)**2*np.asarray(Js) \
             - 1./2*np.log(2*np.pi*np.asarray(sigmas))).sum(2)
 
@@ -90,5 +98,38 @@ def gmm_likes(
         &changepoints[0,0],
         &aBBl[0,0])
 
-    return aBBl
+def hsmm_messages_reduction_vertical(
+        double[:,::1] betal,
+        double[:,::1] cB,
+        double[:,::1] dur_potentials,
+        double[::1] out,
+        ):
+    cdef dummy[double] ref
+    cdef int T = betal.shape[0] # NOTE: really T-t
+    cdef int N = betal.shape[1]
+
+    ref.hsmm_messages_reduction_verticalpartition(T,N,
+            &betal[0,0],&cB[0,0],&dur_potentials[0,0],&out[0])
+
+def hsmm_messages_reduction_horizontal(
+        double[:,::1] betal,
+        double[:,::1] cB,
+        double[:,::1] dur_potentials,
+        double[::1] out,
+        ):
+    cdef dummy[double] ref
+    cdef int T = betal.shape[0] # NOTE: really T-t
+    cdef int N = betal.shape[1]
+
+    ref.hsmm_messages_reduction_horizontalpartition(T,N,
+            &betal[0,0],&cB[0,0],&dur_potentials[0,0],&out[0])
+
+def hsmm_messages_reduction(
+        double[:,::1] betal,
+        double[:,::1] cB,
+        double[:,::1] dur_potentials,
+        np.ndarray[double,ndim=1,mode='c'] out,
+        ):
+    np.logaddexp.reduce(np.asarray(betal) + np.asarray(cB) + np.asarray(dur_potentials),
+            axis=0,out=out)
 
