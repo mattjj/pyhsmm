@@ -12,6 +12,8 @@ from cython cimport floating
 
 from cython.parallel import prange
 
+# TODO pass in num threads
+
 cdef extern from "temp.h":
     cdef cppclass dummy[Type]:
         dummy()
@@ -58,9 +60,6 @@ def getstats(num_states, stateseqs, datas):
         ret.append((n,xbar,sumsq))
     return ret
 
-# NOTE: this one isn't parallelized because it should be called once per data
-# sequence and there is joblib parallelism happening over data sequences. We
-# could openmp it with fewer threads...
 def gmm_likes(
         floating[:,::1] data not None,        # T x D
         floating[:,:,::1] sigmas not None,    # N x K x D
@@ -87,5 +86,6 @@ def gmm_likes(
         &Js[0,0,0],&mus_times_Js[0,0,0],&normalizers[0,0],
         &changepoints[0,0],
         &aBBl[0,0])
+
     return aBBl
 
