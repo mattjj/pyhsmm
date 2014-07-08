@@ -26,6 +26,7 @@ cdef extern from "temp.h":
             Type *Js, Type *mus_times_Js, Type *normalizers,
             int32_t *changepoints,
             Type *aBBl)
+        void initParallel()
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -47,6 +48,8 @@ def getstats(num_states, stateseqs, datas):
         stateseqs_v.push_back(&temp2[0])
 
     cdef double[:,:,::1] out = np.zeros((2*K,M,2*D+1)) # NOTE: 2*K to avoid false sharing
+
+    ref.initParallel()
 
     with nogil:
         for i in prange(K):
