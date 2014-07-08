@@ -9,6 +9,8 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
+from ..util.temp import hsmm_messages_reduction_vertical
+
 PROFILING = True
 
 import hmm_states
@@ -901,8 +903,10 @@ def hsmm_messages_backwards_log(
     betal[-1] = 0.
     for t in xrange(T-1,-1,-1):
         cB, offset = cumulative_obs_potentials(t)
-        np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
-                axis=0, out=betastarl[t])
+        dp = dur_potentials(t)
+        hsmm_messages_reduction_horizontal(betal[t:t+cB.shape[0]],cB,dp,betastarl[t])
+        # np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
+        #         axis=0, out=betastarl[t])
         betastarl[t] -= offset
         if right_censoring:
             np.logaddexp(betastarl[t], cB[-1] - offset + dur_survival_potentials(t),

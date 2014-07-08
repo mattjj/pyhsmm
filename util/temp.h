@@ -138,28 +138,30 @@ class dummy
 
 #pragma omp parallel
         {
-            int thread_num = omp_get_thread_num();
-            int num_threads = omp_get_num_threads();
-            int blocklen = 1 + ((T - 1) / num_threads);
-            int start = blocklen * thread_num;
-            blocklen = min(blocklen, T-start);
+            if (omp_get_thread_num() < T) {
+                int thread_num = omp_get_thread_num();
+                int num_threads = omp_get_num_threads();
+                int blocklen = 1 + ((T - 1) / min(T,num_threads));
+                int start = blocklen * thread_num;
+                blocklen = min(blocklen, T-start);
 
-            Type maxes_buf[N] __attribute__((aligned(16)));
-            Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
+                Type maxes_buf[N] __attribute__((aligned(16)));
+                Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
 
 #ifdef TEMPS_ON_STACK
-            Type thesum_buf[blocklen*N] __attribute__((aligned(16)));
-            NPArray<Type> thesum(thesum_buf,blocklen,N);
+                Type thesum_buf[blocklen*N] __attribute__((aligned(16)));
+                NPArray<Type> thesum(thesum_buf,blocklen,N);
 #else
-            Array<Type,Dynamic,Dynamic> thesum(blocklen,N);
+                Array<Type,Dynamic,Dynamic> thesum(blocklen,N);
 #endif
 
-            thesum = ebetal.block(start,0,blocklen,N) + ecB.block(start,0,blocklen,N)
-                + edp.block(start,0,blocklen,N);
-            maxes = thesum.colwise().maxCoeff();
+                thesum = ebetal.block(start,0,blocklen,N) + ecB.block(start,0,blocklen,N)
+                    + edp.block(start,0,blocklen,N);
+                maxes = thesum.colwise().maxCoeff();
 
-            eout.block(thread_num,0,1,N) =
-                (thesum.rowwise() - maxes).exp().colwise().sum().log() + maxes;
+                eout.block(thread_num,0,1,N) =
+                    (thesum.rowwise() - maxes).exp().colwise().sum().log() + maxes;
+            }
         }
 
         Type maxes_buf[N] __attribute__((aligned(16)));
