@@ -10,7 +10,7 @@ from libcpp.vector cimport vector
 from libc.stdint cimport int32_t, int64_t
 from cython cimport floating
 
-# TODO put back floating (forced to double)
+# TODO do more type generic stuff (less double, more floating)
 
 from cython.parallel import prange
 

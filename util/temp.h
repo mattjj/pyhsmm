@@ -82,6 +82,12 @@ class dummy
         }
     }
 
+    // TODO do this in one pass through the arrays, not several...
+    // TODO move horizontal reduction into numpy so it's not so shitty?
+    // TODO aDl is taking a lot of time. could compute it on the fly instead?
+    // need binomial coefficient. would be repeating a lot. can i just index
+    // into the array better?
+
     static void hsmm_messages_reduction_verticalpartition(
             int T, int N, Type *betal, Type *cB, Type *dur_potentials, Type *out)
     {
