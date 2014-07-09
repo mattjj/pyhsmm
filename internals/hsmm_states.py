@@ -687,6 +687,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         return self.caBl[tblock+1:][:self.trunc], self.caBl[tblock]
         # return self.aBl[tblock:].cumsum(0)[:self.trunc]
 
+    @line_profiled
     def dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
         return self.aDl[possible_durations -1]
@@ -860,12 +861,12 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
             # aBl is T x Nstates
             aBl = self._aBl = np.logaddexp.reduce(all_likes, axis=2)
+            aBl[np.isnan(aBl).any(1)] = 0.
 
             aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
 
-        import ipdb; ipdb.set_trace()
         return self._aBBl
 
     @property

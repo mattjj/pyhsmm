@@ -14,6 +14,10 @@ class dummy
 {
     public:
 
+    static void initParallel() {
+        Eigen::initParallel();
+    }
+
     static void getstats(
             int M, int T, int D, int32_t *stateseq, Type *data,
             Type *stats)
@@ -45,25 +49,32 @@ class dummy
         NPMatrix<Type> emus_times_Js(mus_times_Js,N*K,D);
         NPVectorArray<Type> enormalizers(normalizers,N*K);
 
-        Array<Type,Dynamic,1> temp(N*K,1);
-        Type themax;
+        Eigen::initParallel();
 
-        for (int tbl=0; tbl<Tblock; tbl++) {
-            int start = changepoints[2*tbl];
-            int end = changepoints[2*tbl+1];
-            eaBBl.row(tbl).setZero();
+#pragma omp parallel
+        {
+            Type temp_buf[N*K];
+            NPVectorArray<Type> temp(temp_buf,N*K);
+            Type themax;
 
-            for (int t=start; t<end; t++) {
-                if (likely((edata.row(t) == edata.row(t)).all())) {
-                    temp = (eJs * edata.row(t).square().matrix().transpose()).array();
-                    temp -= (emus_times_Js * edata.row(t).matrix().transpose()).array();
-                    temp += enormalizers;
+#pragma omp for
+            for (int tbl=0; tbl<Tblock; tbl++) {
+                int start = changepoints[2*tbl];
+                int end = changepoints[2*tbl+1];
+                eaBBl.row(tbl).setZero();
 
-                    for (int n=0; n<N; n++) {
-                        themax = temp.segment(n*K,K).maxCoeff();
-                        eaBBl(tbl,n) +=
-                            log(eweights.row(n) * (temp.segment(n*K,K) - themax).exp().matrix())
-                            + themax;
+                for (int t=start; t<end; t++) {
+                    if (likely((edata.row(t) == edata.row(t)).all())) {
+                        temp = (eJs * edata.row(t).square().matrix().transpose()).array();
+                        temp -= (emus_times_Js * edata.row(t).matrix().transpose()).array();
+                        temp += enormalizers;
+
+                        for (int n=0; n<N; n++) {
+                            themax = temp.segment(n*K,K).maxCoeff();
+                            eaBBl(tbl,n) +=
+                                log(eweights.row(n) * (temp.segment(n*K,K) - themax).exp().matrix())
+                                + themax;
+                        }
                     }
                 }
             }
