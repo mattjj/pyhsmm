@@ -221,11 +221,6 @@ template<typename Derived> class MatrixBase
     typename internal::scalar_product_traits<typename internal::traits<Derived>::Scalar,typename internal::traits<OtherDerived>::Scalar>::ReturnType
     dot(const MatrixBase<OtherDerived>& other) const;
 
-    #ifdef EIGEN2_SUPPORT
-      template<typename OtherDerived>
-      Scalar eigen2_dot(const MatrixBase<OtherDerived>& other) const;
-    #endif
-
     EIGEN_DEVICE_FUNC RealScalar squaredNorm() const;
     EIGEN_DEVICE_FUNC RealScalar norm() const;
     RealScalar stableNorm() const;
@@ -268,17 +263,6 @@ template<typename Derived> class MatrixBase
     EIGEN_DEVICE_FUNC
     typename ConstDiagonalIndexReturnType<DynamicIndex>::Type diagonal(Index index) const;
     #endif
-
-    #ifdef EIGEN2_SUPPORT
-    template<unsigned int Mode> typename internal::eigen2_part_return_type<Derived, Mode>::type part();
-    template<unsigned int Mode> const typename internal::eigen2_part_return_type<Derived, Mode>::type part() const;
-    
-    // huuuge hack. make Eigen2's matrix.part<Diagonal>() work in eigen3. Problem: Diagonal is now a class template instead
-    // of an integer constant. Solution: overload the part() method template wrt template parameters list.
-    template<template<typename T, int N> class U>
-    const DiagonalWrapper<ConstDiagonalReturnType> part() const
-    { return diagonal().asDiagonal(); }
-    #endif // EIGEN2_SUPPORT
 
     template<unsigned int Mode> struct TriangularViewReturnType { typedef TriangularView<Derived, Mode> Type; };
     template<unsigned int Mode> struct ConstTriangularViewReturnType { typedef const TriangularView<const Derived, Mode> Type; };
@@ -356,8 +340,6 @@ template<typename Derived> class MatrixBase
 
     Scalar trace() const;
 
-/////////// Array module ///////////
-
     template<int p> EIGEN_DEVICE_FUNC RealScalar lpNorm() const;
 
     EIGEN_DEVICE_FUNC MatrixBase<Derived>& matrix() { return *this; }
@@ -365,32 +347,17 @@ template<typename Derived> class MatrixBase
 
     /** \returns an \link Eigen::ArrayBase Array \endlink expression of this matrix
       * \sa ArrayBase::matrix() */
-    EIGEN_DEVICE_FUNC ArrayWrapper<Derived> array() { return derived(); }
-    EIGEN_DEVICE_FUNC const ArrayWrapper<const Derived> array() const { return derived(); }
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE ArrayWrapper<Derived> array() { return derived(); }
+    /** \returns a const \link Eigen::ArrayBase Array \endlink expression of this matrix
+      * \sa ArrayBase::matrix() */
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE const ArrayWrapper<const Derived> array() const { return derived(); }
 
 /////////// LU module ///////////
 
     EIGEN_DEVICE_FUNC const FullPivLU<PlainObject> fullPivLu() const;
     EIGEN_DEVICE_FUNC const PartialPivLU<PlainObject> partialPivLu() const;
 
-    #if EIGEN2_SUPPORT_STAGE < STAGE20_RESOLVE_API_CONFLICTS
-    const LU<PlainObject> lu() const;
-    #endif
-
-    #ifdef EIGEN2_SUPPORT
-    const LU<PlainObject> eigen2_lu() const;
-    #endif
-
-    #if EIGEN2_SUPPORT_STAGE > STAGE20_RESOLVE_API_CONFLICTS
     const PartialPivLU<PlainObject> lu() const;
-    #endif
-    
-    #ifdef EIGEN2_SUPPORT
-    template<typename ResultType>
-    void computeInverse(MatrixBase<ResultType> *result) const {
-      *result = this->inverse();
-    }
-    #endif
 
     EIGEN_DEVICE_FUNC
     const internal::inverse_impl<Derived> inverse() const;
@@ -419,10 +386,6 @@ template<typename Derived> class MatrixBase
     const HouseholderQR<PlainObject> householderQr() const;
     const ColPivHouseholderQR<PlainObject> colPivHouseholderQr() const;
     const FullPivHouseholderQR<PlainObject> fullPivHouseholderQr() const;
-    
-    #ifdef EIGEN2_SUPPORT
-    const QR<PlainObject> qr() const;
-    #endif
 
     EigenvaluesReturnType eigenvalues() const;
     RealScalar operatorNorm() const;
@@ -430,10 +393,6 @@ template<typename Derived> class MatrixBase
 /////////// SVD module ///////////
 
     JacobiSVD<PlainObject> jacobiSvd(unsigned int computationOptions = 0) const;
-
-    #ifdef EIGEN2_SUPPORT
-    SVD<PlainObject> svd() const;
-    #endif
 
 /////////// Geometry module ///////////
 
@@ -458,13 +417,11 @@ template<typename Derived> class MatrixBase
     
     Matrix<Scalar,3,1> eulerAngles(Index a0, Index a1, Index a2) const;
     
-    #if EIGEN2_SUPPORT_STAGE > STAGE20_RESOLVE_API_CONFLICTS
     ScalarMultipleReturnType operator*(const UniformScaling<Scalar>& s) const;
     // put this as separate enum value to work around possible GCC 4.3 bug (?)
     enum { HomogeneousReturnTypeDirection = ColsAtCompileTime==1?Vertical:Horizontal };
     typedef Homogeneous<Derived, HomogeneousReturnTypeDirection> HomogeneousReturnType;
     HomogeneousReturnType homogeneous() const;
-    #endif
     
     enum {
       SizeMinusOne = SizeAtCompileTime==Dynamic ? Dynamic : SizeAtCompileTime-1
@@ -513,41 +470,6 @@ template<typename Derived> class MatrixBase
     const MatrixPowerReturnValue<Derived> pow(const RealScalar& p) const;
     const MatrixComplexPowerReturnValue<Derived> pow(const std::complex<RealScalar>& p) const;
 
-#ifdef EIGEN2_SUPPORT
-    template<typename ProductDerived, typename Lhs, typename Rhs>
-    Derived& operator+=(const Flagged<ProductBase<ProductDerived, Lhs,Rhs>, 0,
-                                      EvalBeforeAssigningBit>& other);
-
-    template<typename ProductDerived, typename Lhs, typename Rhs>
-    Derived& operator-=(const Flagged<ProductBase<ProductDerived, Lhs,Rhs>, 0,
-                                      EvalBeforeAssigningBit>& other);
-
-    /** \deprecated because .lazy() is deprecated
-      * Overloaded for cache friendly product evaluation */
-    template<typename OtherDerived>
-    Derived& lazyAssign(const Flagged<OtherDerived, 0, EvalBeforeAssigningBit>& other)
-    { return lazyAssign(other._expression()); }
-
-    template<unsigned int Added>
-    const Flagged<Derived, Added, 0> marked() const;
-    const Flagged<Derived, 0, EvalBeforeAssigningBit> lazy() const;
-
-    inline const Cwise<Derived> cwise() const;
-    inline Cwise<Derived> cwise();
-
-    VectorBlock<Derived> start(Index size);
-    const VectorBlock<const Derived> start(Index size) const;
-    VectorBlock<Derived> end(Index size);
-    const VectorBlock<const Derived> end(Index size) const;
-    template<int Size> VectorBlock<Derived,Size> start();
-    template<int Size> const VectorBlock<const Derived,Size> start() const;
-    template<int Size> VectorBlock<Derived,Size> end();
-    template<int Size> const VectorBlock<const Derived,Size> end() const;
-
-    Minor<Derived> minor(Index row, Index col);
-    const Minor<Derived> minor(Index row, Index col) const;
-#endif
-
   protected:
     EIGEN_DEVICE_FUNC MatrixBase() : Base() {}
 
@@ -563,6 +485,51 @@ template<typename Derived> class MatrixBase
     template<typename OtherDerived> Derived& operator-=(const ArrayBase<OtherDerived>& )
     {EIGEN_STATIC_ASSERT(std::ptrdiff_t(sizeof(typename OtherDerived::Scalar))==-1,YOU_CANNOT_MIX_ARRAYS_AND_MATRICES); return *this;}
 };
+
+
+/***************************************************************************
+* Implementation of matrix base methods
+***************************************************************************/
+
+/** replaces \c *this by \c *this * \a other.
+  *
+  * \returns a reference to \c *this
+  *
+  * Example: \include MatrixBase_applyOnTheRight.cpp
+  * Output: \verbinclude MatrixBase_applyOnTheRight.out
+  */
+template<typename Derived>
+template<typename OtherDerived>
+inline Derived&
+MatrixBase<Derived>::operator*=(const EigenBase<OtherDerived> &other)
+{
+  other.derived().applyThisOnTheRight(derived());
+  return derived();
+}
+
+/** replaces \c *this by \c *this * \a other. It is equivalent to MatrixBase::operator*=().
+  *
+  * Example: \include MatrixBase_applyOnTheRight.cpp
+  * Output: \verbinclude MatrixBase_applyOnTheRight.out
+  */
+template<typename Derived>
+template<typename OtherDerived>
+inline void MatrixBase<Derived>::applyOnTheRight(const EigenBase<OtherDerived> &other)
+{
+  other.derived().applyThisOnTheRight(derived());
+}
+
+/** replaces \c *this by \a other * \c *this.
+  *
+  * Example: \include MatrixBase_applyOnTheLeft.cpp
+  * Output: \verbinclude MatrixBase_applyOnTheLeft.out
+  */
+template<typename Derived>
+template<typename OtherDerived>
+inline void MatrixBase<Derived>::applyOnTheLeft(const EigenBase<OtherDerived> &other)
+{
+  other.derived().applyThisOnTheLeft(derived());
+}
 
 } // end namespace Eigen
 

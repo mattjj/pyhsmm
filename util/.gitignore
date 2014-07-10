@@ -3,4 +3,5 @@
 /tags
 /build
 *.c
+/*.cpp
 /*.so

@@ -46,7 +46,7 @@
 
 #if (defined __GNUC__) && (!defined __INTEL_COMPILER) && !defined(__arm__) && !defined(__powerpc__)
 #define BTL_DISABLE_SSE_EXCEPTIONS()  { \
-  int aux; \
+  int aux = 0; \
   asm( \
   "stmxcsr   %[aux]           \n\t" \
   "orl       $32832, %[aux]   \n\t" \
@@ -176,7 +176,7 @@ public:
     if (_config!=NULL)
     {
       std::vector<BtlString> config = BtlString(_config).split(" \t\n");
-      for (int i = 0; i<config.size(); i++)
+      for (unsigned int i = 0; i<config.size(); i++)
       {
         if (config[i].beginsWith("-a"))
         {
@@ -224,7 +224,7 @@ public:
       return false;
 
     BtlString name(_name);
-    for (int i=0; i<Instance.m_selectedActionNames.size(); ++i)
+    for (unsigned int i=0; i<Instance.m_selectedActionNames.size(); ++i)
       if (name.contains(Instance.m_selectedActionNames[i]))
         return false;
 
