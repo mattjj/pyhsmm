@@ -33,13 +33,13 @@ struct traits<FullPivHouseholderQRMatrixQReturnType<MatrixType> >
   *
   * \param MatrixType the type of the matrix of which we are computing the QR decomposition
   *
-  * This class performs a rank-revealing QR decomposition of a matrix \b A into matrices \b P, \b Q and \b R
+  * This class performs a rank-revealing QR decomposition of a matrix \b A into matrices \b P, \b P', \b Q and \b R
   * such that 
   * \f[
-  *  \mathbf{A} \, \mathbf{P} = \mathbf{Q} \, \mathbf{R}
+  *  \mathbf{P} \, \mathbf{A} \, \mathbf{P}' = \mathbf{Q} \, \mathbf{R}
   * \f]
-  * by using Householder transformations. Here, \b P is a permutation matrix, \b Q a unitary matrix and \b R an 
-  * upper triangular matrix.
+  * by using Householder transformations. Here, \b P and \b P' are permutation matrices, \b Q a unitary matrix 
+  * and \b R an upper triangular matrix.
   *
   * This decomposition performs a very prudent full pivoting in order to be rank-revealing and achieve optimal
   * numerical stability. The trade-off is that it is slower than HouseholderQR and ColPivHouseholderQR.
@@ -346,7 +346,7 @@ template<typename _MatrixType> class FullPivHouseholderQR
       return m_usePrescribedThreshold ? m_prescribedThreshold
       // this formula comes from experimenting (see "LU precision tuning" thread on the list)
       // and turns out to be identical to Higham's formula used already in LDLt.
-                                      : NumTraits<Scalar>::epsilon() * m_qr.diagonalSize();
+                                      : NumTraits<Scalar>::epsilon() * RealScalar(m_qr.diagonalSize());
     }
 
     /** \returns the number of nonzero pivots in the QR decomposition.
@@ -417,7 +417,7 @@ FullPivHouseholderQR<MatrixType>& FullPivHouseholderQR<MatrixType>::compute(cons
 
   m_temp.resize(cols);
 
-  m_precision = NumTraits<Scalar>::epsilon() * size;
+  m_precision = NumTraits<Scalar>::epsilon() * RealScalar(size);
 
   m_rows_transpositions.resize(size);
   m_cols_transpositions.resize(size);
