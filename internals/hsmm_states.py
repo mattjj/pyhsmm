@@ -10,7 +10,7 @@ from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
 from ..util.temp import hsmm_messages_reduction_horizontal, \
-        hsmm_messages_reduction_vertical
+        hsmm_messages_reduction_vertical, faster_indexing
 
 PROFILING = True
 
@@ -692,8 +692,11 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
 
     @line_profiled
     def dur_potentials(self,tblock):
-        possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
-        return self.aDl[possible_durations -1]
+        possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc].astype('int32')
+        # return self.aDl[possible_durations -1]
+        out = np.empty((possible_durations.shape[0],self.aDl.shape[1]))
+        faster_indexing(self.aDl,possible_durations,out)
+        return out
 
     def dur_survival_potentials(self,tblock):
         # return -np.inf # for testing against other implementation
@@ -906,6 +909,7 @@ def hsmm_messages_backwards_log(
         cB, offset = cumulative_obs_potentials(t)
         dp = dur_potentials(t)
         hsmm_messages_reduction_vertical(betal[t:t+cB.shape[0]],cB,dp,betastarl[t])
+        # hsmm_messages_reduction_horizontal(betal[t:t+cB.shape[0]],cB,dp,betastarl[t])
         # np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
         #         axis=0, out=betastarl[t])
         betastarl[t] -= offset

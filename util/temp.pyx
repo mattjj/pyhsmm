@@ -2,6 +2,7 @@
 # distutils: extra_link_args = -fopenmp
 # distutils: language = c++
 # distutils: include_dirs = deps/Eigen3/ internals/
+# cython: boundscheck = False
 
 import numpy as np
 cimport numpy as np
@@ -35,6 +36,8 @@ cdef extern from "temp.h":
         void hsmm_messages_reduction_horizontalpartition(
             int T, int N, Type *betal, Type *cB, Type *dur_potentials,
             Type *out)
+        void faster_indexing(
+            int T, int N, int subT, Type *aDl, int32_t *possible_durations, Type *out)
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -132,4 +135,13 @@ def hsmm_messages_reduction(
         ):
     np.logaddexp.reduce(np.asarray(betal) + np.asarray(cB) + np.asarray(dur_potentials),
             axis=0,out=out)
+
+def faster_indexing(
+        double[:,::1] aDl,
+        int32_t[::1] possible_durations,
+        double[:,::1] out,
+        ):
+    cdef dummy[double] ref
+    ref.faster_indexing(aDl.shape[0],aDl.shape[1],possible_durations.shape[0],
+            &aDl[0,0],&possible_durations[0],&out[0,0])
 

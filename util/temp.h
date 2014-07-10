@@ -19,6 +19,20 @@ class dummy
         Eigen::initParallel();
     }
 
+    static void faster_indexing(
+            int T, int N, int subT, Type *aDl, int32_t *possible_durations, Type *out)
+    {
+        NPArray<Type> eout(out,subT,N);
+        NPArray<Type> eaDl(aDl,T,N);
+
+        Eigen::initParallel();
+
+#pragma omp parallel for
+        for (int t=0; t < subT; t++) {
+            eout.row(t) = eaDl.row(possible_durations[t]-1);
+        }
+    }
+
     static void getstats(
             int M, int T, int D, int32_t *stateseq, Type *data,
             Type *stats)
@@ -82,8 +96,6 @@ class dummy
         }
     }
 
-    // TODO do this in one pass through the arrays, not several...
-    // TODO move horizontal reduction into numpy so it's not so shitty?
     // TODO aDl is taking a lot of time. could compute it on the fly instead?
     // need binomial coefficient. would be repeating a lot. can i just index
     // into the array better?
@@ -136,7 +148,7 @@ class dummy
 
         Eigen::initParallel();
 
-        int max_num_threads = omp_get_max_threads();
+        int max_num_threads = min(omp_get_max_threads(),T);
         Type out_buf[max_num_threads*N] __attribute__((aligned(16)));
 
         NPArray<Type> eout(out_buf,max_num_threads,N);
@@ -174,9 +186,8 @@ class dummy
         Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
 
         maxes = eout.colwise().maxCoeff();
-        eout.rowwise() -= maxes;
         Map<Array<Type,1,Dynamic>,Aligned>(out,1,N) =
-            eout.exp().colwise().sum().log() + maxes;
+            (eout.rowwise() - maxes).exp().colwise().sum().log() + maxes;
     }
 };
 
