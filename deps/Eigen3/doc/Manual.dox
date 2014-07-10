@@ -11,6 +11,7 @@ namespace Eigen {
   - \subpage TopicCustomizingEigen
   - \subpage TopicMultiThreading
   - \subpage TopicUsingIntelMKL
+  - \subpage TopicCUDA
   - \subpage TopicTemplateKeyword
   - \subpage UserManual_UnderstandingEigen
 */
@@ -96,6 +97,8 @@ namespace Eigen {
     \ingroup DenseLinearSolvers_chapter */
 /** \addtogroup TopicLinearAlgebraDecompositions
     \ingroup DenseLinearSolvers_chapter */
+/** \addtogroup LeastSquares 
+    \ingroup DenseLinearSolvers_chapter */
 
 /** \addtogroup DenseLinearSolvers_Reference
     \ingroup DenseLinearSolvers_chapter */
@@ -156,4 +159,7 @@ namespace Eigen {
     \ingroup Geometry_Reference */
 /** \addtogroup Splines_Module
     \ingroup Geometry_Reference */
+
+/** \internal \brief Namespace containing low-level routines from the %Eigen library. */
+namespace internal {}
 }

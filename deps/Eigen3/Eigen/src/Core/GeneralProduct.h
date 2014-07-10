@@ -66,8 +66,7 @@ template<typename Lhs, typename Rhs> struct product_type
     MaxDepth = EIGEN_SIZE_MIN_PREFER_FIXED(_Lhs::MaxColsAtCompileTime,
                                            _Rhs::MaxRowsAtCompileTime),
     Depth = EIGEN_SIZE_MIN_PREFER_FIXED(_Lhs::ColsAtCompileTime,
-                                        _Rhs::RowsAtCompileTime),
-    LargeThreshold = EIGEN_CACHEFRIENDLY_PRODUCT_THRESHOLD
+                                        _Rhs::RowsAtCompileTime)
   };
 
   // the splitting into different lines of code here, introducing the _select enums and the typedef below,
@@ -397,7 +396,7 @@ struct gemv_static_vector_if<Scalar,Size,MaxSize,true>
   internal::plain_array<Scalar,EIGEN_SIZE_MIN_PREFER_FIXED(Size,MaxSize)+(ForceAlignment?PacketSize:0),0> m_data;
   EIGEN_STRONG_INLINE Scalar* data() {
     return ForceAlignment
-            ? reinterpret_cast<Scalar*>((reinterpret_cast<size_t>(m_data.array) & ~(size_t(15))) + 16)
+            ? reinterpret_cast<Scalar*>((reinterpret_cast<size_t>(m_data.array) & ~(size_t(EIGEN_ALIGN_BYTES-1))) + EIGEN_ALIGN_BYTES)
             : m_data.array;
   }
   #endif
@@ -446,7 +445,7 @@ template<> struct gemv_selector<OnTheRight,ColMajor,true>
     if(!evalToDest)
     {
       #ifdef EIGEN_DENSE_STORAGE_CTOR_PLUGIN
-      int size = dest.size();
+      Index size = dest.size();
       EIGEN_DENSE_STORAGE_CTOR_PLUGIN
       #endif
       if(!alphaIsCompatible)
@@ -511,7 +510,7 @@ template<> struct gemv_selector<OnTheRight,RowMajor,true>
     if(!DirectlyUseRhs)
     {
       #ifdef EIGEN_DENSE_STORAGE_CTOR_PLUGIN
-      int size = actualRhs.size();
+      Index size = actualRhs.size();
       EIGEN_DENSE_STORAGE_CTOR_PLUGIN
       #endif
       Map<typename _ActualRhsType::PlainObject>(actualRhsPtr, actualRhs.size()) = actualRhs;
