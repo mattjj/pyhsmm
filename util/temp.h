@@ -26,7 +26,7 @@ class dummy
         NPArray<Type> estats(stats,M,2*D+1);
 
         for (int t=0; t < T; t++) {
-            if (likely(edata(t,0) == edata(t,0))) {
+            if (likely((edata.row(t) == edata.row(t)).all())) {
                 estats.block(stateseq[t],0,1,D) += edata.row(t);
                 estats.block(stateseq[t],D,1,D) += edata.row(t).square();
                 estats(stateseq[t],2*D) += 1;
