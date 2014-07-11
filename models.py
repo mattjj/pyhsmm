@@ -929,6 +929,28 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
-    # TODO stat gathering in global low-level code
-    # TODO mixture label resampling in global low-level code
+    def resample_obs_distns(self):
+        from ..util.temp import resample_gmm_labels
+
+        datas = [s.data for s in self.states_list]
+        stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
+
+        for itr in xrange(self.obs_distns[0].niter):
+            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+            logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
+
+            randseqs = [np.random.uniform(size=d.shape[0]) for d in data]
+
+            # compute likelihoods, resample labels, and collect statistics
+            allstats, allcounts = \
+                resample_gmm_labels(stateseqs,datas,randseqs,sigmas,mus,logweights)
+
+            for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
+                # resample gaussian params using statistics
+                for s, c in zip(stats,o.components):
+                    o.resample(stats=s)
+
+                # resample mixture weights using counts
+                o.weights.resample(counts=counts)
 
