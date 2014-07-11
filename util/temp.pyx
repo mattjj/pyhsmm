@@ -38,6 +38,11 @@ cdef extern from "temp.h":
             Type *out)
         void faster_indexing(
             int T, int N, int subT, Type *aDl, int32_t *possible_durations, Type *out)
+        void resample_gmm_labels(
+            int N, int T, int K, int D, int32_t *stateseq,
+            Type *data,
+            Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
+            Type *stats, int32_t *counts, Type *randseq) nogil
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -144,4 +149,65 @@ def faster_indexing(
     cdef dummy[double] ref
     ref.faster_indexing(aDl.shape[0],aDl.shape[1],possible_durations.shape[0],
             &aDl[0,0],&possible_durations[0],&out[0,0])
+
+def resample_gmm_labels(
+        stateseqs,
+        datas,
+        randseqs,
+        double[:,:,::1] sigmas,
+        double[:,:,::1] mus,
+        double[:,::1] logweights,
+        ):
+    cdef int i
+    cdef dummy[double] ref
+
+    cdef int N = mus.shape[0] # number of states
+    cdef int K = mus.shape[1] # number of components
+    cdef int D = datas[0].shape[1] # dimensionality of data
+    cdef int M = len(datas) # number of data sequences
+    cdef int32_t[::1] Ts = np.array([d.shape[0] for d in datas]).astype('int32')
+
+    cdef vector[int32_t*] stateseqs_v
+    cdef vector[double*] datas_v
+    cdef vector[double*] randseqs_v
+    cdef double[:,::1] temp
+    cdef int32_t[::1] temp2
+    cdef double[::1] temp3
+
+    for i in range(M):
+        temp = datas[i]
+        datas_v.push_back(&temp[0,0])
+        temp2 = stateseqs[i]
+        stateseqs_v.push_back(&temp2[0])
+        temp3 = randseqs[i]
+        randseqs_v.push_back(&temp3[0])
+
+    cdef double[:,:,::1] Js = -1./(2*np.asarray(sigmas))
+    cdef double[:,:,::1] mus_times_Js = 2*np.asarray(mus)*np.asarray(Js)
+    cdef double[:,::1] normalizers = \
+            (np.asarray(mus)**2*np.asarray(Js) \
+            - 1./2*np.log(2*np.pi*np.asarray(sigmas))).sum(2)
+
+    cdef double[:,:,:,::1] stats = np.zeros((2*M,N,K,2*D+1)) # NOTE: 2*M to avoid false sharing
+    cdef int32_t[:,:,::1] counts = np.zeros((2*M,N,K),dtype=np.int32)
+
+    with nogil:
+        for i in prange(M):
+            ref.resample_gmm_labels(
+                N,Ts[i],K,D,stateseqs_v[i],datas_v[i],
+                &logweights[0,0],&Js[0,0,0],&mus_times_Js[0,0,0],&normalizers[0,0],
+                &stats[2*i,0,0,0],&counts[2*i,0,0],randseqs_v[i])
+
+    allstats = []
+    for sl in np.sum(stats,0):
+        somestats = []
+        for row in sl:
+            n = row[-1]
+            xbar = row[:D] / (n if n>0 else 1.)
+            sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
+            somestats.append((n,xbar,sumsq))
+        allstats.append(somestats)
+
+    return allstats, np.sum(counts,0)
+
 

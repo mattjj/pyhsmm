@@ -2,6 +2,7 @@
 #include <stdint.h> // int32_t
 #include <omp.h> // omp_get_num_threads, omp_get_thread_num
 #include <limits> // infinity
+#include <iostream>
 
 #include "nptypes.h"
 #include "util.h"
@@ -49,6 +50,47 @@ class dummy
         }
     }
 
+    static void resample_gmm_labels(
+            int N, int T, int K, int D, int32_t *stateseq,
+            Type *data,
+            Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
+            Type *stats, int32_t *counts, Type *randseq)
+    {
+        NPArray<Type> edata(data,T,D);
+        NPArray<Type> estats(stats,N*K,2*D+1);
+        NPArray<int32_t> ecounts(counts,N,K);
+
+        NPMatrix<Type> eJs(Js,N*K,D);
+        NPMatrix<Type> emus_times_Js(mus_times_Js,N*K,D);
+        NPArray<Type> enormalizers(normalizers,N,K);
+        NPArray<Type> eweights(weights,N,K);
+
+        Type likes_buf[K] __attribute__((aligned(16)));
+        Map<Array<Type,Dynamic,1>,Aligned> elikes(likes_buf,K,1);
+
+        for (int t=0; t < T; t++) {
+            if (likely((edata.row(t) == edata.row(t)).all())) {
+                int state = stateseq[t];
+                elikes = (eJs.block(state*K,0,K,D)
+                            * edata.row(t).square().matrix().transpose()).array();
+                elikes -= (emus_times_Js.block(state*K,0,K,D)
+                            * edata.row(t).matrix().transpose()).array();
+                elikes += enormalizers.row(state).transpose();
+
+                elikes += eweights.row(state).transpose();
+
+                elikes = (elikes - elikes.maxCoeff()).exp();
+
+                int label = util::sample_discrete(K,elikes.data(),randseq[t]);
+
+                ecounts(state,label) += 1;
+                estats.block(state*K+label,0,1,D) += edata.row(t);
+                estats.block(state*K+label,D,1,D) += edata.row(t).square();
+                estats(state*K+label,2*D) += 1;
+            }
+        }
+    }
+
     static void gmm_likes(
             int T, int Tblock, int N, int K, int D,
             Type *data, Type *weights,
@@ -58,7 +100,7 @@ class dummy
     {
         NPArray<Type> edata(data,T,D);
         NPMatrix<Type> eweights(weights,N,K);
-        NPArray<Type> eaBBl(aBBl,T,N);
+        NPArray<Type> eaBBl(aBBl,Tblock,N);
 
         NPMatrix<Type> eJs(Js,N*K,D);
         NPMatrix<Type> emus_times_Js(mus_times_Js,N*K,D);
