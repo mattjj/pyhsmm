@@ -25,7 +25,7 @@ if '--with-native' in sys.argv:
 
 if '--with-mkl' in sys.argv:
     sys.argv.remove('--with-mkl')
-    extra_compile_args.extend(['-m64','-l' + os.environ['MKLROOT'] + '/include'])
+    extra_compile_args.extend(['-m64','-l' + os.environ['MKLROOT'] + '/include','-DEIGEN_USE_MKL_ALL'])
     extra_link_args.extend(('-Wl,--start-group %(MKLROOT)s/lib/intel64/libmkl_intel_lp64.a %(MKLROOT)s/lib/intel64/libmkl_core.a %(MKLROOT)s/lib/intel64/libmkl_sequential.a -Wl,--end-group -lm' % {'MKLROOT':os.environ['MKLROOT']}).split(' '))
 
 ext_modules = cythonize('**/*.pyx')
