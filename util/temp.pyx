@@ -150,8 +150,6 @@ def faster_indexing(
     ref.faster_indexing(aDl.shape[0],aDl.shape[1],possible_durations.shape[0],
             &aDl[0,0],&possible_durations[0],&out[0,0])
 
-# TODO TODO pass in temperature here
-# TODO TODO also in gmm_likes
 def resample_gmm_labels(
         stateseqs,
         datas,
