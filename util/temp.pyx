@@ -73,10 +73,18 @@ def getstats(num_states, stateseqs, datas):
 
     ret = []
     for row in np.sum(out,axis=0):
-        n = row[-1]
-        xbar = row[:D] / (n if n > 0 else 1.)
-        sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
-        ret.append((n,xbar,sumsq))
+
+        # NOTE: old style stats
+        # n = row[-1]
+        # xbar = row[:D] / (n if n > 0 else 1.)
+        # sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
+        # ret.append((n,xbar,sumsq))
+
+        ns = row[-1] * np.ones(D)
+        x = row[:D]
+        xsq = row[D:2*D]
+        ret.append(np.array([xsq,x,ns,ns]))
+
     return ret
 
 def gmm_likes(

@@ -521,20 +521,33 @@ class _HMMPossibleChangepointsMixin(object):
 class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
     @property
     def temperature(self):
-        return self._temperature if hasattr(self,'_temperature') else None
+        return self._temperature if hasattr(self,'_temperature') else 1.
 
     @temperature.setter
     def temperature(self,T):
         self._temperature = T
-        for o in self.obs_distns:
-            o.temperature = T
+        self._clear_caches()
 
     def swap_sample_with(self,other):
         self.obs_distns, other.obs_distns = other.obs_distns, self.obs_distns
+
         self.trans_distn, other.trans_distn = other.trans_distn, self.trans_distn
+
         self.init_state_distn, other.init_state_distn = \
                 other.init_state_distn, self.init_state_distn
-        self._clear_caches()
+        self.init_state_distn.model = self
+        other.init_state_distn.model = other
+
+        for s1, s2 in zip(self.states_list, other.states_list):
+            s1.stateseq, s2.stateseq = s2.stateseq, s1.stateseq
+
+    @property
+    def energy(self):
+        energy = 0.
+        for s in self.states_list:
+            for state, datum in zip(s.stateseq,s.data):
+                energy += self.obs_distns[state].energy(datum)
+        return energy
 
 ################
 #  HMM models  #
@@ -845,6 +858,17 @@ class _SeparateTransMixin(object):
         self.trans_distns.update(dct['trans_distns'])
         self.init_state_distns.update(dct['init_state_distns'])
 
+    ### parallel tempering
+
+    def swap_sample_with(self,other):
+        self.trans_distns, other.trans_distns = self.trans_distns, other.trans_distns
+        self.init_state_distns, other.init_state_distns = \
+                other.init_state_distns, self.init_state_distns
+        for d1, d2 in zip(self.init_state_distns.values(),other.init_state_distns.values()):
+            d1.model = self
+            d2.model = other
+        super(_SeparateTransMixin,self).swap_sample_with(other)
+
     ### Gibbs sampling
 
     def resample_trans_distn(self):
@@ -946,10 +970,10 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
                     [s.data for s in self.states_list])
 
             for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-                distn.resample(stats=stats)
+                distn.resample(stats=stats,temperature=self.temperature)
         else:
             for distn in self.obs_distns:
-                distn.resample()
+                distn.resample(temperature=self.temperature)
         self._clear_caches()
 
 class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
@@ -979,7 +1003,7 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
             for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
                 # resample gaussian params using statistics
                 for s, c in zip(stats,o.components):
-                    c.resample(stats=s)
+                    c.resample(stats=s,temperature=self.temperature)
 
                 # resample mixture weights using counts
                 o.weights.resample(counts=counts)
