@@ -7,7 +7,7 @@ from matplotlib import cm
 from warnings import warn
 
 from basic.abstractions import Model, ModelGibbsSampling, \
-        ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI
+        ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
 import basic.distributions
 from internals import hmm_states, hsmm_states, hsmm_inb_states, \
         initial_state, transitions
@@ -518,11 +518,30 @@ class _HMMPossibleChangepointsMixin(object):
         else:
             return sum(s.log_likelihood() for s in self.states_list)
 
+class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
+    @property
+    def temperature(self):
+        return self._temperature if hasattr(self,'_temperature') else None
+
+    @temperature.setter
+    def temperature(self,T):
+        self._temperature = T
+        for o in self.obs_distns:
+            o.temperature = T
+
+    def swap_sample_with(self,other):
+        self.obs_distns, other.obs_distns = other.obs_distns, self.obs_distns
+        self.trans_distn, other.trans_distn = other.trans_distn, self.trans_distn
+        self.init_state_distn, other.init_state_distn = \
+                other.init_state_distn, self.init_state_distn
+        self._clear_caches()
+
 ################
 #  HMM models  #
 ################
 
-class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,_HMMViterbiEM):
+class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,
+        _HMMViterbiEM,_HMMParallelTempering):
     pass
 
 class HMM(HMMPython):
@@ -716,11 +735,17 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
 class _HSMMPossibleChangepointsMixin(_HMMPossibleChangepointsMixin):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
 
+class _HSMMParallelTempering(_HSMMBase,_HMMParallelTempering):
+    def swap_sample_with(self,other):
+        self.dur_distns, other.dur_distns = other.dur_distns, self.dur_distns
+        super(_HSMMParallelTempering,self).swap_sample_with(other)
+
 #################
 #  HSMM Models  #
 #################
 
-class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,_HSMMViterbiEM,_HSMMEM):
+class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,
+        _HSMMViterbiEM,_HSMMEM,_HSMMParallelTempering):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
 
