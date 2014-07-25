@@ -1,4 +1,4 @@
-# distutils: extra_compile_args = -O3 -w -DEIGEN_DONT_PARALLELIZE -DNDEBUG -fopenmp -std=c++11 -march=native -mavx2 --save-temps -masm=intel -fverbose-asm
+# distutils: extra_compile_args = -O3 -w -DEIGEN_DONT_PARALLELIZE -DNDEBUG -fopenmp -std=c++11
 # distutils: extra_link_args = -fopenmp
 # distutils: language = c++
 # distutils: include_dirs = deps/Eigen3/ internals/
