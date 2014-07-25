@@ -883,6 +883,9 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             weights = np.array([d.weights.weights for d in self.obs_distns])
             changepoints = np.array(self.changepoints).astype('int32')
 
+            if self.model.temperature is not None:
+                sigmas *= self.model.temperature
+
             from ..util.temp import gmm_likes
             self._aBBl = np.empty((self.Tblock,self.num_states))
             gmm_likes(self.data,sigmas,mus,weights,changepoints,self._aBBl)

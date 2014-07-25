@@ -781,7 +781,8 @@ class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.DATruncHDPHSMMTransitions
     _trans_conc_class = None
 
-class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM):
+class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM,
+        _HSMMParallelTempering):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
     _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomial
@@ -798,7 +799,8 @@ class WeakLimitHDPHSMMIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
-class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM):
+class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM,
+        _HSMMParallelTempering):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
     _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomialVariant
@@ -964,6 +966,9 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
             mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
             sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
             logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
+
+            if self.temperature is not None:
+                sigmas *= self.temperature
 
             randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
 

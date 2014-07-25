@@ -150,6 +150,8 @@ def faster_indexing(
     ref.faster_indexing(aDl.shape[0],aDl.shape[1],possible_durations.shape[0],
             &aDl[0,0],&possible_durations[0],&out[0,0])
 
+# TODO TODO pass in temperature here
+# TODO TODO also in gmm_likes
 def resample_gmm_labels(
         stateseqs,
         datas,
@@ -201,11 +203,20 @@ def resample_gmm_labels(
     allstats = []
     for sl in np.sum(stats,0):
         somestats = []
+
+        # NOTE: old style stats
+        # for row in sl:
+        #     n = row[-1]
+        #     xbar = row[:D] / (n if n>0 else 1.)
+        #     sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
+        #     somestats.append((n,xbar,sumsq))
+
         for row in sl:
-            n = row[-1]
-            xbar = row[:D] / (n if n>0 else 1.)
-            sumsq = row[D:2*D] - 2*xbar*row[:D] + n*xbar**2
-            somestats.append((n,xbar,sumsq))
+            ns = row[-1] * np.ones(D)
+            x = row[:D]
+            xsq = row[D:2*D]
+            somestats.append(np.array([xsq,x,ns,ns]))
+
         allstats.append(somestats)
 
     return allstats, np.sum(counts,0)
