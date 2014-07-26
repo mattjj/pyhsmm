@@ -28,6 +28,10 @@ if '--with-mkl' in sys.argv:
     extra_compile_args.extend(['-m64','-I' + os.environ['MKLROOT'] + '/include','-DEIGEN_USE_MKL_ALL'])
     extra_link_args.extend(('-Wl,--start-group %(MKLROOT)s/lib/intel64/libmkl_intel_lp64.a %(MKLROOT)s/lib/intel64/libmkl_core.a %(MKLROOT)s/lib/intel64/libmkl_sequential.a -Wl,--end-group -lm' % {'MKLROOT':os.environ['MKLROOT']}).split(' '))
 
+if '--with-assembly' in sys.argv:
+    sys.argv.remove('--with-assembly')
+    extra_compile_args.extend(['--save-temps','-masm=intel','-fverbose-asm'])
+
 ext_modules = cythonize('**/*.pyx')
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)

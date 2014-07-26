@@ -541,6 +541,8 @@ class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
         for s1, s2 in zip(self.states_list, other.states_list):
             s1.stateseq, s2.stateseq = s2.stateseq, s1.stateseq
 
+        self._clear_caches()
+
     @property
     def energy(self):
         energy = 0.
@@ -1007,4 +1009,19 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 
                 # resample mixture weights using counts
                 o.weights.resample(counts=counts)
+
+    @property
+    def energy(self):
+        from .util.temp import hsmm_gmm_energy
+
+        datas = [s.data for s in self.states_list]
+        stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
+
+        mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+        sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+        logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
+
+        randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
+
+        return hsmm_gmm_energy(stateseqs,datas,randseqs,sigmas,mus,logweights)
 

@@ -43,6 +43,11 @@ cdef extern from "temp.h":
             Type *data,
             Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
             Type *stats, int32_t *counts, Type *randseq) nogil
+        void hsmm_gmm_energy(
+            int N, int T, int K, int D, int32_t *stateseq,
+            Type *data,
+            Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
+            Type *energy, Type *randseq) nogil
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -227,4 +232,52 @@ def resample_gmm_labels(
 
     return allstats, np.sum(counts,0)
 
+def hsmm_gmm_energy(
+        stateseqs,
+        datas,
+        randseqs,
+        double[:,:,::1] sigmas,
+        double[:,:,::1] mus,
+        double[:,::1] logweights,
+        ):
+    cdef int i
+    cdef dummy[double] ref
+
+    cdef int N = mus.shape[0] # number of states
+    cdef int K = mus.shape[1] # number of components
+    cdef int D = datas[0].shape[1] # dimensionality of data
+    cdef int M = len(datas) # number of data sequences
+    cdef int32_t[::1] Ts = np.array([d.shape[0] for d in datas]).astype('int32')
+
+    cdef vector[int32_t*] stateseqs_v
+    cdef vector[double*] datas_v
+    cdef vector[double*] randseqs_v
+    cdef double[:,::1] temp
+    cdef int32_t[::1] temp2
+    cdef double[::1] temp3
+
+    for i in range(M):
+        temp = datas[i]
+        datas_v.push_back(&temp[0,0])
+        temp2 = stateseqs[i]
+        stateseqs_v.push_back(&temp2[0])
+        temp3 = randseqs[i]
+        randseqs_v.push_back(&temp3[0])
+
+    cdef double[:,:,::1] Js = -1./(2*np.asarray(sigmas))
+    cdef double[:,:,::1] mus_times_Js = 2*np.asarray(mus)*np.asarray(Js)
+    cdef double[:,::1] normalizers = \
+            (np.asarray(mus)**2*np.asarray(Js) \
+            - 1./2*np.log(2*np.pi*np.asarray(sigmas))).sum(2)
+
+    cdef double[::1] energies = np.empty(M)
+
+    with nogil:
+        for i in prange(M):
+            ref.hsmm_gmm_energy(
+                N,Ts[i],K,D,stateseqs_v[i],datas_v[i],
+                &logweights[0,0],&Js[0,0,0],&mus_times_Js[0,0,0],&normalizers[0,0],
+                &energies[i],randseqs_v[i])
+
+    return np.sum(energies)
 

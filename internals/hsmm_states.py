@@ -893,6 +893,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
     @property
     def aBl_slow(self):
+        self.clear_caches()
         return super(DiagGaussGMMStates,self).aBl
 
 ### HSMM messages

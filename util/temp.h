@@ -65,7 +65,7 @@ class dummy
         NPArray<Type> enormalizers(normalizers,N,K);
         NPArray<Type> eweights(weights,N,K);
 
-        Type likes_buf[K] __attribute__((aligned(16)));
+        Type likes_buf[K] __attribute__((aligned(32)));
         Map<Array<Type,Dynamic,1>,Aligned> elikes(likes_buf,K,1);
 
         for (int t=0; t < T; t++) {
@@ -104,14 +104,16 @@ class dummy
 
         NPMatrix<Type> eJs(Js,N*K,D);
         NPMatrix<Type> emus_times_Js(mus_times_Js,N*K,D);
-        NPVectorArray<Type> enormalizers(normalizers,N*K);
+        NPVector<Type> enormalizers(normalizers,N*K);
 
         Eigen::initParallel();
 
 #pragma omp parallel
         {
-            Type temp_buf[N*K] __attribute__((aligned(16)));
-            NPVectorArray<Type> temp(temp_buf,N*K);
+            Type temp_buf[N*K] __attribute__((aligned(32)));
+            NPVector<Type> temp(temp_buf,N*K);
+            Type temp2_buf[D] __attribute__((aligned(32)));
+            NPVector<Type> temp2(temp2_buf,D);
             Type themax;
 
 #pragma omp for
@@ -122,14 +124,15 @@ class dummy
 
                 for (int t=start; t<end; t++) {
                     if (likely((edata.row(t) == edata.row(t)).all())) {
-                        temp = (eJs * edata.row(t).square().matrix().transpose()).array();
-                        temp -= (emus_times_Js * edata.row(t).matrix().transpose()).array();
-                        temp += enormalizers;
+                        temp2 = edata.row(t).square().matrix().transpose();
+                        temp = eJs * temp2;
+                        temp -= (emus_times_Js * edata.row(t).matrix().transpose());
+                        temp.noalias() += enormalizers;
 
                         for (int n=0; n<N; n++) {
                             themax = temp.segment(n*K,K).maxCoeff();
                             eaBBl(tbl,n) +=
-                                log(eweights.row(n) * (temp.segment(n*K,K) - themax).exp().matrix())
+                                log(eweights.row(n) * (temp.array().segment(n*K,K) - themax).exp().matrix())
                                 + themax;
                         }
                     }
@@ -161,11 +164,11 @@ class dummy
                 int start = blocklen * omp_get_thread_num();
                 blocklen = min(blocklen, N-start);
 
-                Type maxes_buf[blocklen] __attribute__((aligned(16)));
+                Type maxes_buf[blocklen] __attribute__((aligned(32)));
                 Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,blocklen);
 
 #ifdef TEMPS_ON_STACK
-                Type thesum_buf[T*blocklen] __attribute__((aligned(16)));
+                Type thesum_buf[T*blocklen] __attribute__((aligned(32)));
                 NPArray<Type> thesum(thesum_buf,T,blocklen);
 #else
                 Array<Type,Dynamic,Dynamic> thesum(T,blocklen);
@@ -191,7 +194,7 @@ class dummy
         Eigen::initParallel();
 
         int max_num_threads = min(omp_get_max_threads(),T);
-        Type out_buf[max_num_threads*N] __attribute__((aligned(16)));
+        Type out_buf[max_num_threads*N] __attribute__((aligned(32)));
 
         NPArray<Type> eout(out_buf,max_num_threads,N);
         eout.setConstant(-numeric_limits<Type>::infinity());
@@ -205,11 +208,11 @@ class dummy
                 int start = blocklen * thread_num;
                 blocklen = min(blocklen, T-start);
 
-                Type maxes_buf[N] __attribute__((aligned(16)));
+                Type maxes_buf[N] __attribute__((aligned(32)));
                 Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
 
 #ifdef TEMPS_ON_STACK
-                Type thesum_buf[blocklen*N] __attribute__((aligned(16)));
+                Type thesum_buf[blocklen*N] __attribute__((aligned(32)));
                 NPArray<Type> thesum(thesum_buf,blocklen,N);
 #else
                 Array<Type,Dynamic,Dynamic> thesum(blocklen,N);
@@ -224,12 +227,56 @@ class dummy
             }
         }
 
-        Type maxes_buf[N] __attribute__((aligned(16)));
+        Type maxes_buf[N] __attribute__((aligned(32)));
         Map<Array<Type,1,Dynamic>,Aligned> maxes(maxes_buf,1,N);
 
         maxes = eout.colwise().maxCoeff();
         Map<Array<Type,1,Dynamic>,Aligned>(out,1,N) =
             (eout.rowwise() - maxes).exp().colwise().sum().log() + maxes;
     }
+
+    static void hsmm_gmm_energy(
+            int N, int T, int K, int D, int32_t *stateseq,
+            Type *data,
+            Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
+            Type *energy, Type *randseq)
+    {
+        NPArray<Type> edata(data,T,D);
+
+        NPMatrix<Type> eJs(Js,N*K,D);
+        NPMatrix<Type> emus_times_Js(mus_times_Js,N*K,D);
+        NPArray<Type> enormalizers(normalizers,N,K);
+        NPArray<Type> eweights(weights,N,K);
+
+        Type likes_buf[K] __attribute__((aligned(32)));
+        Map<Array<Type,Dynamic,1>,Aligned> elikes(likes_buf,K,1);
+
+        Type probs_buf[K] __attribute__((aligned(32)));
+        Map<Array<Type,Dynamic,1>,Aligned> eprobs(probs_buf,K,1);
+
+        double engy = 0;
+
+        for (int t=0; t < T; t++) {
+            if (likely((edata.row(t) == edata.row(t)).all())) {
+                int state = stateseq[t];
+                elikes = (eJs.block(state*K,0,K,D)
+                            * edata.row(t).square().matrix().transpose()).array();
+                elikes -= (emus_times_Js.block(state*K,0,K,D)
+                            * edata.row(t).matrix().transpose()).array();
+                elikes += enormalizers.row(state).transpose();
+
+                elikes += eweights.row(state).transpose();
+
+                eprobs = (elikes - elikes.maxCoeff()).exp();
+
+                int label = util::sample_discrete(K,eprobs.data(),randseq[t]);
+
+                engy += -(elikes(label) - eweights(state,label));
+            }
+        }
+
+        *energy = engy;
+    }
+
 };
 
