@@ -6,13 +6,15 @@ from matplotlib import pyplot as plt
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
+np.random.seed(0)
+
 #####################
 #  data generation  #
 #####################
 
 N = 4
 T = 1000
-obs_dim = 2
+obs_dim = 600
 
 obs_hypparams = dict(
         mu_0=np.zeros(obs_dim),
@@ -35,8 +37,6 @@ data, labels = truemodel.generate(T)
 plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
-
-data[100:120] = data[200:220] = np.nan
 
 # !!! get the changepoints !!!
 # NOTE: usually these would be estimated by some external process; here I'm
@@ -72,20 +72,25 @@ posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans
 
 posteriormodel.add_data(data,changepoints,group_id=0)
 
-likes = []
-for idx in progprint_xrange(100):
-    posteriormodel.resample_model()
-    likes.append(posteriormodel.log_likelihood())
+########################
+#  parallel tempering  #
+########################
 
-posteriormodel.states_list[0].Viterbi()
+from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
+pt = ParallelTempering(posteriormodel,[1.25,1.5])
+# pt = ParallelTempering(posteriormodel,[])
 
-plt.figure()
-posteriormodel.plot()
-plt.gcf().suptitle('HDP-HSMM sampled after 100 iterations')
+seqs = []
+for itr in progprint_xrange(500):
+    pt.step(1)
+    seqs.append(pt.unit_temp_model.stateseqs[0])
 
-plt.figure()
-plt.plot(likes)
+for (T1,T2), count in pt.swapcounts.items():
+    print 'temperature pair (%0.3f, %0.3f) swapped %d times' % (T1,T2,count)
+    print '(%0.3f%% of the time)' % ((count / pt.itercount) * 100)
+    print
 
+np.savetxt('allseqs',np.array(seqs),fmt='%d')
 
 plt.show()
 
