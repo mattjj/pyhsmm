@@ -124,10 +124,12 @@ class dummy
 
                 for (int t=start; t<end; t++) {
                     if (likely((edata.row(t) == edata.row(t)).all())) {
+                        asm("# NOTE: start here");
                         temp2 = edata.row(t).square().matrix().transpose();
                         temp = eJs * temp2;
                         temp -= (emus_times_Js * edata.row(t).matrix().transpose());
                         temp.noalias() += enormalizers;
+                        asm("# NOTE: start here");
 
                         for (int n=0; n<N; n++) {
                             themax = temp.segment(n*K,K).maxCoeff();
