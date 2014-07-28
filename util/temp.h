@@ -254,7 +254,7 @@ class dummy
         Type probs_buf[K] __attribute__((aligned(32)));
         Map<Array<Type,Dynamic,1>,Aligned> eprobs(probs_buf,K,1);
 
-        double engy = 0;
+        Type engy = 0;
 
         for (int t=0; t < T; t++) {
             if (likely((edata.row(t) == edata.row(t)).all())) {
