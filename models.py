@@ -1025,3 +1025,4 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 
         return hsmm_gmm_energy(stateseqs,datas,randseqs,sigmas,mus,logweights)
 
+
