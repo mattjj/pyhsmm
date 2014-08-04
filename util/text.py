@@ -39,5 +39,5 @@ def progprint(iterator,total=None,perline=25,show_times=True):
         idx += 1
         sys.stdout.flush()
     print ''
-    if show_times:
+    if show_times and len(times) > 0:
         print '%7.2fsec avg, %7.2fsec total\n' % (np.mean(times),np.sum(times))
