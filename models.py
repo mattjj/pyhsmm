@@ -982,6 +982,37 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
+    def add_data(self,data,changepoints,group_id,stateseq=None,**kwargs):
+        super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).add_data(
+                data,changepoints=changepoints,stateseq=stateseq,group_id=group_id,**kwargs)
+
+        if stateseq is not None:
+            # initialize observation parameters
+            for i, o in enumerate(self.obs_distns):
+                o.meanfieldupdate(data,weights=stateseq==i)
+
+            # initialize duration parameters
+            s = self.states_list[-1]
+            expected_durations = np.zeros((self.num_states,s.T))
+            for state in xrange(self.num_states):
+                expected_durations[state] += \
+                    np.bincount(
+                        s.durations_censored[s.stateseq_norep == state],
+                        minlength=s.T)[:s.T]
+            for i, d in enumerate(self.dur_distns):
+                d.meanfieldupdate(
+                    np.arange(1,expected_durations.shape[1]+1),
+                    expected_durations[i])
+
+            # initialize transition distribution
+            from util.general import count_transitions
+            expected_transcounts = \
+                count_transitions(s.stateseq_norep,minlength=self.num_states)
+            self.trans_distns[group_id].meanfieldupdate([expected_transcounts])
+
+            # don't initialize init state distn
+
+
     def resample_obs_distns(self):
         from .util.temp import resample_gmm_labels
 
@@ -1024,4 +1055,57 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
 
         return hsmm_gmm_energy(stateseqs,datas,randseqs,sigmas,mus,logweights)
+
+    def get_sample(self):
+        SAVETYPE = 'float16'
+
+        stateseqs = [s.stateseq for s in self.states_list]
+
+        mus = np.array([[c.mu for c in d.components]
+            for d in self.obs_distns],dtype=SAVETYPE)
+        sigmas = np.array([[c.sigmas for c in d.components]
+            for d in self.obs_distns],dtype=SAVETYPE)
+        weights = np.array([d.weights.weights for d in self.obs_distns])
+
+        transitions = {k:d.full_trans_matrix for k,d in self.trans_distns.iteritems()}
+        init_state_distns = {k:d.pi_0 for k,d in self.init_state_distns.iteritems()}
+
+        return {
+                'stateseqs':stateseqs,
+                'mus':mus,
+                'sigmas':sigmas,
+                'weights':weights,
+                'transitions':transitions,
+                'init_state_distns':init_state_distns,
+                }
+
+    def set_sample(self,s):
+        LOADTYPE = 'float64'
+
+        for states, sample_stateseq in zip(self.states_list,s['stateseqs']):
+            states.stateseq = sample_stateseq
+
+        for d, mus, sigss, w in zip(self.obs_distns,s['mus'],s['sigmas'],s['weights']):
+            d.weights.weights = w
+            for c, mu, sigs in zip(d.components,mus,sigss):
+                c.mu = mu.astype(LOADTYPE)
+                c.sigmas = sigs.astype(LOADTYPE)
+
+        for group_id in self.trans_distns:
+            self.trans_distns[group_id].trans_matrix = s['transitions'][group_id]
+            self.init_state_distns[group_id].pi_0 = s['init_state_distns'][group_id]
+
+    def save_sample(self,filename):
+        import gzip, cPickle
+        sample = self.get_sample()
+        rngstate = np.random.get_state()
+        with gzip.open(filename,'w') as outfile:
+            cPickle.dump((sample,rngstate),outfile,protocol=-1)
+
+    def load_sample(self,filename):
+        import gzip, cPickle
+        with gzip.open(filename,'r') as infile:
+            sample, rngstate = cPickle.load(infile)
+        self.set_sample(sample)
+        np.random.set_state(rngstate)
 

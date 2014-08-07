@@ -294,7 +294,7 @@ class HSMMStatesPython(_StatesBase):
 
     def mf_cumulative_obs_potentials(self,t):
         stop = None if self.trunc is None else min(self.T,t+self.trunc)
-        return np.cumsum(self.mf_aBl[t:stop],axis=0)
+        return np.cumsum(self.mf_aBl[t:stop],axis=0), 0.
 
     def mf_reverse_cumulative_obs_potentials(self,t):
         start = 0 if self.trunc is None else max(0,t-self.trunc+1)
@@ -465,8 +465,9 @@ class HSMMStatesPython(_StatesBase):
         logpmfs = -np.inf*np.ones_like(alphastarl)
         errs = np.seterr(invalid='ignore')
         for t in xrange(T):
+            cB, offset = cumulative_obs_potentials(t)
             np.logaddexp(dur_potentials(t) + alphastarl[t] + betal[t:] +
-                    cumulative_obs_potentials(t) - normalizer,
+                    cB - (normalizer + offset),
                     logpmfs[:T-t], out=logpmfs[:T-t])
         np.seterr(**errs)
         expected_durations = np.exp(logpmfs.T)
@@ -723,7 +724,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
     # mean field messages potentials
 
     def mf_cumulative_obs_potentials(self,tblock):
-        return self.mf_aBl[tblock:].cumsum(0)[:self.trunc]
+        return self.mf_aBl[tblock:].cumsum(0)[:self.trunc], 0.
 
     def mf_reverse_cumulative_obs_potentials(self,tblock):
         return rcumsum(self.mf_aBl[:tblock+1])\
@@ -805,10 +806,11 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         # TODO censoring not handled correctly here
         for tblock in xrange(self.Tblock):
             possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
+            cB, offset = cumulative_obs_potentials(tblock)
             logpmfs[possible_durations -1] = np.logaddexp(
                     dur_potentials(tblock) + alphastarl[tblock]
                     + betal[tblock:tblock+self.trunc if self.trunc is not None else None]
-                    + cumulative_obs_potentials(tblock) - normalizer,
+                    + cB - (offset + normalizer),
                     logpmfs[possible_durations -1])
         np.seterr(**errs)
         return np.exp(logpmfs.T)
