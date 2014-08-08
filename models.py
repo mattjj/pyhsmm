@@ -982,11 +982,13 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
-    def add_data(self,data,changepoints,group_id,stateseq=None,**kwargs):
+    def add_data(self,data,changepoints,group_id,
+            stateseq=None,init_meanfield=False,**kwargs):
         super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).add_data(
-                data,changepoints=changepoints,stateseq=stateseq,group_id=group_id,**kwargs)
+                data,changepoints=changepoints,group_id=group_id,
+                stateseq=None,**kwargs)
 
-        if stateseq is not None:
+        if stateseq is not None and init_meanfield:
             # initialize observation parameters
             for i, o in enumerate(self.obs_distns):
                 o.meanfieldupdate(data,weights=stateseq==i)
