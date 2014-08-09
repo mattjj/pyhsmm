@@ -144,34 +144,35 @@ class _HMMBase(Model):
         return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
 
     def plot_observations(self,colors=None,states_objs=None):
-        if states_objs is None:
-            states_objs = self.states_list
+        if all(hasattr(o,'plot') for o in self.obs_distns):
+            if states_objs is None:
+                states_objs = self.states_list
 
-        cmap = cm.get_cmap()
+            cmap = cm.get_cmap()
 
-        if len(states_objs) > 0:
-            if colors is None:
-                colors = self._get_colors(states_objs)
-            used_states = self._get_used_states(states_objs)
-            for state,o in enumerate(self.obs_distns):
-                if state in used_states:
+            if len(states_objs) > 0:
+                if colors is None:
+                    colors = self._get_colors(states_objs)
+                used_states = self._get_used_states(states_objs)
+                for state,o in enumerate(self.obs_distns):
+                    if state in used_states:
+                        o.plot(
+                            color=cmap(colors[state]),
+                            data=[s.data[s.stateseq == state] if s.data is not None else None
+                                for s in states_objs],
+                            indices=[np.where(s.stateseq == state)[0] for s in states_objs],
+                            label='%d' % state)
+            else:
+                N = len(self.obs_distns)
+                colors = self._get_colors()
+                weights = np.repeat(1./N,N).dot(
+                        np.linalg.matrix_power(self.trans_distn.trans_matrix,1000))
+                for state, o in enumerate(self.obs_distns):
                     o.plot(
-                        color=cmap(colors[state]),
-                        data=[s.data[s.stateseq == state] if s.data is not None else None
-                            for s in states_objs],
-                        indices=[np.where(s.stateseq == state)[0] for s in states_objs],
-                        label='%d' % state)
-        else:
-            N = len(self.obs_distns)
-            colors = self._get_colors()
-            weights = np.repeat(1./N,N).dot(
-                    np.linalg.matrix_power(self.trans_distn.trans_matrix,1000))
-            for state, o in enumerate(self.obs_distns):
-                o.plot(
-                        color=cmap(colors[state]),
-                        label='%d' % state,
-                        alpha=min(1.,weights[state]+0.05))
-        plt.title('Observation Distributions')
+                            color=cmap(colors[state]),
+                            label='%d' % state,
+                            alpha=min(1.,weights[state]+0.05))
+            plt.title('Observation Distributions')
 
     def plot(self,color=None,legend=False):
         plt.gcf() #.set_size_inches((10,10))
