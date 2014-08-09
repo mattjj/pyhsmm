@@ -176,6 +176,7 @@ class HSMMStatesPython(_StatesBase):
             self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
             for idx, o in enumerate(self.obs_distns):
                 aBl[:,idx] = o.expected_log_likelihood(self.data)
+            aBl[np.isnan(aBl).any(1)] = 0.
         return self._mf_aBl
 
     @property

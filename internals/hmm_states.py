@@ -417,12 +417,14 @@ class HMMStatesPython(_StatesBase):
             self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
             for idx, o in enumerate(self.obs_distns):
                 aBl[:,idx] = o.expected_log_likelihood(self.data)
-            np.maximum(self._mf_aBl,-100000,out=self._mf_aBl)
+            aBl[np.isnan(aBl).any(1)] = 0.
+            # np.maximum(aBl,-100000,out=aBl) # numuerical stability
         return self._mf_aBl
 
     @property
     def mf_trans_matrix(self):
-        return np.maximum(self.model.trans_distn.exp_expected_log_trans_matrix,1e-3)
+        return self.model.trans_distn.exp_expected_log_trans_matrix
+        # return np.maximum(self.model.trans_distn.exp_expected_log_trans_matrix,1e-5)
 
     @property
     def mf_pi_0(self):
