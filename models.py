@@ -258,6 +258,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         self._meanfield_update_sweep(joblib_jobs=joblib_jobs)
         return self._vlb()
 
+    @line_profiled
     def _meanfield_update_sweep(self,joblib_jobs=0):
         # NOTE: we want to update the states factor last to make the VLB
         # computation efficient, but to update the parameters first we have to
@@ -269,6 +270,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         self.meanfield_update_parameters()
         self.meanfield_update_states(joblib_jobs)
 
+    @line_profiled
     def meanfield_update_parameters(self):
         self.meanfield_update_obs_distns()
         self.meanfield_update_trans_distn()
@@ -701,6 +703,7 @@ class _HSMMMeanField(_HSMMBase,_HMMMeanField):
         super(_HSMMMeanField,self).meanfield_update_parameters()
         self.meanfield_update_dur_distns()
 
+    @line_profiled
     def meanfield_update_dur_distns(self):
         for state, d in enumerate(self.dur_distns):
             d.meanfieldupdate(
@@ -959,6 +962,22 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussStates
 
+    ################
+    #  mean field  #
+    ################
+
+    def init_meanfield_from_sample(self):
+        for s in self.states_list:
+            s.init_meanfield_from_sample()
+        self.meanfield_update_parameters()
+
+    def meanfield_update_obs_distns(self):
+        raise NotImplementedError
+
+    ###########
+    #  Gibbs  #
+    ###########
+
     def resample_obs_distns(self):
         # collects the statistics using fast code
         assert all(s.data.dtype == np.float64 for s in self.states_list)
@@ -982,38 +1001,56 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
-    def add_data(self,data,changepoints,group_id,
-            stateseq=None,init_meanfield=False,**kwargs):
-        super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).add_data(
-                data,changepoints=changepoints,group_id=group_id,
-                stateseq=None,**kwargs)
+    ################
+    #  mean field  #
+    ################
 
-        if stateseq is not None and init_meanfield:
-            # initialize observation parameters
-            for i, o in enumerate(self.obs_distns):
-                o.meanfieldupdate(data,weights=stateseq==i)
+    def init_meanfield_from_sample(self,niter=5):
+        for s in self.states_list:
+            s.init_meanfield_from_sample()
+        self.meanfield_update_parameters()
 
-            # initialize duration parameters
-            s = self.states_list[-1]
-            expected_durations = np.zeros((self.num_states,s.T))
-            for state in xrange(self.num_states):
-                expected_durations[state] += \
-                    np.bincount(
-                        s.durations_censored[s.stateseq_norep == state],
-                        minlength=s.T)[:s.T]
-            for i, d in enumerate(self.dur_distns):
-                d.meanfieldupdate(
-                    np.arange(1,expected_durations.shape[1]+1),
-                    expected_durations[i])
+        # extra iterations for GMM fitting
+        for i in xrange(niter-1):
+            self.meanfield_update_obs_distns()
 
-            # initialize transition distribution
-            from util.general import count_transitions
-            expected_transcounts = \
-                count_transitions(s.stateseq_norep,minlength=self.num_states)
-            self.trans_distns[group_id].meanfieldupdate([expected_transcounts])
+    @line_profiled
+    def meanfield_update_obs_distns(self):
+        from .util.temp import gmm_meanfield_update_obs_distns
 
-            # don't initialize init state distn
+        datas = [s.data for s in self.states_list]
+        expected_statess = [s.expected_states for s in self.states_list]
 
+        # NOTE: does not include base density term because it gets normalized away
+        Enatparam = np.array([[np.concatenate((a,b,(c.sum()+d.sum(),)))
+            for a,b,c,d in [comp.mf_expected_statistics() for comp in distn.components]]
+            for distn in self.obs_distns]
+            )
+        Elogweights = np.array([d.weights.expected_log_likelihood()
+            for d in self.obs_distns])
+
+        allstats, allcounts = \
+            gmm_meanfield_update_obs_distns(
+                expected_statess, datas, Enatparam, Elogweights)
+
+        for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
+            for s, c in zip(stats, o.components):
+                c.meanfieldupdate(None,None,stats=s)
+
+            o.weights.meanfieldupdate(None,None,stats=counts)
+
+    @line_profiled
+    def meanfield_update_dur_distns(self):
+        for state, d in enumerate(self.dur_distns):
+            d.meanfieldupdate(
+                    data=[np.arange(1,s.expected_durations[state].shape[0]+1)
+                        for s in self.states_list],
+                    weights=[s.expected_durations[state] for s in self.states_list],
+                    basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
+
+    ###########
+    #  Gibbs  #
+    ###########
 
     def resample_obs_distns(self):
         from .util.temp import resample_gmm_labels
@@ -1042,6 +1079,10 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 
                 # resample mixture weights using counts
                 o.weights.resample(counts=counts)
+
+    ########################
+    #  parallel tempering  #
+    ########################
 
     @property
     def energy(self):

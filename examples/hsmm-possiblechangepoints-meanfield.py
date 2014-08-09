@@ -56,7 +56,7 @@ Nmax = 25
 obs_distns = [pyhsmm.basic.models.MixtureDistribution(
         alpha_0=1.,
         components=[pyhsmm.distributions.DiagonalGaussian(**obs_hypparams)
-            for component in xrange(2)]) for state in xrange(Nmax)]
+            for component in xrange(1)]) for state in xrange(Nmax)]
 
 # obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
 
@@ -71,6 +71,20 @@ posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans
 #         obs_distns=obs_distns,dur_distns=dur_distns)
 
 posteriormodel.add_data(data,changepoints,group_id=0,stateseq=labels)
+posteriormodel.init_meanfield_from_sample()
+
+plt.figure()
+posteriormodel.plot()
+
+def normalize(A):
+    return A / A.sum(1)[:,None]
+plt.matshow(truemodel.trans_distn.trans_matrix)
+from pyhsmm.util.general import count_transitions
+plt.matshow(count_transitions(truemodel.states_list[0].stateseq_norep))
+plt.matshow(normalize(posteriormodel.trans_distns[0].exp_expected_log_trans_matrix)[:N,:N])
+
+for itr in progprint_xrange(10):
+    posteriormodel.meanfield_coordinate_descent_step()
 
 plt.figure()
 posteriormodel.plot()

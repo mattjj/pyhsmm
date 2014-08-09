@@ -1,4 +1,4 @@
-# distutils: extra_compile_args = -O3 -w -DEIGEN_DONT_PARALLELIZE -DNDEBUG -fopenmp -std=c++11
+# distutils: extra_compile_args = -O3 -w -DEIGEN_NO_MALLOC -DEIGEN_DONT_PARALLELIZE -DNDEBUG -fopenmp -std=c++11
 # distutils: extra_link_args = -fopenmp
 # distutils: language = c++
 # distutils: include_dirs = deps/Eigen3/ internals/
@@ -12,10 +12,9 @@ from libc.stdint cimport int32_t, int64_t
 from cython cimport floating
 
 # TODO do more type generic stuff (less double, more floating)
+# TODO maybe don't parallelize over stateseqs
 
 from cython.parallel import prange
-
-# TODO pass in num threads
 
 cdef extern from "temp.h":
     cdef cppclass dummy[Type]:
@@ -48,6 +47,11 @@ cdef extern from "temp.h":
             Type *data,
             Type *weights, Type *Js, Type *mus_times_Js, Type *normalizers,
             Type *energy, Type *randseq) nogil
+        void gmm_meanfield_update(
+            int N, int T, int K, int D,
+            Type *expected_states, Type *data,
+            Type *Elogweights, Type *Enatparam,
+            Type *stats, Type *counts) nogil
 
 def getstats(num_states, stateseqs, datas):
     cdef int i
@@ -131,6 +135,8 @@ def hsmm_messages_reduction_vertical(
 
     ref.hsmm_messages_reduction_verticalpartition(T,N,
             &betal[0,0],&cB[0,0],&dur_potentials[0,0],&out[0])
+
+    np.place(out,np.isnan(out),-np.inf)
 
 def hsmm_messages_reduction_horizontal(
         double[:,::1] betal,
@@ -280,4 +286,54 @@ def hsmm_gmm_energy(
                 &energies[i],randseqs_v[i])
 
     return np.sum(energies)
+
+
+def gmm_meanfield_update_obs_distns(
+        expected_statess, datas,
+        double [:,:,::1] Enatparam,
+        double[:,::1] Elogweights,
+        ):
+
+    cdef int i
+    cdef dummy[double] ref
+
+    cdef int N = Enatparam.shape[0] # number of states
+    cdef int K = Enatparam.shape[1] # number of components
+    cdef int D = datas[0].shape[1] # dimensionality of data
+    cdef int M = len(datas) # number of data sequences
+    cdef int32_t[::1] Ts = np.array([d.shape[0] for d in datas]).astype('int32')
+
+    cdef vector[double*] expected_statess_v, datas_v
+    cdef double[:,::1] temp
+
+    for i in range(M):
+        temp = datas[i]
+        datas_v.push_back(&temp[0,0])
+        temp = expected_statess[i]
+        expected_statess_v.push_back(&temp[0,0])
+
+    cdef double[:,:,:,::1] stats = np.zeros((2*M,N,K,2*D+1)) # NOTE: 2*M to avoid false sharing
+    cdef double[:,:,::1] counts = np.zeros((2*M,N,K))
+
+    with nogil:
+        for i in prange(M):
+            ref.gmm_meanfield_update(
+                    N,Ts[i],K,D,
+                    expected_statess_v[i],datas_v[i],
+                    &Elogweights[0,0],&Enatparam[0,0,0],
+                    &stats[2*i,0,0,0],&counts[2*i,0,0])
+
+    allstats = []
+    for sl in np.sum(stats,0):
+        somestats = []
+
+        for row in sl:
+            ns = row[-1] * np.ones(D)
+            xsq = row[:D]
+            x = row[D:2*D]
+            somestats.append(np.array([xsq,x,ns,ns]))
+
+        allstats.append(somestats)
+
+    return allstats, np.sum(counts,0)
 

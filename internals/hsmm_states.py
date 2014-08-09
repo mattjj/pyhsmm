@@ -189,6 +189,7 @@ class HSMMStatesPython(_StatesBase):
         return self._mf_aDl
 
     @property
+    @line_profiled
     def mf_aDsl(self):
         if self._mf_aDsl is None:
             self._mf_aDsl = aDsl = np.empty((self.T,self.num_states))
@@ -299,7 +300,7 @@ class HSMMStatesPython(_StatesBase):
 
     def mf_reverse_cumulative_obs_potentials(self,t):
         start = 0 if self.trunc is None else max(0,t-self.trunc+1)
-        return rcumsum(self.mf_aBl[start:t+1])
+        return rcumsum(self.mf_aBl[start:t+1]), 0.
 
     def mf_dur_potentials(self,t):
         stop = self.T-t if self.trunc is None else min(self.T-t,self.trunc)
@@ -370,6 +371,7 @@ class HSMMStatesPython(_StatesBase):
                 self.dur_potentials, self.reverse_dur_potentials,
                 self.dur_survival_potentials, self.reverse_dur_survival_potentials)
 
+    @line_profiled
     def meanfieldupdate(self):
         self.clear_caches()
         self.all_expected_stats = self._expected_statistics(
@@ -389,8 +391,26 @@ class HSMMStatesPython(_StatesBase):
                 self.expected_durations, self._normalizer = vals
         self.stateseq = self.expected_states.argmax(1) # for plotting
 
+    def init_meanfield_from_sample(self):
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
+
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
+
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.T))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.T)[:self.T]
+
     # here's the real work
 
+    @line_profiled
     def _expected_statistics(self,
             trans_potentials, initial_state_potential,
             cumulative_obs_potentials, reverse_cumulative_obs_potentials,
@@ -425,6 +445,7 @@ class HSMMStatesPython(_StatesBase):
 
         return expected_states, expected_transitions, expected_durations, normalizer
 
+    @line_profiled
     def _expected_states(self,alphal,betal,alphastarl,betastarl,normalizer):
         gammal = alphal + betal
         gammastarl = alphastarl + betastarl
@@ -449,6 +470,7 @@ class HSMMStatesPython(_StatesBase):
 
         return expected_states
 
+    @line_profiled
     def _expected_transitions(self,alphal,betastarl,trans_potentials,normalizer):
         # TODO assumes homog trans; otherwise, need a loop
         Al = trans_potentials(0)
@@ -457,6 +479,7 @@ class HSMMStatesPython(_StatesBase):
         expected_transcounts = np.exp(transl).sum(0)
         return expected_transcounts
 
+    @line_profiled
     def _expected_durations(self,
             dur_potentials,cumulative_obs_potentials,
             alphastarl,betal,normalizer):
@@ -651,6 +674,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         return self._aDsl
 
     @property
+    @line_profiled
     def mf_aDl(self):
         # just like parent aDl, except we use Tfull
         if self._aDl is None:
@@ -662,15 +686,15 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         return self._aDl
 
     @property
+    @line_profiled
     def mf_aDsl(self):
         # just like parent aDl, except we use Tfull
-        if self._aDsl is None:
-            aDsl = np.empty((self.Tfull,self.num_states))
+        if self._mf_aDsl is None:
+            aDsl = self._mf_aDsl = np.empty((self.Tfull,self.num_states))
             possible_durations = np.arange(1,self.Tfull + 1,dtype=np.float64)
             for idx, dur_distn in enumerate(self.dur_distns):
                 aDsl[:,idx] = dur_distn.expected_log_sf(possible_durations)
-            self._aDsl = aDsl
-        return self._aDsl
+        return self._mf_aDsl
 
     ### message passing
 
@@ -709,7 +733,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
 
     def reverse_cumulative_obs_potentials(self,tblock):
         return rcumsum(self.aBl[:tblock+1])\
-                [-self.trunc if self.trunc is not None else None:]
+                [-self.trunc if self.trunc is not None else None:], 0.
 
     def reverse_dur_potentials(self,tblock):
         possible_durations = rcumsum(self.segmentlens[:tblock+1])\
@@ -729,7 +753,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
 
     def mf_reverse_cumulative_obs_potentials(self,tblock):
         return rcumsum(self.mf_aBl[:tblock+1])\
-                [-self.trunc if self.trunc is not None else None:]
+                [-self.trunc if self.trunc is not None else None:].copy(), 0.
 
     def mf_dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
@@ -741,8 +765,8 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         return self.mf_aDl[possible_durations -1]
 
     def mf_dur_survival_potentials(self,tblock):
-        max_dur = self.segmentlens[tblock:].cumsum()[:self.trunc][-1]
-        return self.mf_aDsl[max_dur -1]
+        max_dur = int(self.segmentlens[tblock:].cumsum()[:self.trunc][-1])
+        return np.take(self.mf_aDsl,max_dur-1,axis=0)
 
     def mf_reverse_dur_survival_potentials(self,tblock):
         max_dur = rcumsum(self.segmentlens[:tblock+1])\
@@ -899,9 +923,52 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
         self.clear_caches()
         return super(DiagGaussGMMStates,self).aBl
 
+    @property
+    def mf_aDl(self):
+        # TODO could hit this with da parallelism
+        import scipy.special as special
+        if self._mf_aDl is None:
+            # NOTE: shifted by 1
+            possible_durations = np.arange(self.Tfull,dtype=np.float64)
+
+            Estats = [[d_r._mf_expected_statistics()
+                for d_r in d._fixedr_distns] for d in self.dur_distns]
+            Elnpss, Eln1mpss = map(np.array,zip(*[zip(*s) for s in Estats]))
+            rs = np.array([[d_r.r for d_r in d._fixedr_distns] for d in self.dur_distns])
+            weights = np.array([np.exp(d.rho_mf - np.logaddexp.reduce(d.rho_mf))
+                for d in self.dur_distns])
+
+            out = possible_durations[na,na,:]*Elnpss[...,na] + (rs*Eln1mpss)[...,na]
+
+            basemeasures = self._dur_basemeasures = \
+                    special.gammaln(possible_durations[na,na,:] + rs[...,na])
+            basemeasures -= special.gammaln(possible_durations[na,na,:]+1)
+            basemeasures -= special.gammaln(rs)[...,na]
+
+            out += basemeasures
+            self._mf_aDl = (out * weights[...,na]).sum(1).T.copy() # TODO
+
+            # thing1 = self._aDl.copy()
+            # self._aDl = None
+            # thing2 = super(DiagGaussGMMStates,self).mf_aDl
+            # assert np.allclose(thing1,thing2)
+        return self._mf_aDl
+
+    @property
+    def mf_aDsl(self):
+        import scipy.special as special
+        if self._mf_aDsl is None:
+            self._mf_aDsl = rcumsum(self.mf_aDl,strict=True)
+
+            # thing1 = self._mf_aDsl
+            # self._mf_aDsl = self._aDsl = None
+            # thing2 = super(DiagGaussGMMStates,self).mf_aDsl
+            # assert np.allclose(thing1[:10],thing2[:10])
+            # assert False
+        return self._mf_aDsl
+
 ### HSMM messages
 
-@line_profiled
 def hsmm_messages_backwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
@@ -935,7 +1002,6 @@ def hsmm_messages_backwards_log(
     np.seterr(**errs)
     return betal, betastarl, normalizer
 
-@line_profiled
 def hsmm_messages_forwards_log(
     trans_potential, initial_state_potential,
     reverse_cumulative_obs_potentials, reverse_dur_potentials, reverse_dur_survival_potentials,
@@ -946,17 +1012,21 @@ def hsmm_messages_forwards_log(
 
     alphastarl[0] = initial_state_potential
     for t in xrange(T-1):
-        cB = reverse_cumulative_obs_potentials(t)
-        np.logaddexp.reduce(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
-                axis=0, out=alphal[t])
+        cB, offset = reverse_cumulative_obs_potentials(t)
+        dp = reverse_dur_potentials(t)
+        hsmm_messages_reduction_vertical(alphastarl[t+1-cB.shape[0]:t+1],cB,dp,alphal[t])
+        # np.logaddexp.reduce(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
+        #         axis=0, out=alphal[t])
+        alphal[t] -= offset
         if left_censoring:
             raise NotImplementedError
         np.logaddexp.reduce(alphal[t][:,na] + trans_potential(t),
                 axis=0, out=alphastarl[t+1])
     t = T-1
-    cB = reverse_cumulative_obs_potentials(t)
+    cB, offset = reverse_cumulative_obs_potentials(t)
     np.logaddexp.reduce(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
             axis=0, out=alphal[t])
+    alphal[t] -= offset
 
     if not right_censoring:
         normalizer = np.logaddexp.reduce(alphal[t])
@@ -965,7 +1035,6 @@ def hsmm_messages_forwards_log(
 
     return alphal, alphastarl, normalizer
 
-@line_profiled
 def hsmm_sample_forwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentails,
@@ -1013,7 +1082,6 @@ def hsmm_sample_forwards_log(
 
     return stateseq, durations
 
-@line_profiled
 def hsmm_maximizing_assignment(
     N, T,
     trans_potentials, initial_state_potential,

@@ -278,5 +278,51 @@ class dummy
         *energy = engy;
     }
 
+    static void gmm_meanfield_update(
+        int N, int T, int K, int D,
+        Type *expected_states, Type *data,
+        Type *Elogweights, Type *Enatparam,
+        Type *stats, Type *counts)
+    {
+        NPArray<Type> edata(data,T,D);
+        NPArray<Type> eexpected_states(expected_states,T,N);
+
+        NPMatrix<Type> eEnatparam(Enatparam,N*K,2*D+1);
+        NPArray<Type> eweights(Elogweights,N,K);
+
+        NPMatrix<Type> estats(stats,N*K,2*D+1);
+        NPArray<Type> ecounts(counts,N,K);
+
+        Type responsibilities_buf[N*K] __attribute__((aligned(32)));
+        Map<Array<Type,Dynamic,Dynamic>,Aligned> eresp(responsibilities_buf,N,K);
+        Map<Matrix<Type,Dynamic,1>,Aligned> erespflat(responsibilities_buf,N*K,1);
+
+        Type stats_buf[2*D+1] __attribute__((aligned(32)));
+        Map<Matrix<Type,Dynamic,1>,Aligned> estat(stats_buf,2*D+1,1);
+        estat(2*D) = 1;
+
+        for (int t=0; t < T; t++) {
+            if (likely((edata.row(t) == edata.row(t)).all())) {
+                // compute responsibilities
+                estat.segment(0,D) = edata.row(t).square().matrix().transpose();
+                estat.segment(D,D) = edata.row(t).matrix().transpose();
+
+                erespflat.noalias() = eEnatparam * estat;
+                eresp += eweights;
+
+                eresp.colwise() -= eresp.rowwise().maxCoeff();
+                eresp = eresp.exp();
+                eresp.colwise() /= eresp.rowwise().sum();
+
+                eresp.colwise() *= eexpected_states.row(t).transpose();
+
+                // count up stats
+                estats += erespflat * estat.transpose();
+                ecounts += eresp;
+            }
+        }
+
+    }
+
 };
 

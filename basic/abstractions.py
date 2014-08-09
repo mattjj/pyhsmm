@@ -45,8 +45,10 @@ class DurationDistribution(Distribution):
     def expected_log_sf(self,x):
         x = np.atleast_1d(x).astype('int32')
         assert x.ndim == 1
-        inf = max(2*x.max(),2*1000) # approximately infinity, we hope
-        return rcumsum(self.expected_log_pmf(np.arange(1,inf)),strict=True)[x]
+        inf = x.max()+2
+        while self.expected_log_pmf(inf) > -300:
+            inf *= 1.25
+        return rcumsum(self.expected_log_pmf(np.arange(x.min(),inf)),strict=True)[x-x.min()]
 
     def resample_with_truncations(self,data=[],truncated_data=[]):
         '''
