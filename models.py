@@ -991,7 +991,7 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         if stateseq is not None and init_meanfield:
             # initialize observation parameters
             for i, o in enumerate(self.obs_distns):
-                for itr in xrange(10):
+                for itr in xrange(5):
                     o.meanfieldupdate(data,weights=(stateseq==i).astype('float64'))
 
             # initialize duration parameters
@@ -1014,7 +1014,6 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
             self.trans_distns[group_id].meanfieldupdate([expected_transcounts])
 
             # don't initialize init state distn
-
 
     def resample_obs_distns(self):
         from .util.temp import resample_gmm_labels
