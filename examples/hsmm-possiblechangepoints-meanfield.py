@@ -70,7 +70,8 @@ posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans
 #         alpha=6.,init_state_concentration=6.,
 #         obs_distns=obs_distns,dur_distns=dur_distns)
 
-posteriormodel.add_data(data,changepoints,group_id=0,stateseq=labels,init_meanfield=True)
+posteriormodel.add_data(data,changepoints,group_id=0,stateseq=labels)
+posteriormodel.init_meanfield_from_sample()
 
 plt.figure()
 posteriormodel.plot()

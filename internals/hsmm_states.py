@@ -389,6 +389,23 @@ class HSMMStatesPython(_StatesBase):
                 self.expected_durations, self._normalizer = vals
         self.stateseq = self.expected_states.argmax(1) # for plotting
 
+    def init_meanfield_from_sample(self):
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
+
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
+
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.T))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.T)[:self.T]
+
     # here's the real work
 
     def _expected_statistics(self,
