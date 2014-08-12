@@ -986,7 +986,7 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
             stateseq=None,init_meanfield=False,**kwargs):
         super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).add_data(
                 data,changepoints=changepoints,group_id=group_id,
-                stateseq=None,**kwargs)
+                stateseq=stateseq,**kwargs)
 
         if stateseq is not None and init_meanfield:
             # initialize observation parameters
