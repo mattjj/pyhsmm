@@ -991,7 +991,8 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         if stateseq is not None and init_meanfield:
             # initialize observation parameters
             for i, o in enumerate(self.obs_distns):
-                o.meanfieldupdate(data,weights=stateseq==i)
+                for itr in xrange(10):
+                    o.meanfieldupdate(data,weights=(stateseq==i).astype('float64'))
 
             # initialize duration parameters
             s = self.states_list[-1]
