@@ -959,6 +959,11 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussStates
 
+    def init_meanfield_from_sample(self):
+        for s in self.states_list:
+            s.init_meanfield_from_sample()
+        self.meanfield_update_parameters()
+
     def resample_obs_distns(self):
         # collects the statistics using fast code
         assert all(s.data.dtype == np.float64 for s in self.states_list)
@@ -982,38 +987,14 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
-    def add_data(self,data,changepoints,group_id,
-            stateseq=None,init_meanfield=False,**kwargs):
-        super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).add_data(
-                data,changepoints=changepoints,group_id=group_id,
-                stateseq=None,**kwargs)
+    def init_meanfield_from_sample(self,niter=5):
+        for s in self.states_list:
+            s.init_meanfield_from_sample()
+        self.meanfield_update_parameters()
 
-        if stateseq is not None and init_meanfield:
-            # initialize observation parameters
-            for i, o in enumerate(self.obs_distns):
-                o.meanfieldupdate(data,weights=stateseq==i)
-
-            # initialize duration parameters
-            s = self.states_list[-1]
-            expected_durations = np.zeros((self.num_states,s.T))
-            for state in xrange(self.num_states):
-                expected_durations[state] += \
-                    np.bincount(
-                        s.durations_censored[s.stateseq_norep == state],
-                        minlength=s.T)[:s.T]
-            for i, d in enumerate(self.dur_distns):
-                d.meanfieldupdate(
-                    np.arange(1,expected_durations.shape[1]+1),
-                    expected_durations[i])
-
-            # initialize transition distribution
-            from util.general import count_transitions
-            expected_transcounts = \
-                count_transitions(s.stateseq_norep,minlength=self.num_states)
-            self.trans_distns[group_id].meanfieldupdate([expected_transcounts])
-
-            # don't initialize init state distn
-
+        # extra iterations for GMM fitting
+        for i in xrange(niter-1):
+            self.meanfield_update_obs_distns()
 
     def resample_obs_distns(self):
         from .util.temp import resample_gmm_labels
