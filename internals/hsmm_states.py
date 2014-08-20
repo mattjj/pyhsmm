@@ -323,7 +323,7 @@ class HSMMStatesPython(_StatesBase):
 
     @line_profiled
     def resample(self):
-        self.aBl
+        self.aBl # for line profiling
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
