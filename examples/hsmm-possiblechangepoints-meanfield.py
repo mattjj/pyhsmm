@@ -60,7 +60,10 @@ obs_distns = [pyhsmm.basic.models.MixtureDistribution(
 
 # obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
 
-dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
+# dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
+
+dur_distns = [pyhsmm.distributions.NegativeBinomialIntegerR2Duration(
+    r_discrete_distn=np.ones(5.),alpha_0=3.,beta_0=3.) for state in xrange(Nmax)]
 
 posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         alpha=6.,init_state_concentration=6.,
