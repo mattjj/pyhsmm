@@ -637,6 +637,24 @@ class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMState
         hmm_states._PossibleChangepointsMixin.stateseq.fset(self,stateseq)
         HSMMStatesPython.stateseq.fset(self,self.stateseq)
 
+    def init_meanfield_from_sample(self):
+        # NOTE: only durations is different here; uses Tfull
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
+
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
+
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.Tfull))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.Tfull)[:self.Tfull]
+
 class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates):
     pass
 
