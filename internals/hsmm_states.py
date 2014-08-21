@@ -977,6 +977,13 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             return self.mf_aDl_eigen
 
     @property
+    def mf_aDsl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDsl_slow
+        else:
+            return self.mf_aDsl_eigen
+
+    @property
     def mf_aDl_slow(self):
         return super(DiagGaussGMMStates,self).mf_aDl
 
@@ -1010,13 +1017,6 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             # thing2 = super(DiagGaussGMMStates,self).mf_aDl
             # assert np.allclose(thing1,thing2)
         return self._mf_aDl
-
-    @property
-    def mf_aDsl(self):
-        if not self.model.use_speedups:
-            return self.mf_aDsl_slow
-        else:
-            return self.mf_aDsl_eigen
 
     @property
     def mf_aDsl_slow(self):

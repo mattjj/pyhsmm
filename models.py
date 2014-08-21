@@ -1030,7 +1030,8 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 
     @line_profiled
     def meanfield_update_obs_distns(self):
-        if not self.use_speedups:
+        # TODO TODO this code isnt behaving identically to the slow version
+        if True or not self.use_speedups:
             super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
                     meanfield_update_obs_distns()
         else:
