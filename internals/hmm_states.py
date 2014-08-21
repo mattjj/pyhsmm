@@ -110,8 +110,9 @@ class _SeparateTransMixin(object):
         super(_SeparateTransMixin,self).__init__(**kwargs)
 
         # access these to be sure they're instantiated
-        self.trans_matrix
-        self.pi_0
+        # needed for sample saving, swapping in parallel tempering
+        self.model.trans_distns[group_id]
+        self.model.init_state_distns[group_id]
 
     @property
     def trans_matrix(self):
