@@ -981,6 +981,23 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
 
     # TODO bring in dur distn speedup from GMM class
 
+    @line_profiled
+    def meanfield_update_dur_distns(self):
+        if not self.use_speedups:
+            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
+                    meanfield_update_dur_distns()
+        else:
+            if all(hasattr(s,'_dur_basemeasures') for s in self.states_list):
+                for state, d in enumerate(self.dur_distns):
+                    d.meanfieldupdate(
+                            data=[np.arange(1,s.expected_durations[state].shape[0]+1)
+                                for s in self.states_list],
+                            weights=[s.expected_durations[state] for s in self.states_list],
+                            basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
+            else:
+                super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,
+                        self).meanfield_update_dur_distns()
+
     ###########
     #  Gibbs  #
     ###########

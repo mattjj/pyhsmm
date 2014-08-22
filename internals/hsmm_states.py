@@ -903,10 +903,62 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
     #  mean field  #
     ################
 
-    # TODO
+    @property
+    def mf_aDl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDl_slow
+        else:
+            return self.mf_aDl_eigen
+
+    @property
+    def mf_aDsl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDsl_slow
+        else:
+            return self.mf_aDsl_eigen
+
+    @property
+    def mf_aDl_slow(self):
+        return super(DiagGaussGMMStates,self).mf_aDl
+
+    @property
+    def mf_aDl_eigen(self):
+        # TODO could hit this with da parallelism
+        import scipy.special as special
+        if self._mf_aDl is None:
+            # NOTE: shifted by 1
+            possible_durations = np.arange(self.Tfull,dtype=np.float64)
+
+            Estats = [[d_r._mf_expected_statistics()
+                for d_r in d._fixedr_distns] for d in self.dur_distns]
+            Elnpss, Eln1mpss = map(np.array,zip(*[zip(*s) for s in Estats]))
+            rs = np.array([[d_r.r for d_r in d._fixedr_distns] for d in self.dur_distns])
+            weights = np.array([np.exp(d.rho_mf - np.logaddexp.reduce(d.rho_mf))
+                for d in self.dur_distns])
+
+            out = possible_durations[na,na,:]*Elnpss[...,na] + (rs*Eln1mpss)[...,na]
+
+            basemeasures = self._dur_basemeasures = \
+                    special.gammaln(possible_durations[na,na,:] + rs[...,na])
+            basemeasures -= special.gammaln(possible_durations[na,na,:]+1)
+            basemeasures -= special.gammaln(rs)[...,na]
+
+            out += basemeasures
+            self._mf_aDl = (out * weights[...,na]).sum(1).T.copy() # TODO
+        return self._mf_aDl
+
+    @property
+    def mf_aDsl_slow(self):
+        return super(DiagGaussGMMStates,self).mf_aDsl
+
+    @property
+    def mf_aDsl_eigen(self):
+        import scipy.special as special
+        if self._mf_aDsl is None:
+            self._mf_aDsl = rcumsum(self.mf_aDl,strict=True)
+        return self._mf_aDsl
 
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
-
     ###########
     #  Gibbs  #
     ###########
