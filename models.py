@@ -979,12 +979,10 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         # TODO speed this up
         super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).meanfield_update_obs_distns()
 
-    # TODO bring in dur distn speedup from GMM class
-
     @line_profiled
     def meanfield_update_dur_distns(self):
         if not self.use_speedups:
-            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
+            super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).\
                     meanfield_update_dur_distns()
         else:
             if all(hasattr(s,'_dur_basemeasures') for s in self.states_list):
@@ -995,7 +993,7 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
                             weights=[s.expected_durations[state] for s in self.states_list],
                             basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
             else:
-                super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,
+                super(DiagGaussHSMMPossibleChangepointsSeparateTrans,
                         self).meanfield_update_dur_distns()
 
     ###########

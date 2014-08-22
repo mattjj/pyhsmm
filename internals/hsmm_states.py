@@ -919,7 +919,7 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
     @property
     def mf_aDl_slow(self):
-        return super(DiagGaussGMMStates,self).mf_aDl
+        return super(DiagGaussStates,self).mf_aDl
 
     @property
     def mf_aDl_eigen(self):
@@ -949,7 +949,7 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
     @property
     def mf_aDsl_slow(self):
-        return super(DiagGaussGMMStates,self).mf_aDsl
+        return super(DiagGaussStates,self).mf_aDsl
 
     @property
     def mf_aDsl_eigen(self):
