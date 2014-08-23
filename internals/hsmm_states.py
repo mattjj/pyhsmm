@@ -643,6 +643,24 @@ class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMState
         hmm_states._PossibleChangepointsMixin.stateseq.fset(self,stateseq)
         HSMMStatesPython.stateseq.fset(self,self.stateseq)
 
+    def init_meanfield_from_sample(self):
+        # NOTE: only durations is different here; uses Tfull
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
+
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
+
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.Tfull))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.Tfull)[:self.Tfull]
+
 class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates):
     pass
 
@@ -847,8 +865,19 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
 
 
 class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    ###########
+    #  Gibbs  #
+    ###########
+
     @property
     def aBl(self):
+        if not self.model.use_speedups:
+            return self.aBl_slow
+        else:
+            return self.aBl_eigen
+
+    @property
+    def aBl_eigen(self):
         if self._aBl is None:
             sigmas = np.array([d.sigmas for d in self.obs_distns])
             Js = -1./(2*sigmas)
@@ -870,10 +899,76 @@ class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
     def aBl_slow(self):
         return super(DiagGaussStates,self).aBl
 
+    ################
+    #  mean field  #
+    ################
+
+    @property
+    def mf_aDl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDl_slow
+        else:
+            return self.mf_aDl_eigen
+
+    @property
+    def mf_aDsl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDsl_slow
+        else:
+            return self.mf_aDsl_eigen
+
+    @property
+    def mf_aDl_slow(self):
+        return super(DiagGaussStates,self).mf_aDl
+
+    @property
+    def mf_aDl_eigen(self):
+        # TODO could hit this with da parallelism
+        import scipy.special as special
+        if self._mf_aDl is None:
+            # NOTE: shifted by 1
+            possible_durations = np.arange(self.Tfull,dtype=np.float64)
+
+            Estats = [[d_r._mf_expected_statistics()
+                for d_r in d._fixedr_distns] for d in self.dur_distns]
+            Elnpss, Eln1mpss = map(np.array,zip(*[zip(*s) for s in Estats]))
+            rs = np.array([[d_r.r for d_r in d._fixedr_distns] for d in self.dur_distns])
+            weights = np.array([np.exp(d.rho_mf - np.logaddexp.reduce(d.rho_mf))
+                for d in self.dur_distns])
+
+            out = possible_durations[na,na,:]*Elnpss[...,na] + (rs*Eln1mpss)[...,na]
+
+            basemeasures = self._dur_basemeasures = \
+                    special.gammaln(possible_durations[na,na,:] + rs[...,na])
+            basemeasures -= special.gammaln(possible_durations[na,na,:]+1)
+            basemeasures -= special.gammaln(rs)[...,na]
+
+            out += basemeasures
+            self._mf_aDl = (out * weights[...,na]).sum(1).T.copy() # TODO
+        return self._mf_aDl
+
+    @property
+    def mf_aDsl_slow(self):
+        return super(DiagGaussStates,self).mf_aDsl
+
+    @property
+    def mf_aDsl_eigen(self):
+        import scipy.special as special
+        if self._mf_aDsl is None:
+            self._mf_aDsl = rcumsum(self.mf_aDl,strict=True)
+        return self._mf_aDsl
+
 class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    ###########
+    #  Gibbs  #
+    ###########
+
     @property
     def aBl(self):
-        return self.aBl_eigen
+        if not self.model.use_speedups:
+            return self.aBl_slow
+        else:
+            return self.aBl_eigen
 
     @property
     def aBl_einsum(self):
@@ -920,11 +1015,32 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 
     @property
     def aBl_slow(self):
-        self.clear_caches()
         return super(DiagGaussGMMStates,self).aBl
+
+    ################
+    #  mean field  #
+    ################
 
     @property
     def mf_aDl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDl_slow
+        else:
+            return self.mf_aDl_eigen
+
+    @property
+    def mf_aDsl(self):
+        if not self.model.use_speedups:
+            return self.mf_aDsl_slow
+        else:
+            return self.mf_aDsl_eigen
+
+    @property
+    def mf_aDl_slow(self):
+        return super(DiagGaussGMMStates,self).mf_aDl
+
+    @property
+    def mf_aDl_eigen(self):
         # TODO could hit this with da parallelism
         import scipy.special as special
         if self._mf_aDl is None:
@@ -955,7 +1071,11 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
         return self._mf_aDl
 
     @property
-    def mf_aDsl(self):
+    def mf_aDsl_slow(self):
+        return super(DiagGaussGMMStates,self).mf_aDsl
+
+    @property
+    def mf_aDsl_eigen(self):
         import scipy.special as special
         if self._mf_aDsl is None:
             self._mf_aDsl = rcumsum(self.mf_aDl,strict=True)

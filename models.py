@@ -962,6 +962,10 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussStates
 
+    def __init__(self,use_speedups=True,**kwargs):
+        self.use_speedups = use_speedups
+        super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).__init__(**kwargs)
+
     ################
     #  mean field  #
     ################
@@ -972,40 +976,65 @@ class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         self.meanfield_update_parameters()
 
     def meanfield_update_obs_distns(self):
-        raise NotImplementedError
+        # TODO speed this up
+        super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).meanfield_update_obs_distns()
+
+    @line_profiled
+    def meanfield_update_dur_distns(self):
+        if not self.use_speedups:
+            super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).\
+                    meanfield_update_dur_distns()
+        else:
+            if all(hasattr(s,'_dur_basemeasures') for s in self.states_list):
+                for state, d in enumerate(self.dur_distns):
+                    d.meanfieldupdate(
+                            data=[np.arange(1,s.expected_durations[state].shape[0]+1)
+                                for s in self.states_list],
+                            weights=[s.expected_durations[state] for s in self.states_list],
+                            basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
+            else:
+                super(DiagGaussHSMMPossibleChangepointsSeparateTrans,
+                        self).meanfield_update_dur_distns()
 
     ###########
     #  Gibbs  #
     ###########
 
     def resample_obs_distns(self):
-        # collects the statistics using fast code
-        assert all(s.data.dtype == np.float64 for s in self.states_list)
-        assert all(s.stateseq.dtype == np.int32 for s in self.states_list)
-
-        if len(self.states_list) > 0:
-            from util.temp import getstats
-            allstats = getstats(
-                    len(self.obs_distns),
-                    [s.stateseq for s in self.states_list],
-                    [s.data for s in self.states_list])
-
-            for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-                distn.resample(stats=stats,temperature=self.temperature)
+        if not self.use_speedups:
+            super(DiagGaussHSMMPossibleChangepointsSeparateTrans,self).resample_obs_distns()
         else:
-            for distn in self.obs_distns:
-                distn.resample(temperature=self.temperature)
-        self._clear_caches()
+            # collects the statistics using fast code
+            assert all(s.data.dtype == np.float64 for s in self.states_list)
+            assert all(s.stateseq.dtype == np.int32 for s in self.states_list)
+
+            if len(self.states_list) > 0:
+                from util.temp import getstats
+                allstats = getstats(
+                        len(self.obs_distns),
+                        [s.stateseq for s in self.states_list],
+                        [s.data for s in self.states_list])
+
+                for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
+                    distn.resample(stats=stats,temperature=self.temperature)
+            else:
+                for distn in self.obs_distns:
+                    distn.resample(temperature=self.temperature)
+            self._clear_caches()
 
 class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussGMMStates
 
+    def __init__(self,use_speedups=True,**kwargs):
+        self.use_speedups = use_speedups
+        super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).__init__(**kwargs)
+
     ################
     #  mean field  #
     ################
 
-    def init_meanfield_from_sample(self,niter=5):
+    def init_meanfield_from_sample(self,niter=1):
         for s in self.states_list:
             s.init_meanfield_from_sample()
         self.meanfield_update_parameters()
@@ -1016,73 +1045,88 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 
     @line_profiled
     def meanfield_update_obs_distns(self):
-        from .util.temp import gmm_meanfield_update_obs_distns
+        # TODO TODO this code isnt behaving identically to the slow version
+        if True or not self.use_speedups:
+            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
+                    meanfield_update_obs_distns()
+        else:
+            from .util.temp import gmm_meanfield_update_obs_distns
 
-        datas = [s.data for s in self.states_list]
-        expected_statess = [s.expected_states for s in self.states_list]
+            datas = [s.data for s in self.states_list]
+            expected_statess = [s.expected_states for s in self.states_list]
 
-        # NOTE: does not include base density term because it gets normalized away
-        Enatparam = np.array([[np.concatenate((a,b,(c.sum()+d.sum(),)))
-            for a,b,c,d in [comp.mf_expected_statistics() for comp in distn.components]]
-            for distn in self.obs_distns]
-            )
-        Elogweights = np.array([d.weights.expected_log_likelihood()
-            for d in self.obs_distns])
+            # NOTE: does not include base density term because it gets normalized away
+            Enatparam = np.array([[np.concatenate((a,b,(c.sum()+d.sum(),)))
+                for a,b,c,d in [comp.mf_expected_statistics() for comp in distn.components]]
+                for distn in self.obs_distns]
+                )
+            Elogweights = np.array([d.weights.expected_log_likelihood()
+                for d in self.obs_distns])
 
-        allstats, allcounts = \
-            gmm_meanfield_update_obs_distns(
-                expected_statess, datas, Enatparam, Elogweights)
+            allstats, allcounts = \
+                gmm_meanfield_update_obs_distns(
+                    expected_statess, datas, Enatparam, Elogweights)
 
-        for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
-            for s, c in zip(stats, o.components):
-                c.meanfieldupdate(None,None,stats=s)
+            for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
+                for s, c in zip(stats, o.components):
+                    c.meanfieldupdate(None,None,stats=s)
 
-            o.weights.meanfieldupdate(None,None,stats=counts)
+                o.weights.meanfieldupdate(None,None,stats=counts)
 
     @line_profiled
     def meanfield_update_dur_distns(self):
-        if all(hasattr(s,'_dur_basemeasures') for s in self.states_list):
-            for state, d in enumerate(self.dur_distns):
-                d.meanfieldupdate(
-                        data=[np.arange(1,s.expected_durations[state].shape[0]+1)
-                            for s in self.states_list],
-                        weights=[s.expected_durations[state] for s in self.states_list],
-                        basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
+        if not self.use_speedups:
+            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
+                    meanfield_update_dur_distns()
         else:
-            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,
-                    self).meanfield_update_dur_distns()
+            if all(hasattr(s,'_dur_basemeasures') for s in self.states_list):
+                for state, d in enumerate(self.dur_distns):
+                    d.meanfieldupdate(
+                            data=[np.arange(1,s.expected_durations[state].shape[0]+1)
+                                for s in self.states_list],
+                            weights=[s.expected_durations[state] for s in self.states_list],
+                            basemeasures=[s._dur_basemeasures[state] for s in self.states_list])
+            else:
+                super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,
+                        self).meanfield_update_dur_distns()
 
     ###########
     #  Gibbs  #
     ###########
 
     def resample_obs_distns(self):
-        from .util.temp import resample_gmm_labels
+        if not self.use_speedups:
+            super(DiagGaussGMMHSMMPossibleChangepointsSeparateTrans,self).\
+                    resample_obs_distns()
+        else:
+            from .util.temp import resample_gmm_labels
 
-        datas = [s.data for s in self.states_list]
-        stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
+            datas = [s.data for s in self.states_list]
+            stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
 
-        for itr in xrange(self.obs_distns[0].niter):
-            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
-            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
-            logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
+            for itr in xrange(self.obs_distns[0].niter):
+                mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+                sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+                logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
 
-            if self.temperature is not None:
-                sigmas *= self.temperature
+                if self.temperature is not None:
+                    sigmas *= self.temperature
 
-            randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
+                randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
 
-            # compute likelihoods, resample labels, and collect statistics
-            allstats, allcounts = \
-                resample_gmm_labels(stateseqs,datas,randseqs,sigmas,mus,logweights)
+                # compute likelihoods, resample labels, and collect statistics
+                allstats, allcounts = \
+                    resample_gmm_labels(stateseqs,datas,randseqs,sigmas,mus,logweights)
 
-            for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
-                # resample gaussian params using statistics
-                for s, c in zip(stats,o.components):
-                    c.resample(stats=s,temperature=self.temperature)
+                for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
+                    # resample gaussian params using statistics
+                    for s, c in zip(stats,o.components):
+                        c.resample(stats=s,temperature=self.temperature)
 
-                # resample mixture weights using counts
-                o.weights.resample(counts=counts)
+                    # resample mixture weights using counts
+                    o.weights.resample(counts=counts)
+
+            self._clear_caches()
 
     ########################
     #  parallel tempering  #
@@ -1102,6 +1146,10 @@ class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
         randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
 
         return hsmm_gmm_energy(stateseqs,datas,randseqs,sigmas,mus,logweights)
+
+    ###########################
+    #  sample saving/loading  #
+    ###########################
 
     def get_sample(self):
         SAVETYPE = 'float16'
