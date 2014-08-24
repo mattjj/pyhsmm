@@ -958,6 +958,13 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
 #  temp  #
 ##########
 
+# TODO TODO these block-wise models should just process the data into statistics
+# upfront
+# TODO TODO mean field should precompute all the gammas (all r/dur combos) just
+# once, also can compute just the possible durations and just compute those
+# instead of length T. so to compute the base measure terms, can just have an
+# array that is r_max x T and copy/read it appropriately.
+
 class DiagGaussHSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepointsSeparateTrans):
     _states_class = hsmm_states.DiagGaussStates
