@@ -839,8 +839,9 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
-class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
-    pass
+# class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
+#     # TODO TODO needs a states class that combines the two states classes
+#     pass
 
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMMPython):
     pass
