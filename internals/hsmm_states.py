@@ -575,15 +575,6 @@ class HSMMStatesEigen(HSMMStatesPython):
 
 
 class GeoHSMMStates(HSMMStatesPython):
-    def resample(self):
-        alphan, self._normalizer = HMMStatesEigen._messages_forwards_normalized(
-                self.hmm_trans_matrix,
-                self.pi_0,
-                self.aBl)
-        self.stateseq = HMMStatesEigen._sample_backwards_normalized(
-                alphan,
-                self.hmm_trans_matrix.T.copy())
-
     @property
     def hmm_trans_matrix(self):
         A = self.trans_matrix.copy()
@@ -595,37 +586,70 @@ class GeoHSMMStates(HSMMStatesPython):
 
         return A
 
-    def E_step(self):
-        alphal = HMMStatesEigen._messages_forwards_log(
+    @property
+    def mf_hmm_trans_matrix(self):
+        raise NotImplementedError
+
+    def _set_expected_ns(self):
+        self._expected_ns = np.diag(self.expected_transcounts).copy()
+        self._expected_tots = self.expected_transcounts.sum(1)
+        self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
+
+    ### Gibbs
+
+    def resample(self):
+        alphan, self._normalizer = HMMStatesEigen._messages_forwards_normalized(
                 self.hmm_trans_matrix,
                 self.pi_0,
                 self.aBl)
+        self.stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,
+                self.hmm_trans_matrix.T.copy())
+
+    ### EM
+
+    def E_step(self):
+        alphal = HMMStatesEigen._messages_forwards_log(
+                self.hmm_trans_matrix, self.pi_0, self.aBl)
         betal = HMMStatesEigen._messages_backwards_log(
-                self.hmm_trans_matrix,
-                self.aBl)
+                self.hmm_trans_matrix, self.aBl)
         self.expected_states, self.expected_transcounts, self._normalizer = \
-                HMMStatesPython._expected_statistics_from_messages(
-                        self.hmm_trans_matrix,
-                        self.aBl,
-                        alphal,
-                        betal)
+                HMMStatesEigen._expected_statistics_from_messages(
+                        self.hmm_trans_matrix, self.aBl, alphal, betal)
 
-        # using these is untested!
-        self._expected_ns = np.diag(self.expected_transcounts).copy()
-        self._expected_tots = self.expected_transcounts.sum(1)
+        self._set_expected_ns()
 
-        self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
+    # NOTE: these next two properties aren't needed on this class since we use
+    # _expected_ns and _expected_tots instead
 
     @property
     def expected_durations(self):
-        raise NotImplementedError
+        raise AttributeError
 
     @expected_durations.setter
     def expected_durations(self,val):
-        raise NotImplementedError
+        raise AttributeError
 
-    # TODO viterbi!
+    # TODO viterbi
 
+    ### mean field
+
+    def meanfieldupdate(self):
+        self.clear_caches()
+        alphal = HMMStatesEigen._messages_forwards_log(
+                self.mf_hmm_trans_matrix, self.mf_pi_0, self.mf_aBl)
+        betal = HMMStatesEigen._messages_backwards_log(
+                self.mf_hmm_trans_matrix, self.mf_aBl)
+        self.expected_states, self.expected_transcounts, self._normalizer = \
+                HMMStatesEigen._expected_statistics_from_messages(
+                        self.mf_hmm_trans_matrix, self.mf_aBl, alphal, betal)
+
+        self._set_expected_ns()
+
+    def get_vlb(self):
+        if self._normalizer is None:
+            self.meanfieldupdate() # NOTE: sets self._normalizer
+        return self._normalizer
 
 class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMStatesPython):
     @property

@@ -755,6 +755,30 @@ class _HSMMParallelTempering(_HSMMBase,_HMMParallelTempering):
         self.dur_distns, other.dur_distns = other.dur_distns, self.dur_distns
         super(_HSMMParallelTempering,self).swap_sample_with(other)
 
+class _GeoHSMMMixin(object):
+    _states_class = hsmm_states.GeoHSMMStates
+
+    ### mean field
+
+    def meanfield_update_dur_distns(self):
+        for state, d in enumerate(self.dur_distns):
+            d.meanfieldupdate(
+                    stats=(
+                        sum(s._expected_ns[state] for s in self.states_list),
+                        sum(s._expected_tots[state] for s in self.states_list),
+                        ))
+
+    ### EM
+
+    def _M_step_dur_distns(self):
+        warn('untested!')
+        for state, distn in enumerate(self.dur_distns):
+            distn.max_likelihood(
+                    stats=(
+                        sum(s._expected_ns[state] for s in self.states_list),
+                        sum(s._expected_tots[state] for s in self.states_list),
+                        ))
+
 #################
 #  HSMM Models  #
 #################
@@ -767,8 +791,8 @@ class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,
 class HSMM(HSMMPython):
     _states_class = hsmm_states.HSMMStatesEigen
 
-class GeoHSMM(HSMMPython):
-    _states_class = hsmm_states.GeoHSMMStates
+class GeoHSMM(_GeoHSMMMixin,HSMM):
+    pass
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
@@ -779,17 +803,8 @@ class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
-class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
-    _states_class = hsmm_states.GeoHSMMStates
-
-    def _M_step_dur_distns(self):
-        warn('untested!')
-        for state, distn in enumerate(self.dur_distns):
-            distn.max_likelihood(
-                    stats=(
-                        sum(s._expected_ns[state] for s in self.states_list),
-                        sum(s._expected_tots[state] for s in self.states_list),
-                        ))
+class WeakLimitGeoHDPHSMM(_GeoHSMMMixin,WeakLimitHDPHSMM):
+    pass
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method
