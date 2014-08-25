@@ -12,6 +12,10 @@ cimport numpy as np
 
 from libc.stdint cimport int32_t
 from libcpp.vector cimport vector
+
+# NOTE: using the cython.floating fused type with typed memory views generates
+# all possible type combinations, is not intended here.
+# https://groups.google.com/forum/#!topic/cython-users/zdlliIRF1a4
 from cython cimport floating
 
 from cython.parallel import prange
