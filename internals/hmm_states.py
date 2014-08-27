@@ -69,7 +69,7 @@ class _StatesBase(object):
     def generate_obs(self):
         counts = np.bincount(self.stateseq,minlength=self.num_states)
         obs = [iter(o.rvs(count)) for o, count in zip(self.obs_distns,counts)]
-        self.data = np.vstack([obs[state].next() for state in self.stateseq])
+        self.data = np.squeeze(np.vstack([obs[state].next() for state in self.stateseq]))
         return self.data
 
     ### messages and likelihoods
