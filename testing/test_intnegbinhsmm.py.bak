@@ -63,7 +63,7 @@ def _hmm_message_comparison_helper():
     s = model.states_list[0]
     s.messages_backwards = None
     likelihood_hmm_messages = np.logaddexp.reduce(
-            np.log(s.pi_0) + s.messages_backwards_hmm() + s.aBl[0])
+            np.log(s.pi_0) + s.hmm_messages_backwards() + s.aBl[0])
 
     assert np.isclose(likelihood_hmm_messages, likelihood_hsmmintnegbin_messages)
 
