@@ -102,8 +102,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
         self._map_states()
 
     def resample_hmm(self):
-        betal = HMMStatesEigen._messages_backwards_log(
-                self.hmm_bwd_trans_matrix,self.hmm_aBl)
+        betal = self.hmm_messages_backwards()
         self.stateseq = HMMStatesEigen._sample_forwards_log(
                 betal,self.hmm_bwd_trans_matrix,self.hmm_bwd_pi_0,self.hmm_aBl)
         self._map_states()
