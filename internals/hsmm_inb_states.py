@@ -6,16 +6,12 @@ import abc, copy, warnings
 import scipy.stats as stats
 import scipy.special as special
 
-np.seterr(invalid='raise')
-
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util.general import rle, top_eigenvector, cumsum
 from ..util.profiling import line_profiled
-PROFILING = False
 
 from hmm_states import HMMStatesPython, HMMStatesEigen
 from hsmm_states import HSMMStatesPython, HSMMStatesEigen
-
 
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
@@ -115,8 +111,6 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     def resample_hsmm(self):
         betal, betastarl = HSMMStatesEigen.messages_backwards(self)
         HMMStatesEigen.sample_forwards(betal,betastarl)
-
-    ### TODO TEMP
 
     def resample(self):
         self.resample_hmm()
@@ -304,13 +298,12 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
     @property
     def mf_bwd_trans_matrix(self):
-        # TODO i guess check each part of this...
         rs = self.rs
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
         trans_matrix = np.zeros((ends[-1],ends[-1]))
 
         Elnps, Eln1mps = zip(*[d._fixedr_distns[d.ridx]._mf_expected_statistics() for d in self.dur_distns])
-        Eps, E1mps = np.exp(Elnps), np.exp(Eln1mps) # NOTE: technically exp(E[ln(p)]) etc
+        Eps, E1mps = np.exp(Elnps), np.exp(Eln1mps) # NOTE: actually exp(E[ln(p)]) etc
 
         enters = self.mf_bwd_enter_rows(rs,Eps,E1mps)
         for (i,j), Aij in np.ndenumerate(self.mf_trans_matrix):
@@ -353,6 +346,4 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
     @property
     def hmm_fwd_trans_matrix(self):
         return self.hmm_bwd_trans_matrix
-
-    # TODO faster HSMM message computation exploiting the HMM embeddings
 
