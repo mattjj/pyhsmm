@@ -5,6 +5,41 @@ from ..util.general import top_eigenvector
 from ..basic.abstractions import GibbsSampling, MaxLikelihood
 from ..basic.distributions import Categorical
 
+class UniformInitialState(object):
+    def __init__(self,model):
+        self.model = model
+
+    @property
+    def pi_0(self):
+        N = self.model.num_states
+        return np.ones(N) / N
+
+    @property
+    def steady_state_distribution(self):
+        return self.pi_0
+
+    @property
+    def exp_expected_log_init_state_distn(self):
+        return self.pi_0
+
+    def resample(*args,**kwargs):
+        pass
+
+    def get_vlb(self):
+        return 0.
+
+    def meanfieldupdate(*args,**kwargs):
+        pass
+
+    def meanfield_sgdstep(*args,**kwargs):
+        pass
+
+    def max_likelihood(*args,**kwargs):
+        pass
+
+    def clear_caches(self):
+        pass
+
 class HMMInitialState(Categorical):
     def __init__(self,model,init_state_concentration=None,pi_0=None):
         self.model = model

@@ -44,7 +44,10 @@ class _HMMBase(Model):
                     num_states=len(obs_distns),alpha=alpha,trans_matrix=trans_matrix)
 
         if init_state_distn is not None:
-            self.init_state_distn = init_state_distn
+            if init_state_distn == 'uniform':
+                self.init_state_distn = initial_state.UniformInitialState(model=self)
+            else:
+                self.init_state_distn = init_state_distn
         else:
             self.init_state_distn = self._init_state_class(
                     model=self,
