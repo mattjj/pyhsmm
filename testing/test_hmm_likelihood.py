@@ -8,11 +8,9 @@ from nose.plugins.attrib import attr
 
 from pyhsmm import models as m, distributions as d
 
-##################################
-#  likelihoods / messages tests  #
-##################################
-
-### util
+##########
+#  util  #
+##########
 
 def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
     for cls in [m.HMMPython, m.HMM]:
@@ -78,7 +76,9 @@ def runmultiple(n):
         return wrapper
     return dec
 
-### tests
+###########
+#  tests  #
+###########
 
 @attr('hmm','likelihood','messages','basic')
 def like_hand_test_1():
