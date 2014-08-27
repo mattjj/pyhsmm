@@ -32,15 +32,15 @@ def likelihood_check(obs_distns,trans_matrix,init_distn,data,target_val):
 
         states.clear_caches()
         states.messages_forwards_normalized()
-        assert np.isclose(target_val,states._loglike)
+        assert np.isclose(target_val,states._normalizer)
 
         states.clear_caches()
         states.messages_forwards_log()
-        assert np.isinf(target_val) or np.isclose(target_val,states._loglike)
+        assert np.isinf(target_val) or np.isclose(target_val,states._normalizer)
 
         states.clear_caches()
         states.messages_backwards_log()
-        assert np.isinf(target_val) or np.isclose(target_val,states._loglike)
+        assert np.isinf(target_val) or np.isclose(target_val,states._normalizer)
 
         # test held-out vs in-model
 
