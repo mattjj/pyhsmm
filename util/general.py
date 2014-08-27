@@ -268,3 +268,13 @@ def indicators_to_changepoints(indseq,which='ends'):
 
     return zip(changes[:-1],changes[1:])
 
+def indices_to_changepoints(T,changes):
+    changes = list(changes)
+
+    if changes[0] != 0:
+        changes.insert(0,0)
+    if changes[-1] != T:
+        changes.append(T)
+
+    return zip(changes[:-1],changes[1:])
+
