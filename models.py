@@ -219,6 +219,15 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
     def resample_states(self,joblib_jobs=0):
         if joblib_jobs == 0:
+            # if len(self.states_list) > 2 and sum(s.T for s in self.states_list) > 500:
+            #     try:
+            #         self.states_list[0]._resample_multiple(self.states_list)
+            #         return
+            #     except (AttributeError,TypeError):
+            #         pass
+
+            # self.states_list[0]._resample_multiple(self.states_list)
+
             for s in self.states_list:
                 s.resample()
         else:

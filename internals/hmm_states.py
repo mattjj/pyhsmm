@@ -500,11 +500,14 @@ class HMMStatesEigen(HMMStatesPython):
     def _resample_multiple(states_list):
         from hmm_messages_interface import resample_normalized_multiple
         if len(states_list) > 0:
+            stateseqs = [np.empty(s.T,dtype='int32') for s in states_list]
             loglikes = resample_normalized_multiple(
                     states_list[0].trans_matrix,states_list[0].pi_0,
-                    [s.aBl for s in states_list],[s.stateseq for s in states_list])
-            for s, loglike in zip(states_list,loglikes):
+                    [s.aBl for s in states_list],
+                    stateseqs)
+            for s, stateseq, loglike in zip(states_list,stateseqs,loglikes):
                 s._normalizer = loglike
+                s.stateseq = stateseq
 
     ### EM
 

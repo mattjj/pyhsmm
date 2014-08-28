@@ -114,6 +114,8 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     def resample(self):
         self.resample_hmm()
 
+    _resample_multiple = None
+
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     @property
