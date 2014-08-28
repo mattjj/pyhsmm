@@ -18,6 +18,10 @@ def runmultiple(n):
         return wrapper
     return dec
 
+###########
+#  tests  #
+###########
+
 @attr('slow')
 @runmultiple(1)
 def discrete_geweke_test():
@@ -61,8 +65,8 @@ def discrete_geweke_test():
     time_indices = np.arange(T)
     for itr in xrange(num_checks):
         i,j = np.random.choice(time_indices,replace=False,size=2)
-        prior_prob_of_coassignment = (prior_stateseqs[:,i] == prior_stateseqs[:,j]).mean()
-        gibbs_prob_of_coassignment = (gibbs_stateseqs[:,i] == gibbs_stateseqs[:,j]).mean()
+        prior_prob_of_coassignment = (prior_stateseqs[:,i] == prior_stateseqs[:,j]).std()
+        gibbs_prob_of_coassignment = (gibbs_stateseqs[:,i] == gibbs_stateseqs[:,j]).std()
 
         assert np.isclose(
                 prior_prob_of_coassignment,gibbs_prob_of_coassignment,
@@ -124,9 +128,9 @@ def discrete_geweke_multiple_seqs_test():
         i,j = np.random.choice(time_indices,replace=False,size=2)
         si,sj = np.random.choice(seq_indices,replace=True,size=2)
         prior_prob_of_coassignment = \
-                (prior_stateseqss[si,:,i] == prior_stateseqss[sj,:,j]).mean()
+                (prior_stateseqss[si,:,i] == prior_stateseqss[sj,:,j]).std()
         gibbs_prob_of_coassignment = \
-                (gibbs_stateseqss[si,:,i] == gibbs_stateseqss[sj,:,j]).mean()
+                (gibbs_stateseqss[si,:,i] == gibbs_stateseqss[sj,:,j]).std()
 
         assert np.isclose(
                 prior_prob_of_coassignment,gibbs_prob_of_coassignment,
