@@ -2,8 +2,11 @@ from __future__ import division
 import numpy as np
 from functools import wraps
 from nose.plugins.attrib import attr
+import os
+import matplotlib.pyplot as plt
 
-from pyhsmm import models, distributions
+from .. import models, distributions
+from ..util import testing
 
 ##########
 #  util  #
@@ -18,12 +21,27 @@ def runmultiple(n):
         return wrapper
     return dec
 
+
+def mkdir(path):
+    # from
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+figure_dir_path = os.path.join(os.path.dirname(__file__),'figures')
+mkdir(figure_dir_path)
+
 ###########
 #  tests  #
 ###########
 
 @attr('slow')
-@runmultiple(1)
+@runmultiple(2)
 def discrete_geweke_test():
     Nstates = 2
     Nemissions = 2
@@ -40,26 +58,30 @@ def discrete_geweke_test():
             alpha=alpha,init_state_concentration=init_state_concentration,
             obs_distns=obs_distns)
 
-    # generate state sequences from the prior
+    # generate state sequences and parameters from the prior
     prior_stateseqs = []
+    prior_weights = []
     for itr in xrange(num_iter):
         hmm.resample_model() # sample parameters from the prior
         _, stateseq = hmm.generate(T,keep=False)
         prior_stateseqs.append(stateseq)
-    assert len(hmm.states_list) == 0
+        prior_weights.append(hmm.obs_distns[0].weights)
     prior_stateseqs = np.array(prior_stateseqs)
+    prior_weights = np.array(prior_weights)
 
-
-    # generate state sequences using Gibbs
+    # generate state sequences and parameters using Gibbs
     hmm.generate(T,keep=True)
     s = hmm.states_list[0]
 
     gibbs_stateseqs = []
+    gibbs_weights = []
     for itr in xrange(num_iter):
         s.generate_obs() # resamples data given state sequence, obs params
         hmm.resample_model() # resamples everything else as usual
         gibbs_stateseqs.append(s.stateseq)
+        gibbs_weights.append(hmm.obs_distns[0].weights)
     gibbs_stateseqs = np.array(gibbs_stateseqs)
+    gibbs_weights = np.array(gibbs_weights)
 
     # test that they look similar by checking probability of co-assignment
     time_indices = np.arange(T)
@@ -73,8 +95,14 @@ def discrete_geweke_test():
                 rtol=0.025,atol=0.025,
                 )
 
+    # test that they look similar by checking parameters
+    fig = plt.figure()
+    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights)
+    figpath = os.path.join(figure_dir_path,'discrete_geweke_test_weights.pdf')
+    plt.savefig(figpath)
+
 @attr('slow')
-@runmultiple(1)
+@runmultiple(2)
 def discrete_geweke_multiple_seqs_test():
     Nstates = 2
     Nemissions = 2
@@ -92,8 +120,9 @@ def discrete_geweke_multiple_seqs_test():
             alpha=alpha,init_state_concentration=init_state_concentration,
             obs_distns=obs_distns)
 
-    # generate state sequences from the prior
+    # generate state sequences and parameters from the prior
     prior_stateseqss = [[] for _ in xrange(num_seqs)]
+    prior_weights = []
     for itr in xrange(num_iter):
         hmm.resample_model() # sample parameters from the prior
 
@@ -101,15 +130,19 @@ def discrete_geweke_multiple_seqs_test():
             _, stateseq = hmm.generate(T,keep=False)
             prior_stateseqss[itr2].append(stateseq)
 
+        prior_weights.append(hmm.obs_distns[0].weights)
+
     prior_stateseqss = np.array(prior_stateseqss)
     assert prior_stateseqss.shape == (num_seqs,num_iter,T)
+    prior_weights = np.array(prior_weights)
 
-    # generate state sequences using Gibbs
+    # generate state sequences and parameters using Gibbs
     for itr in xrange(num_seqs):
         hmm.generate(T,keep=True)
     assert len(hmm.states_list) == num_seqs
 
     gibbs_stateseqss = [[] for _ in xrange(num_seqs)]
+    gibbs_weights = []
     for itr in xrange(num_iter):
         for s in hmm.states_list:
             s.generate_obs() # resamples data given state sequence, obs params
@@ -118,8 +151,11 @@ def discrete_geweke_multiple_seqs_test():
         for itr2, s in enumerate(hmm.states_list):
             gibbs_stateseqss[itr2].append(s.stateseq)
 
+        gibbs_weights.append(hmm.obs_distns[0].weights)
+
     gibbs_stateseqss = np.array(gibbs_stateseqss)
     assert gibbs_stateseqss.shape == (num_seqs,num_iter,T)
+    gibbs_weights = np.array(gibbs_weights)
 
     # test that they look similar by checking probability of co-assignment
     time_indices = np.arange(T)
@@ -136,4 +172,11 @@ def discrete_geweke_multiple_seqs_test():
                 prior_prob_of_coassignment,gibbs_prob_of_coassignment,
                 rtol=0.025,atol=0.025,
                 )
+
+    # test that they look similar by checking parameters
+    fig = plt.figure()
+    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights)
+    figpath = os.path.join(figure_dir_path,
+            'discrete_geweke_multiple_seqs_test_weights.pdf')
+    plt.savefig(figpath)
 
