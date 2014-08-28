@@ -16,8 +16,10 @@ def runmultiple(n):
     def dec(fn):
         @wraps(fn)
         def wrapper():
+            fig = plt.figure()
             for i in range(n):
-                yield fn
+                yield fn, fig
+            plt.close('all')
         return wrapper
     return dec
 
@@ -42,13 +44,13 @@ mkdir(figure_dir_path)
 
 @attr('slow')
 @runmultiple(2)
-def discrete_geweke_test():
+def discrete_geweke_test(fig):
     Nstates = 2
     Nemissions = 2
     alpha = 3.
     init_state_concentration=3.
     T = 10
-    num_iter = 5000
+    num_iter = 10000
     num_checks = 10
 
     obs_distns = [distributions.Categorical(K=Nemissions,alpha_0=1.)
@@ -96,21 +98,20 @@ def discrete_geweke_test():
                 )
 
     # test that they look similar by checking parameters
-    fig = plt.figure()
-    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights)
+    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights,fig=fig)
     figpath = os.path.join(figure_dir_path,'discrete_geweke_test_weights.pdf')
     plt.savefig(figpath)
 
 @attr('slow')
 @runmultiple(2)
-def discrete_geweke_multiple_seqs_test():
+def discrete_geweke_multiple_seqs_test(fig):
     Nstates = 2
     Nemissions = 2
     alpha = 3.
     init_state_concentration=3.
     T = 10
     num_seqs = 3
-    num_iter = 5000
+    num_iter = 10000
     num_checks = 10
 
     obs_distns = [distributions.Categorical(K=Nemissions,alpha_0=1.)
@@ -174,8 +175,7 @@ def discrete_geweke_multiple_seqs_test():
                 )
 
     # test that they look similar by checking parameters
-    fig = plt.figure()
-    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights)
+    testing.populations_eq_quantile_plot(prior_weights,gibbs_weights,fig=fig)
     figpath = os.path.join(figure_dir_path,
             'discrete_geweke_multiple_seqs_test_weights.pdf')
     plt.savefig(figpath)
