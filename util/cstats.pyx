@@ -74,3 +74,10 @@ def sample_crp_tablecounts(
 
     return np.asarray(m)
 
+def count_transitions(int32_t[::1] stateseq, int num_states):
+    cdef int T = stateseq.shape[0]
+    cdef int i
+    cdef int32_t[:,::1] out = np.zeros((num_states,num_states),dtype=np.int32)
+    for i in range(T-1):
+        out[stateseq[i],stateseq[i+1]] += 1
+    return np.asarray(out)
