@@ -1,7 +1,6 @@
 # distutils: name = internals.hsmm_messages_interface
 # distutils: language = c++
-# distutils: extra_compile_args = -O3 -w -DNDEBUG -DEIGEN_DONT_PARALLELIZE -fopenmp -std=c++11
-# distutils: extra_link_args = -fopenmp
+# distutils: extra_compile_args = -O3 -w -DNDEBUG -std=c++11
 # distutils: include_dirs = deps/Eigen3/
 # cython: boundscheck = False
 
