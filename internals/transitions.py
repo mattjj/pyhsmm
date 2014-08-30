@@ -11,8 +11,8 @@ from scipy.special import digamma, gammaln
 from ..basic.abstractions import GibbsSampling
 from ..basic.distributions import GammaCompoundDirichlet, Multinomial, \
         MultinomialAndConcentration
-from ..util.general import rle, count_transitions, cumsum, rcumsum
-from ..util.cstats import sample_crp_tablecounts
+from ..util.general import rle, cumsum, rcumsum
+from ..util.cstats import sample_crp_tablecounts, count_transitions
 
 # TODO separate out bayesian and nonbayesian versions?
 
@@ -65,12 +65,9 @@ class _HMMTransitionsBase(object):
             distn.alphav_0 = weights
 
     def _count_transitions(self,stateseqs):
-        if len(stateseqs) == 0 or isinstance(stateseqs,np.ndarray) \
-                or isinstance(stateseqs[0],int) or isinstance(stateseqs[0],float):
-            return count_transitions(stateseqs,minlength=self.N)
-        else:
-            return sum(count_transitions(stateseq,minlength=self.N)
-                    for stateseq in stateseqs)
+        assert isinstance(stateseqs,list) and all(isinstance(s,np.ndarray) for s in stateseqs)
+        return sum((count_transitions(s,num_states=self.N) for s in stateseqs),
+                np.zeros((self.N,self.N),dtype=np.int32))
 
     def copy_sample(self):
         new = copy.copy(self)
