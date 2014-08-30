@@ -323,7 +323,7 @@ class HMMStatesPython(_StatesBase):
     @all_expected_stats.setter
     def all_expected_stats(self,vals):
         self.expected_states, self.expected_transcounts, self._normalizer = vals
-        self.stateseq = self.expected_states.argmax(1) # for plotting
+        self.stateseq = self.expected_states.argmax(1).astype('int32') # for plotting
 
     def meanfieldupdate(self):
         self.clear_caches()

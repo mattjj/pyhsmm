@@ -85,7 +85,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
 
 
     def _map_states(self):
-        themap = np.arange(self.num_states).repeat(self.rs)
+        themap = np.arange(self.num_states).repeat(self.rs).astype('int32')
         self.stateseq = themap[self.stateseq]
 
     def generate_states(self):

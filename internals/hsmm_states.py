@@ -387,7 +387,7 @@ class HSMMStatesPython(_StatesBase):
     def all_expected_stats(self,vals):
         self.expected_states, self.expected_transcounts, \
                 self.expected_durations, self._normalizer = vals
-        self.stateseq = self.expected_states.argmax(1) # for plotting
+        self.stateseq = self.expected_states.argmax(1).astype('int32') # for plotting
 
     # here's the real work
 
@@ -1142,7 +1142,7 @@ def hsmm_maximizing_assignment(
         vals.argmax(axis=1,out=beta_args[t-1])
     beta_scores[-1] = 0.
 
-    stateseq = np.empty(T,dtype=np.int)
+    stateseq = np.empty(T,dtype='int32')
 
     t = 0
     state = (betastar_scores[t] + initial_state_potential).argmax()
