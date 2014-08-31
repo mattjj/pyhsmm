@@ -6,18 +6,18 @@ from util.cyutil import cythonize # my version of Cython.Build.cythonize
 
 # NOTE: distutils makes no sense
 
-extra_link_args = ['-fopenmp']
-extra_compile_args = ['-DHMM_TEMPS_ON_HEAP','-fopenmp']
+extra_link_args = []
+extra_compile_args = ['-DHMM_TEMPS_ON_HEAP']
 
 if '--with-old-clang' in sys.argv:
     sys.argv.remove('--with-old-clang')
     extra_compile_args.append('-stdlib=libc++')
     extra_link_args.append('-stdlib=libc++')
 
-if '--no-openmp' in sys.argv:
+if '--with-openmp' in sys.argv:
     sys.argv.remove('--with-openmp')
-    extra_compile_args.remove('-fopenmp')
-    extra_link_args.remove('-fopenmp')
+    extra_compile_args.append('-fopenmp')
+    extra_link_args.append('-fopenmp')
 
 if '--with-native' in sys.argv:
     sys.argv.remove('--with-native')
