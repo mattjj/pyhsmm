@@ -96,9 +96,10 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
         self._map_states()
 
     def Viterbi_hmm(self):
-        scores, args = HMMStatesEigen._maxsum_messages_backwards(
-                self.hmm_bwd_trans_matrix,self.hmm_aBl)
-        self.stateseq = HMMStatesEigen._maximize_forwards(scores,args)
+        from hmm_messages_interface import viterbi
+        self.stateseq = viterbi(self.hmm_bwd_trans_matrix,
+                self.hmm_aBl,self.hmm_bwd_pi_0,
+                np.empty(self.hmm_aBl.shape[0],dtype='int32'))
         self._map_states()
 
     def resample_hmm(self):
@@ -113,6 +114,9 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
 
     def resample(self):
         self.resample_hmm()
+
+    def Viterbi(self):
+        self.Viterbi_hmm()
 
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
