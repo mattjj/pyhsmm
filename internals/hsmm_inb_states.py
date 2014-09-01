@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
-from numpy.random import random
 import abc, copy, warnings
 import scipy.stats as stats
 import scipy.special as special
