@@ -856,6 +856,9 @@ class HSMMStatesPossibleChangepointsSeparateTrans(
         HSMMStatesPossibleChangepoints):
     pass
 
+##########
+#  temp  #
+##########
 
 class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
     @property
@@ -934,7 +937,9 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
         self.clear_caches()
         return super(DiagGaussGMMStates,self).aBl
 
-### HSMM messages
+############################
+#  HSMM message functions  #
+############################
 
 @line_profiled
 def hsmm_messages_backwards_log(

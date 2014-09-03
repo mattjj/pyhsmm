@@ -14,8 +14,6 @@ from internals import hmm_states, hsmm_states, hsmm_inb_states, \
 import util.general
 from util.profiling import line_profiled
 
-PROFILING = True
-
 ################
 #  HMM Mixins  #
 ################
