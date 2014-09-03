@@ -6,7 +6,12 @@ import abc, copy, warnings
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
+
 PROFILING = False
+
+######################
+#  Mixins and bases  #
+######################
 
 class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
@@ -86,13 +91,124 @@ class _StatesBase(object):
             data = self.data
             aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
+                aBl[:,idx] = obs_distn.log_likelihood(data)
+            aBl[np.isnan(aBl).any(1)] = 0.
         return self._aBl
 
     @abc.abstractmethod
     def log_likelihood(self):
         pass
 
+class _SeparateTransMixin(object):
+    def __init__(self,group_id,**kwargs):
+        assert not isinstance(group_id,np.ndarray)
+        self.group_id = group_id
+
+        self._kwargs = dict(self._kwargs,group_id=group_id) \
+                if hasattr(self,'_kwargs') else dict(group_id=group_id)
+        super(_SeparateTransMixin,self).__init__(**kwargs)
+
+        # access these to be sure they're instantiated
+        self.trans_matrix
+        self.pi_0
+
+    @property
+    def trans_matrix(self):
+        return self.model.trans_distns[self.group_id].trans_matrix
+
+    @property
+    def pi_0(self):
+        return self.model.init_state_distns[self.group_id].pi_0
+
+    @property
+    def mf_trans_matrix(self):
+        return np.maximum(
+                self.model.trans_distns[self.group_id].exp_expected_log_trans_matrix,
+                1e-3)
+
+    @property
+    def mf_pi_0(self):
+        return self.model.init_state_distns[self.group_id].exp_expected_log_init_state_distn
+
+class _PossibleChangepointsMixin(object):
+    def __init__(self,model,data,changepoints=None,**kwargs):
+        changepoints = changepoints if changepoints is not None \
+                else [(t,t+1) for t in xrange(data.shape[0])]
+
+        self.changepoints = changepoints
+        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
+        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
+
+        assert all(l > 0 for l in self.segmentlens)
+        assert sum(self.segmentlens) == data.shape[0]
+        assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
+
+        self._kwargs = dict(self._kwargs,changepoints=changepoints)
+
+        super(_PossibleChangepointsMixin,self).__init__(
+                model,T=len(changepoints),data=data,**kwargs)
+
+    def clear_caches(self):
+        self._aBBl = self._mf_aBBl = None
+        self._stateseq = None
+        super(_PossibleChangepointsMixin,self).clear_caches()
+
+    @property
+    def Tblock(self):
+        return len(self.changepoints)
+
+    @property
+    def Tfull(self):
+        return self.data.shape[0]
+
+    @property
+    def stateseq(self):
+        if self._stateseq is None:
+            self._stateseq = self.blockstateseq.repeat(self.segmentlens)
+        return self._stateseq
+
+    @stateseq.setter
+    def stateseq(self,stateseq):
+        assert len(stateseq) == self.Tblock or len(stateseq) == self.Tfull
+        if len(stateseq) == self.Tblock:
+            self.blockstateseq = stateseq
+        else:
+            self.blockstateseq = stateseq[self.segmentstarts]
+        self._stateseq = None
+
+    def _expected_states(self,*args,**kwargs):
+        expected_states = \
+            super(_PossibleChangepointsMixin,self)._expected_states(*args,**kwargs)
+        return expected_states.repeat(self.segmentlens,axis=0)
+
+    @property
+    def aBl(self):
+        if self._aBBl is None:
+            aBl = super(_PossibleChangepointsMixin,self).aBl
+            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+        return self._aBBl
+
+    @property
+    def mf_aBl(self):
+        if self._mf_aBBl is None:
+            aBl = super(_PossibleChangepointsMixin,self).mf_aBl
+            aBBl = self._mf_aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+        return self._mf_aBBl
+
+    def plot(self,*args,**kwargs):
+        from matplotlib import pyplot as plt
+        super(_PossibleChangepointsMixin,self).plot(*args,**kwargs)
+        plt.xlim((0,self.Tfull))
+
+    # TODO do generate() and generate_states() actually work?
+
+####################
+#  States classes  #
+####################
 
 class HMMStatesPython(_StatesBase):
     ### generation
@@ -228,6 +344,7 @@ class HMMStatesPython(_StatesBase):
         betal = self.messages_backwards_log()
         self.sample_forwards_log(betal)
 
+    @line_profiled
     def resample_normalized(self):
         alphan = self.messages_forwards_normalized()
         self.sample_backwards_normalized(alphan)
@@ -304,12 +421,14 @@ class HMMStatesPython(_StatesBase):
             self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
             for idx, o in enumerate(self.obs_distns):
                 aBl[:,idx] = o.expected_log_likelihood(self.data)
-            np.maximum(self._mf_aBl,-100000,out=self._mf_aBl)
+            aBl[np.isnan(aBl).any(1)] = 0.
+            # np.maximum(aBl,-100000,out=aBl) # numuerical stability
         return self._mf_aBl
 
     @property
     def mf_trans_matrix(self):
-        return np.maximum(self.model.trans_distn.exp_expected_log_trans_matrix,1e-3)
+        return self.model.trans_distn.exp_expected_log_trans_matrix
+        # return np.maximum(self.model.trans_distn.exp_expected_log_trans_matrix,1e-5)
 
     @property
     def mf_pi_0(self):
@@ -526,4 +645,15 @@ class HMMStatesEigen(HMMStatesPython):
         from hmm_messages_interface import viterbi
         self.stateseq = viterbi(self.trans_matrix,self.aBl,self.pi_0,
                 np.empty(self.aBl.shape[0],dtype='int32'))
+
+class HMMStatesEigenSeparateTrans(_SeparateTransMixin,HMMStatesEigen):
+    pass
+
+class HMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HMMStatesEigen):
+    pass
+
+class HMMStatesPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HMMStatesPossibleChangepoints):
+    pass
 

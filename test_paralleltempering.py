@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-np.random.seed(0)
+from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
 
 #####################
 #  data generation  #
@@ -14,7 +14,7 @@ np.random.seed(0)
 
 N = 4
 T = 1000
-obs_dim = 600
+obs_dim = 2
 
 obs_hypparams = dict(
         mu_0=np.zeros(obs_dim),
@@ -38,6 +38,8 @@ plt.figure()
 truemodel.plot()
 plt.gcf().suptitle('True HSMM')
 
+data[100:120] = data[200:220] = np.nan
+
 # !!! get the changepoints !!!
 # NOTE: usually these would be estimated by some external process; here I'm
 # totally cheating and just getting them from the truth
@@ -53,44 +55,35 @@ print changepoints
 
 Nmax = 25
 
-obs_distns = [pyhsmm.basic.models.MixtureDistribution(
-        alpha_0=1.,
-        components=[pyhsmm.distributions.DiagonalGaussian(**obs_hypparams)
-            for component in xrange(2)]) for state in xrange(Nmax)]
+# obs_distns = [pyhsmm.basic.models.MixtureDistribution(
+#         alpha_0=1.,
+#         components=[pyhsmm.distributions.DiagonalGaussian(**obs_hypparams)
+#             for component in xrange(2)]) for state in xrange(Nmax)]
 
-# obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.DiagonalGaussian(**obs_hypparams) for state in xrange(Nmax)]
 
 dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in xrange(Nmax)]
 
-posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
-        alpha=6.,init_state_concentration=6.,
-        obs_distns=obs_distns,dur_distns=dur_distns)
-
-# posteriormodel = pyhsmm.models.DiagGaussHSMMPossibleChangepointsSeparateTrans(
+# posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
 #         alpha=6.,init_state_concentration=6.,
 #         obs_distns=obs_distns,dur_distns=dur_distns)
 
+posteriormodel = pyhsmm.models.DiagGaussHSMMPossibleChangepointsSeparateTrans(
+        alpha=6.,init_state_concentration=6.,
+        obs_distns=obs_distns,dur_distns=dur_distns)
+
 posteriormodel.add_data(data,changepoints,group_id=0)
 
-########################
-#  parallel tempering  #
-########################
 
-from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
-pt = ParallelTempering(posteriormodel,[1.25,1.5])
-# pt = ParallelTempering(posteriormodel,[])
-
-seqs = []
-for itr in progprint_xrange(500):
-    pt.step(1)
-    seqs.append(pt.unit_temp_model.stateseqs[0])
-
+pt = ParallelTempering(posteriormodel,[100.])
+pt.run(100,10)
 for (T1,T2), count in pt.swapcounts.items():
-    print 'temperature pair (%0.3f, %0.3f) swapped %d times' % (T1,T2,count)
+    print 'temperature pair (%0.2f, %0.2f) swapped %d times' % (T1,T2,count)
     print '(%0.3f%% of the time)' % ((count / pt.itercount) * 100)
     print
 
-np.savetxt('allseqs',np.array(seqs),fmt='%d')
+plt.figure()
+pt.unit_temp_model.plot()
 
 plt.show()
 

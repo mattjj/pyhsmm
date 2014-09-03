@@ -9,9 +9,14 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
-PROFILING = False
+from ..util.temp import hsmm_messages_reduction_horizontal, \
+        hsmm_messages_reduction_vertical, faster_indexing
 
-from hmm_states import _StatesBase, HMMStatesPython, HMMStatesEigen
+PROFILING = True
+
+import hmm_states
+from hmm_states import _StatesBase, _SeparateTransMixin, \
+        HMMStatesPython, HMMStatesEigen
 
 class HSMMStatesPython(_StatesBase):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
@@ -106,7 +111,8 @@ class HSMMStatesPython(_StatesBase):
 
     ### generation
 
-    # TODO rewrite this thing
+    # TODO make this generic, just call hsmm_sample_forwards_log with zero
+    # potentials?
     def generate_states(self):
         if self.left_censoring:
             raise NotImplementedError
@@ -145,15 +151,6 @@ class HSMMStatesPython(_StatesBase):
     ### array properties for homog model
 
     @property
-    def aBl(self):
-        if self._aBl is None:
-            data = self.data
-            aBl = self._aBl = np.empty((data.shape[0],self.num_states))
-            for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data))
-        return self._aBl
-
-    @property
     def aDl(self):
         if self._aDl is None:
             aDl = np.empty((self.T,self.num_states))
@@ -179,6 +176,7 @@ class HSMMStatesPython(_StatesBase):
             self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
             for idx, o in enumerate(self.obs_distns):
                 aBl[:,idx] = o.expected_log_likelihood(self.data)
+            aBl[np.isnan(aBl).any(1)] = 0.
         return self._mf_aBl
 
     @property
@@ -265,7 +263,7 @@ class HSMMStatesPython(_StatesBase):
 
     def cumulative_obs_potentials(self,t):
         stop = None if self.trunc is None else min(self.T,t+self.trunc)
-        return np.cumsum(self.aBl[t:stop],axis=0)
+        return np.cumsum(self.aBl[t:stop],axis=0), 0.
 
     def dur_potentials(self,t):
         stop = self.T-t if self.trunc is None else min(self.T-t,self.trunc)
@@ -297,7 +295,7 @@ class HSMMStatesPython(_StatesBase):
 
     def mf_cumulative_obs_potentials(self,t):
         stop = None if self.trunc is None else min(self.T,t+self.trunc)
-        return np.cumsum(self.mf_aBl[t:stop],axis=0)
+        return np.cumsum(self.mf_aBl[t:stop],axis=0), 0.
 
     def mf_reverse_cumulative_obs_potentials(self,t):
         start = 0 if self.trunc is None else max(0,t-self.trunc+1)
@@ -322,7 +320,9 @@ class HSMMStatesPython(_StatesBase):
 
     ### Gibbs sampling
 
+    @line_profiled
     def resample(self):
+        self.aBl
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
@@ -389,9 +389,25 @@ class HSMMStatesPython(_StatesBase):
                 self.expected_durations, self._normalizer = vals
         self.stateseq = self.expected_states.argmax(1).astype('int32') # for plotting
 
+    def init_meanfield_from_sample(self):
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
+
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
+
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.T))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.T)[:self.T]
+
     # here's the real work
 
-    @line_profiled
     def _expected_statistics(self,
             trans_potentials, initial_state_potential,
             cumulative_obs_potentials, reverse_cumulative_obs_potentials,
@@ -467,8 +483,9 @@ class HSMMStatesPython(_StatesBase):
         logpmfs = -np.inf*np.ones_like(alphastarl)
         errs = np.seterr(invalid='ignore')
         for t in xrange(T):
+            cB, offset = cumulative_obs_potentials(t)
             np.logaddexp(dur_potentials(t) + alphastarl[t] + betal[t:] +
-                    cumulative_obs_potentials(t) - normalizer,
+                    cB - (normalizer + offset),
                     logpmfs[:T-t], out=logpmfs[:T-t])
         np.seterr(**errs)
         expected_durations = np.exp(logpmfs.T)
@@ -596,6 +613,7 @@ class GeoHSMMStates(HSMMStatesPython):
         # using these is untested!
         self._expected_ns = np.diag(self.expected_transcounts).copy()
         self._expected_tots = self.expected_transcounts.sum(1)
+
         self.expected_transcounts.flat[::self.expected_transcounts.shape[0]+1] = 0.
 
     @property
@@ -609,88 +627,41 @@ class GeoHSMMStates(HSMMStatesPython):
     # TODO viterbi!
 
 
-class HSMMStatesPossibleChangepoints(HSMMStatesPython):
-    def __init__(self,model,data,changepoints=None,**kwargs):
-        changepoints = changepoints if changepoints is not None \
-                else [(t,t+1) for t in xrange(data.shape[0])]
-
-        self.changepoints = changepoints
-        self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
-        self.segmentlens = np.array([stop-start for start,stop in changepoints],dtype=np.int32)
-
-        assert all(l > 0 for l in self.segmentlens)
-        assert sum(self.segmentlens) == data.shape[0]
-        assert self.changepoints[0][0] == 0 and self.changepoints[-1][-1] == data.shape[0]
-
-        self._kwargs = dict(self._kwargs,changepoints=changepoints)
-
-        super(HSMMStatesPossibleChangepoints,self).__init__(
-                model,T=len(changepoints),data=data,**kwargs)
-
-    def clear_caches(self):
-        self._aBBl = self._mf_aBBl = None
-        super(HSMMStatesPossibleChangepoints,self).clear_caches()
-
-    ### properties for the outside world
-
+class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMStatesPython):
     @property
     def stateseq(self):
-        return self.blockstateseq.repeat(self.segmentlens)
+        return super(_PossibleChangepointsMixin,self).stateseq
 
     @stateseq.setter
     def stateseq(self,stateseq):
-        self._stateseq_norep = None
-        self._durations_censored = None
+        hmm_states._PossibleChangepointsMixin.stateseq.fset(self,stateseq)
+        HSMMStatesPython.stateseq.fset(self,self.stateseq)
 
-        assert len(stateseq) == self.Tblock or len(stateseq) == self.Tfull
-        if len(stateseq) == self.Tblock:
-            self.blockstateseq = stateseq
-        else:
-            self.blockstateseq = stateseq[self.segmentstarts]
+    def init_meanfield_from_sample(self):
+        # NOTE: only durations is different here; uses Tfull
+        self.expected_states = \
+            np.hstack([(self.stateseq == i).astype('float64')[:,na]
+                for i in range(self.num_states)])
 
-    # @property
-    # def stateseq_norep(self):
-    #     if self._stateseq_norep is None:
-    #         self._stateseq_norep, self._repeats_censored = rle(self.stateseq)
-    #     self._durations_censored = self._repeats_censored.repeat(self.segmentlens)
-    #     return self._stateseq_norep
+        from ..util.general import count_transitions
+        self.expected_transcounts = \
+            count_transitions(self.stateseq_norep,minlength=self.num_states)
 
-    # @property
-    # def durations_censored(self):
-    #     if self._durations_censored is None:
-    #         self._stateseq_norep, self._repeats_censored = rle(self.stateseq)
-    #     self._durations_censored = self._repeats_censored.repeat(self.segmentlens)
-    #     return self._durations_censored
+        self.expected_durations = expected_durations = \
+                np.zeros((self.num_states,self.Tfull))
+        for state in xrange(self.num_states):
+            expected_durations[state] += \
+                np.bincount(
+                    self.durations_censored[self.stateseq_norep == state],
+                    minlength=self.Tfull)[:self.Tfull]
 
-    ### model parameter properties
+class GeoHSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,GeoHSMMStates):
+    pass
 
-    @property
-    def Tblock(self):
-        return len(self.changepoints)
-
-    @property
-    def Tfull(self):
-        return self.data.shape[0]
-
-    @property
-    def aBBl(self):
-        if self._aBBl is None:
-            aBl = self.aBl
-            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
-            for idx, (start,stop) in enumerate(self.changepoints):
-                aBBl[idx] = aBl[start:stop].sum(0)
-        return self._aBBl
-
-    @property
-    def mf_aBBl(self):
-        if self._mf_aBBl is None:
-            aBl = self.mf_aBl
-            aBBl = self._mf_aBBl = np.empty((self.Tblock,self.num_states))
-            for idx, (start,stop) in enumerate(self.changepoints):
-                aBBl[idx] = aBl[start:stop].sum(0)
-        return self._mf_aBBl
-
-    # TODO reduce repetition with parent in next 4 props
+class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython):
+    def clear_caches(self):
+        self._caBl = None
+        super(HSMMStatesPossibleChangepoints,self).clear_caches()
 
     @property
     def aDl(self):
@@ -736,46 +707,33 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
             self._aDsl = aDsl
         return self._aDsl
 
-    # @property
-    # def betal(self):
-    #     if self._betal is None:
-    #         self._betal = np.empty((self.Tblock,self.num_states))
-    #     return self._betal
-
-    # @property
-    # def betastarl(self):
-    #     if self._betastarl is None:
-    #         self._betastarl = np.empty((self.Tblock,self.num_states))
-    #     return self._betastarl
-
-    # @property
-    # def alphal(self):
-    #     if self._alphal is None:
-    #         self._alphal = np.empty((self.Tblock,self.num_states))
-    #     return self._alphal
-
-    # @property
-    # def alphastarl(self):
-    #     if self._alphastarl is None:
-    #         self._alphastarl = np.empty((self.Tblock,self.num_states))
-    #     return self._alphastarl
-
     ### message passing
 
     # TODO caching
-    # TODO trunc
 
     # TODO wrap the duration stuff into single functions. reduces passing
     # around, reduces re-computation in this case
 
     # backwards messages potentials
 
-    def cumulative_obs_potentials(self,tblock):
-        return self.aBBl[tblock:].cumsum(0)[:self.trunc]
+    @property
+    def caBl(self):
+        if self._caBl is None:
+            self._caBl = np.vstack((np.zeros(self.num_states),self.aBl.cumsum(0)))
+        return self._caBl
 
+
+    def cumulative_obs_potentials(self,tblock):
+        return self.caBl[tblock+1:][:self.trunc], self.caBl[tblock]
+        # return self.aBl[tblock:].cumsum(0)[:self.trunc]
+
+    @line_profiled
     def dur_potentials(self,tblock):
-        possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
-        return self.aDl[possible_durations -1]
+        possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc].astype('int32')
+        # return self.aDl[possible_durations -1]
+        out = np.empty((possible_durations.shape[0],self.aDl.shape[1]))
+        faster_indexing(self.aDl,possible_durations,out)
+        return out
 
     def dur_survival_potentials(self,tblock):
         # return -np.inf # for testing against other implementation
@@ -785,7 +743,7 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     # forwards messages potentials
 
     def reverse_cumulative_obs_potentials(self,tblock):
-        return rcumsum(self.aBBl[:tblock+1])\
+        return rcumsum(self.aBl[:tblock+1])\
                 [-self.trunc if self.trunc is not None else None:]
 
     def reverse_dur_potentials(self,tblock):
@@ -802,10 +760,10 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     # mean field messages potentials
 
     def mf_cumulative_obs_potentials(self,tblock):
-        return self.mf_aBBl[tblock:].cumsum(0)[:self.trunc]
+        return self.mf_aBl[tblock:].cumsum(0)[:self.trunc], 0.
 
     def mf_reverse_cumulative_obs_potentials(self,tblock):
-        return rcumsum(self.mf_aBBl[:tblock+1])\
+        return rcumsum(self.mf_aBl[:tblock+1])\
                 [-self.trunc if self.trunc is not None else None:]
 
     def mf_dur_potentials(self,tblock):
@@ -873,16 +831,8 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
     def generate(self):
         raise NotImplementedError
 
-    def plot(self,*args,**kwargs):
-        super(HSMMStatesPossibleChangepoints,self).plot(*args,**kwargs)
-        plt.xlim((0,self.Tfull))
-
     # TODO E step refactor
     # TODO trunc
-
-    def _expected_states(self,*args,**kwargs):
-        expected_states = super(HSMMStatesPossibleChangepoints,self)._expected_states(*args,**kwargs)
-        return expected_states.repeat(self.segmentlens,axis=0)
 
     def _expected_durations(self,
             dur_potentials,cumulative_obs_potentials,
@@ -892,123 +842,101 @@ class HSMMStatesPossibleChangepoints(HSMMStatesPython):
         # TODO censoring not handled correctly here
         for tblock in xrange(self.Tblock):
             possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
+            cB, offset = cumulative_obs_potentials(tblock)
             logpmfs[possible_durations -1] = np.logaddexp(
                     dur_potentials(tblock) + alphastarl[tblock]
                     + betal[tblock:tblock+self.trunc if self.trunc is not None else None]
-                    + cumulative_obs_potentials(tblock) - normalizer,
+                    + cB - (offset + normalizer),
                     logpmfs[possible_durations -1])
         np.seterr(**errs)
         return np.exp(logpmfs.T)
 
+class HSMMStatesPossibleChangepointsSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesPossibleChangepoints):
+    pass
 
 
-# NOTE: this class is purely for testing HSMM messages
-class _HSMMStatesEmbedding(HSMMStatesPython,HMMStatesPython):
+class DiagGaussStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    @property
+    def aBl(self):
+        if self._aBl is None:
+            sigmas = np.array([d.sigmas for d in self.obs_distns])
+            Js = -1./(2*sigmas)
+            mus = np.array([d.mu for d in self.obs_distns])
+            aBl = (np.einsum('td,td,nd->tn',self.data,self.data,Js)
+                    - np.einsum('td,nd,nd->tn',self.data,2*mus,Js)) \
+                  + (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(1)
+            aBl[np.isnan(aBl).any(1)] = 0.
+
+            aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+
+            self._aBl = aBl
+            self._aBBl = aBBl
+        return self._aBBl
 
     @property
-    def hmm_aBl(self):
-        return np.repeat(self.aBl,self.T,axis=1)
+    def aBl_slow(self):
+        return super(DiagGaussStates,self).aBl
+
+class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
+    @property
+    def aBl(self):
+        return self.aBl_eigen
 
     @property
-    def hmm_backwards_pi_0(self):
-        if not self.left_censoring:
-            aD = np.exp(self.aDl)
-            aD[-1] = [np.exp(distn.log_sf(self.T-1)) for distn in self.dur_distns]
-            assert np.allclose(aD.sum(0),1.)
-            pi_0 = (self.pi_0 *  aD[::-1,:]).T.ravel()
-            assert np.isclose(pi_0.sum(),1.)
-            return pi_0
-        else:
-            raise NotImplementedError
+    def aBl_einsum(self):
+        if self._aBBl is None:
+            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+            Js = -1./(2*sigmas)
+            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+
+            # all_likes is T x Nstates x Ncomponents
+            all_likes = \
+                    (np.einsum('td,td,nkd->tnk',self.data,self.data,Js)
+                        - np.einsum('td,nkd,nkd->tnk',self.data,2*mus,Js))
+            all_likes += (mus**2*Js - 1./2*np.log(2*np.pi*sigmas)).sum(2)
+
+            # weights is Nstates x Ncomponents
+            weights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
+            all_likes += weights[na,...]
+
+            # aBl is T x Nstates
+            aBl = self._aBl = np.logaddexp.reduce(all_likes, axis=2)
+            aBl[np.isnan(aBl).any(1)] = 0.
+
+            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
+            for idx, (start,stop) in enumerate(self.changepoints):
+                aBBl[idx] = aBl[start:stop].sum(0)
+
+        return self._aBBl
 
     @property
-    def hmm_backwards_trans_matrix(self):
-        # TODO construct this as a csr
-        blockcols = []
-        aD = np.exp(self.aDl)
-        aDs = np.array([np.exp(distn.log_sf(self.T-1)) for distn in self.dur_distns])
-        for j in xrange(self.num_states):
-            block = np.zeros((self.T,self.T))
-            block[-1,0] = aDs[j]
-            block[-1,1:] = aD[self.T-2::-1,j]
-            blockcol = np.kron(self.trans_matrix[:,na,j],block)
-            blockcol[j*self.T:(j+1)*self.T] = np.eye(self.T,k=1)
-            blockcols.append(blockcol)
-        return np.hstack(blockcols)
+    def aBl_eigen(self):
+        if self._aBBl is None:
+            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
+            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
+            weights = np.array([d.weights.weights for d in self.obs_distns])
+            changepoints = np.array(self.changepoints).astype('int32')
+
+            if self.model.temperature is not None:
+                sigmas *= self.model.temperature
+
+            from ..util.temp import gmm_likes
+            self._aBBl = np.empty((self.Tblock,self.num_states))
+            gmm_likes(self.data,sigmas,mus,weights,changepoints,self._aBBl)
+        return self._aBBl
 
     @property
-    def hmm_forwards_pi_0(self):
-        if not self.left_censoring:
-            out = np.zeros((self.num_states,self.T))
-            out[:,0] = self.pi_0
-            return out.ravel()
-        else:
-            raise NotImplementedError
-
-    @property
-    def hmm_forwards_trans_matrix(self):
-        # TODO construct this as a csc
-        blockrows = []
-        aD = np.exp(self.aDl)
-        aDs = np.hstack([np.exp(distn.log_sf(np.arange(self.T)))[:,na]
-            for distn in self.dur_distns])
-        for i in xrange(self.num_states):
-            block = np.zeros((self.T,self.T))
-            block[:,0] = aD[:self.T,i] / aDs[:self.T,i]
-            blockrow = np.kron(self.trans_matrix[i],block)
-            blockrow[:self.T,i*self.T:(i+1)*self.T] = \
-                    np.diag(1-aD[:self.T-1,i]/aDs[:self.T-1,i],k=1)
-            blockrow[-1,(i+1)*self.T-1] = 1-aD[self.T-1,i]/aDs[self.T-1,i]
-            blockrows.append(blockrow)
-        return np.vstack(blockrows)
-
-
-    def messages_forwards_normalized_hmm(self):
-        return HMMStatesPython._messages_forwards_normalized(
-                self.hmm_forwards_trans_matrix,self.hmm_forwards_pi_0,self.hmm_aBl)
-
-    def messages_backwards_normalized_hmm(self):
-        return HMMStatesPython._messages_backwards_normalized(
-                self.hmm_backwards_trans_matrix,self.hmm_backwards_pi_0,self.hmm_aBl)
-
-
-    def messages_forwards_log_hmm(self):
-        return HMMStatesPython._messages_forwards_log(
-                self.hmm_forwards_trans_matrix,self.hmm_forwards_pi_0,self.hmm_aBl)
-
-    def log_likelihood_forwards_hmm(self):
-        alphal = self.messages_forwards_log_hmm()
-        if self.right_censoring:
-            return np.logaddexp.reduce(alphal[-1])
-        else:
-            # TODO should dot against deltas instead of ones
-            raise NotImplementedError
-
-
-    def messages_backwards_log_hmm(self):
-        return HMMStatesPython._messages_backwards_log(
-            self.hmm_backwards_trans_matrix,self.hmm_aBl)
-
-    def log_likelihood_backwards_hmm(self):
-        betal = self.messages_backwards_log_hmm()
-        return np.logaddexp.reduce(np.log(self.hmm_backwards_pi_0) + self.hmm_aBl[0] + betal[0])
-
-
-    def messages_backwards_log(self,*args,**kwargs):
-        raise NotImplementedError # NOTE: this hmm method shouldn't be called this way
-
-    def messages_fowrards_log(self,*args,**kwargs):
-        raise NotImplementedError # NOTE: this hmm method shouldn't be called this way
-
-    def messages_backwards_normalized(self,*args,**kwargs):
-        raise NotImplementedError # NOTE: this hmm method shouldn't be called this way
-
-    def messages_forwards_normalized(self,*args,**kwargs):
-        raise NotImplementedError # NOTE: this hmm method shouldn't be called this way
-
+    def aBl_slow(self):
+        self.clear_caches()
+        return super(DiagGaussGMMStates,self).aBl
 
 ### HSMM messages
 
+@line_profiled
 def hsmm_messages_backwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
@@ -1020,11 +948,15 @@ def hsmm_messages_backwards_log(
 
     betal[-1] = 0.
     for t in xrange(T-1,-1,-1):
-        cB = cumulative_obs_potentials(t)
-        np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
-                axis=0, out=betastarl[t])
+        cB, offset = cumulative_obs_potentials(t)
+        dp = dur_potentials(t)
+        hsmm_messages_reduction_vertical(betal[t:t+cB.shape[0]],cB,dp,betastarl[t])
+        # hsmm_messages_reduction_horizontal(betal[t:t+cB.shape[0]],cB,dp,betastarl[t])
+        # np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
+        #         axis=0, out=betastarl[t])
+        betastarl[t] -= offset
         if right_censoring:
-            np.logaddexp(betastarl[t], cB[-1] + dur_survival_potentials(t),
+            np.logaddexp(betastarl[t], cB[-1] - offset + dur_survival_potentials(t),
                     out=betastarl[t])
         np.logaddexp.reduce(betastarl[t] + trans_potentials(t-1),
                 axis=1, out=betal[t-1])
@@ -1038,6 +970,7 @@ def hsmm_messages_backwards_log(
     np.seterr(**errs)
     return betal, betastarl, normalizer
 
+@line_profiled
 def hsmm_messages_forwards_log(
     trans_potential, initial_state_potential,
     reverse_cumulative_obs_potentials, reverse_dur_potentials, reverse_dur_survival_potentials,
@@ -1067,8 +1000,7 @@ def hsmm_messages_forwards_log(
 
     return alphal, alphastarl, normalizer
 
-
-# TODO test with trunc
+@line_profiled
 def hsmm_sample_forwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentails,
@@ -1076,7 +1008,7 @@ def hsmm_sample_forwards_log(
     left_censoring=False, right_censoring=True):
 
     T, _ = betal.shape
-    stateseq = np.empty(T,dtype=np.int)
+    stateseq = np.empty(T,dtype=np.int32)
     durations = []
 
     t = 0
@@ -1095,12 +1027,13 @@ def hsmm_sample_forwards_log(
 
         ## sample the duration
         dur_logpmf = dur_potentials(t)[:,state]
-        obs = cumulative_obs_potentials(t)[:,state]
+        obs, offset = cumulative_obs_potentials(t)
+        obs, offset = obs[:,state], offset[state]
         durprob = np.random.random()
 
         dur = 0 # NOTE: always incremented at least once
         while durprob > 0 and dur < dur_logpmf.shape[0] and t+dur < T:
-            p_d = np.exp(dur_logpmf[dur] + obs[dur]
+            p_d = np.exp(dur_logpmf[dur] + obs[dur] - offset
                     + betal[t+dur,state] - betastarl[t,state])
 
             assert not np.isnan(p_d)
@@ -1115,6 +1048,7 @@ def hsmm_sample_forwards_log(
 
     return stateseq, durations
 
+@line_profiled
 def hsmm_maximizing_assignment(
     N, T,
     trans_potentials, initial_state_potential,
@@ -1127,11 +1061,12 @@ def hsmm_maximizing_assignment(
 
     beta_scores[-1] = 0.
     for t in xrange(T-1,-1,-1):
-        cB = cumulative_obs_potentials(t)
+        cB, offset = cumulative_obs_potentials(t)
 
         vals = beta_scores[t:t+cB.shape[0]] + cB + dur_potentials(t)
         if right_censoring:
             vals = np.vstack((vals,cB[-1] + dur_survival_potentials(t)))
+        vals -= offset
 
         vals.max(axis=0,out=betastar_scores[t])
         vals.argmax(axis=0,out=betastar_args[t])

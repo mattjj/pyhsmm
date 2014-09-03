@@ -85,7 +85,6 @@ class HMMInitialState(Categorical):
                 data=samples,weights=expected_states_list)
 
 
-
 class StartInZero(GibbsSampling,MaxLikelihood):
     def __init__(self,num_states,**kwargs):
         self.pi_0 = np.zeros(num_states)

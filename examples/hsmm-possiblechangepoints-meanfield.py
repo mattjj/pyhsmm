@@ -70,27 +70,18 @@ posteriormodel = pyhsmm.models.DiagGaussGMMHSMMPossibleChangepointsSeparateTrans
 #         alpha=6.,init_state_concentration=6.,
 #         obs_distns=obs_distns,dur_distns=dur_distns)
 
-posteriormodel.add_data(data,changepoints,group_id=0)
+posteriormodel.add_data(data,changepoints,group_id=0,stateseq=labels)
+posteriormodel.init_meanfield_from_sample()
 
-########################
-#  parallel tempering  #
-########################
+plt.figure()
+posteriormodel.plot()
 
-from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
-pt = ParallelTempering(posteriormodel,[1.25,1.5])
-# pt = ParallelTempering(posteriormodel,[])
-
-seqs = []
-for itr in progprint_xrange(500):
-    pt.step(1)
-    seqs.append(pt.unit_temp_model.stateseqs[0])
-
-for (T1,T2), count in pt.swapcounts.items():
-    print 'temperature pair (%0.3f, %0.3f) swapped %d times' % (T1,T2,count)
-    print '(%0.3f%% of the time)' % ((count / pt.itercount) * 100)
-    print
-
-np.savetxt('allseqs',np.array(seqs),fmt='%d')
+def normalize(A):
+    return A / A.sum(1)[:,None]
+plt.matshow(truemodel.trans_distn.trans_matrix)
+from pyhsmm.util.general import count_transitions
+plt.matshow(count_transitions(truemodel.states_list[0].stateseq_norep))
+plt.matshow(normalize(posteriormodel.trans_distns[0].exp_expected_log_trans_matrix)[:N,:N])
 
 plt.show()
 
