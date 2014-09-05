@@ -568,6 +568,9 @@ class HSMMStatesEigen(HSMMStatesPython):
                 s._normalizer = loglike
                 s.stateseq = stateseq
 
+#################################
+#  geometric / HMM-like models  #
+#################################
 
 class GeoHSMMStates(HSMMStatesPython):
     def resample(self):
@@ -621,6 +624,12 @@ class GeoHSMMStates(HSMMStatesPython):
 
     # TODO viterbi!
 
+class DelayedGeoHSMMStates(HSMMStatesPython):
+
+
+##################
+#  changepoints  #
+##################
 
 class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMStatesPython):
     @property
