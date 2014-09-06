@@ -12,6 +12,10 @@ from ..util.profiling import line_profiled
 from hmm_states import HMMStatesPython, HMMStatesEigen
 from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 
+# TODO these classes are currently backed by HMM message passing, but they can
+# be made much more time and memory efficient. i have the code to do it in some
+# other branches, but dense matrix multiplies are actually competitive.
+
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
 
@@ -116,7 +120,6 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
 
     def Viterbi(self):
         self.Viterbi_hmm()
-
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     @property
@@ -326,7 +329,6 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def _mf_binom(k,n,p1,p2):
         return np.exp(special.gammaln(n+1) - special.gammaln(k+1) - special.gammaln(n-k+1) \
                 + k*p1 + (n-k)*p2)
-
 
 class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
     @property

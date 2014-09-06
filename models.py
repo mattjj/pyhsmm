@@ -783,6 +783,9 @@ class HSMM(HSMMPython):
 class GeoHSMM(HSMMPython):
     _states_class = hsmm_states.GeoHSMMStates
 
+class DelayedGeoHSMM(HSMMPython):
+    _states_class = hsmm_states.DelayedGeoHSMMStates
+
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
@@ -803,6 +806,9 @@ class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
                         sum(s._expected_ns[state] for s in self.states_list),
                         sum(s._expected_tots[state] for s in self.states_list),
                         ))
+
+class WeakLimitDelayedGeoHSMM(WeakLimitHDPHSMM):
+    _states_class = hsmm_states.DelayedGeoHSMMStates
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method
