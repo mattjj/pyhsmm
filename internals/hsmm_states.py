@@ -575,9 +575,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 class GeoHSMMStates(HSMMStatesPython):
     def resample(self):
         alphan, self._normalizer = HMMStatesEigen._messages_forwards_normalized(
-                self.hmm_trans_matrix,
-                self.pi_0,
-                self.aBl)
+                self.hmm_trans_matrix,self.pi_0,self.aBl)
         self.stateseq = HMMStatesEigen._sample_backwards_normalized(
                 alphan,
                 self.hmm_trans_matrix.T.copy())
@@ -625,7 +623,51 @@ class GeoHSMMStates(HSMMStatesPython):
     # TODO viterbi!
 
 class DelayedGeoHSMMStates(HSMMStatesPython):
+    def clear_caches(self):
+        super(DelayedGeoHSMMStates,self).clear_caches()
+        self._hmm_aBl = None
+        self._hmm_trans_matrix = None
 
+    def resample(self):
+        alphan, self._normalizer = HMMStatesEigen._messages_forwards_normalized(
+                self.hmm_trans_matrix,self.hmm_pi_0,self.hmm_aBl)
+        self.stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,self.hmm_trans_matrix.T.copy())
+
+    @property
+    def hmm_trans_matrix(self):
+        # NOTE: more general version, allows different delays, o/w we could
+        # construct with np.kron
+        if self._hmm_trans_matrix is None:
+            ps, delays = map(np.array,zip(*[(d.p,d.delay) for d in self.dur_distns]))
+            starts, ends = cumsum(delays,strict=True), cumsum(delays,strict=False)
+            trans_matrix = self._hmm_trans_matrix = np.zeros((ends[-1],ends[-1]))
+
+            for (i,j), Aij in np.ndenumerate(self.trans_matrix):
+                block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
+                if i == j:
+                    block[:-1,1:] = np.eye(block.shape[0]-1)
+                    block[-1,-1] = 1-ps[i]
+                else:
+                    block[-1,0] = ps[j]*Aij
+
+        return self._hmm_trans_matrix
+
+    @property
+    def hmm_aBl(self):
+        if self._hmm_aBl is None:
+            delays = [d.delay for d in self.dur_distns]
+            self._hmm_aBl = self.aBl.repeat(delays,axis=1)
+        return self._hmm_aBl
+
+    @property
+    def hmm_pi_0(self):
+        delays = np.array([d.delay for d in self.dur_distns])
+        starts = cumsum(delays,strict=True)
+
+        pi_0 = np.zeros(delays.sum())
+        pi_0[starts] = self.pi_0
+        return pi_0
 
 ##################
 #  changepoints  #
