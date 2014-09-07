@@ -92,6 +92,11 @@ def cov(a):
     else:
         return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
 
+def whiten(data):
+    sigma = cov(data)
+    L = np.linalg.cholesky(sigma)
+    return np.linalg.solve(L,data.T).T.copy()
+
 ### Sampling functions
 
 def sample_discrete(distn,size=[],dtype=np.int32):
