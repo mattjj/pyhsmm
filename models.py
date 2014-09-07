@@ -139,7 +139,8 @@ class _HMMBase(Model):
                 sorted(canonical_ids.items(),key=operator.itemgetter(1)))
 
     def _get_colors(self,states_objs=None):
-        if states_objs is not None:
+        states_objs = self.states_list if states_objs is None else states_objs
+        if len(states_objs) > 0:
             states = self._get_used_states(states_objs)
         else:
             states = range(len(self.obs_distns))
@@ -150,11 +151,11 @@ class _HMMBase(Model):
         if states_objs is None:
             states_objs = self.states_list
 
+        if colors is None:
+            colors = self._get_colors()
         cmap = cm.get_cmap()
 
         if len(states_objs) > 0:
-            if colors is None:
-                colors = self._get_colors(states_objs)
             used_states = self._get_used_states(states_objs)
             for state,o in enumerate(self.obs_distns):
                 if state in used_states:
@@ -167,7 +168,6 @@ class _HMMBase(Model):
                         label='%d' % state)
         else:
             N = len(self.obs_distns)
-            colors = self._get_colors()
             weights = np.repeat(1./N,N).dot(
                     np.linalg.matrix_power(self.trans_distn.trans_matrix,1000))
             for state, o in enumerate(self.obs_distns):
