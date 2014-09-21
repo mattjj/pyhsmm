@@ -148,6 +148,16 @@ class HSMMStatesPython(_StatesBase):
     ### array properties for homog model
 
     @property
+    def aBl(self):
+        if self._aBl is None:
+            data = self.data
+            T = data.shape[0]
+            aBl = self._aBl = np.empty((T,self.num_states))
+            for idx, obs_distn in enumerate(self.obs_distns):
+                aBl[:,idx] = np.nan_to_num(obs_distn.log_likelihood(data)).reshape((T,))
+        return self._aBl
+
+    @property
     def aDl(self):
         if self._aDl is None:
             aDl = np.empty((self.T,self.num_states))
@@ -170,9 +180,10 @@ class HSMMStatesPython(_StatesBase):
     @property
     def mf_aBl(self):
         if self._mf_aBl is None:
+            T = self.data.shape[0]
             self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
             for idx, o in enumerate(self.obs_distns):
-                aBl[:,idx] = o.expected_log_likelihood(self.data)
+                aBl[:,idx] = o.expected_log_likelihood(self.data).reshape((T,))
             aBl[np.isnan(aBl).any(1)] = 0.
         return self._mf_aBl
 

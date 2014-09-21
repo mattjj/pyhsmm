@@ -89,10 +89,13 @@ class _StatesBase(object):
     def aBl(self):
         if self._aBl is None:
             data = self.data
+            T = data.shape[0]
+
             aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = obs_distn.log_likelihood(data)
+                aBl[:,idx] = obs_distn.log_likelihood(data).reshape((T,))
             aBl[np.isnan(aBl).any(1)] = 0.
+
         return self._aBl
 
     @abc.abstractmethod
@@ -418,11 +421,13 @@ class HMMStatesPython(_StatesBase):
     @property
     def mf_aBl(self):
         if self._mf_aBl is None:
-            self._mf_aBl = aBl = np.empty((self.data.shape[0],self.num_states))
+            T = self.data.shape[0]
+            self._mf_aBl = aBl = np.empty((T,self.num_states))
+
             for idx, o in enumerate(self.obs_distns):
-                aBl[:,idx] = o.expected_log_likelihood(self.data)
+                aBl[:,idx] = o.expected_log_likelihood(self.data).reshape((T,))
             aBl[np.isnan(aBl).any(1)] = 0.
-            # np.maximum(aBl,-100000,out=aBl) # numuerical stability
+
         return self._mf_aBl
 
     @property
