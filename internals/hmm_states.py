@@ -89,11 +89,10 @@ class _StatesBase(object):
     def aBl(self):
         if self._aBl is None:
             data = self.data
-            T = data.shape[0]
 
             aBl = self._aBl = np.empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
-                aBl[:,idx] = obs_distn.log_likelihood(data).reshape((T,))
+                aBl[:,idx] = obs_distn.log_likelihood(data).ravel()
             aBl[np.isnan(aBl).any(1)] = 0.
 
         return self._aBl
@@ -425,7 +424,7 @@ class HMMStatesPython(_StatesBase):
             self._mf_aBl = aBl = np.empty((T,self.num_states))
 
             for idx, o in enumerate(self.obs_distns):
-                aBl[:,idx] = o.expected_log_likelihood(self.data).reshape((T,))
+                aBl[:,idx] = o.expected_log_likelihood(self.data).ravel()
             aBl[np.isnan(aBl).any(1)] = 0.
 
         return self._mf_aBl
