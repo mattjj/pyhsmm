@@ -419,9 +419,17 @@ class _WeakLimitStickyHDPHMMTransitionsGibbs(
                     dtype=np.int32)
         return newms
 
+class _WeakLimitStickyHDPHMMTransitionsConcGibbs(
+        _WeakLimitStickyHDPHMMTransitionsGibbs,_WeakLimitHDPHMMTransitionsConcGibbs):
+    pass
+
 class WeakLimitStickyHDPHMMTransitions(
         _WeakLimitStickyHDPHMMTransitionsGibbs,_HMMTransitionsMaxLikelihood):
     # NOTE: includes MaxLikelihood for convenience
+    pass
+
+class WeakLimitStickyHDPHMMTransitionsConc(
+        _WeakLimitStickyHDPHMMTransitionsConcGibbs):
     pass
 
 # DA Truncation
