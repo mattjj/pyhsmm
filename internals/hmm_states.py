@@ -7,8 +7,6 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
 
-PROFILING = False
-
 ######################
 #  Mixins and bases  #
 ######################
