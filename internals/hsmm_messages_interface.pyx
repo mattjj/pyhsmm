@@ -50,7 +50,7 @@ def sample_forwards_log(
         floating[::1] pi0 not None,
         floating[:,::1] betal not None,
         floating[:,::1] betastarl not None,
-        np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
+        int32_t[::1] stateseq not None,
         ):
     cdef hsmmc[floating] ref
 
@@ -66,7 +66,7 @@ def sample_forwards_log(
     ref.sample_forwards_log(A.shape[0],caBl.shape[0],&A[0,0],&pi0[0],
             &caBl[0,0],&aDl[0,0],&betal[0,0],&betastarl[0,0],&stateseq[0],&randseq[0])
 
-    return stateseq
+    return np.asarray(stateseq)
 
 def resample_log_multiple(
         floating[:,::1] A not None,

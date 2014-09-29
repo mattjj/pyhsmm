@@ -80,7 +80,7 @@ def sample_forwards_log(
     ref.sample_forwards_log(A.shape[0],aBl.shape[0],&A[0,0],&pi0[0],&aBl[0,0],
             &betal[0,0],&stateseq[0],&randseq[0])
 
-    return np.array(stateseq)
+    return np.asarray(stateseq)
 
 def expected_statistics_log(
         np.ndarray[floating,ndim=2,mode='c'] log_trans_potential not None,
@@ -140,7 +140,7 @@ def sample_backwards_normalized(
     ref.sample_backwards_normalized(AT.shape[0],alphan.shape[0],&AT[0,0],
             &alphan[0,0],&stateseq[0],&randseq[0])
 
-    return np.array(stateseq)
+    return np.asarray(stateseq)
 
 # NOTE: the purpose of this method is to dispatch to OpenMP, so it only makes
 # sense if this file is compiled with CCFLAGS=-fopenmp LDFLAGS=-fopenmp
@@ -208,5 +208,5 @@ def viterbi(
     cdef hmmc[floating] ref
     ref.viterbi(A.shape[0],aBl.shape[0],&A[0,0],&pi0[0],&aBl[0,0],
                 &stateseq[0])
-    return np.array(stateseq)
+    return np.asarray(stateseq)
 
