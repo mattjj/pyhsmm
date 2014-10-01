@@ -1,4 +1,5 @@
 from __future__ import division
+from itertools import izip
 import numpy as np
 from numpy.random import random
 na = np.newaxis
@@ -96,6 +97,12 @@ def whiten(data):
     sigma = cov(data)
     L = np.linalg.cholesky(sigma)
     return np.linalg.solve(L,data.T).T.copy()
+
+def count_transitions(stateseq, num_states):
+    out = np.zeros((num_states,num_states),dtype=np.int32)
+    for i,j in izip(stateseq[:-1],stateseq[1:]):
+        out[i,j] += 1
+    return out
 
 ### Sampling functions
 
@@ -201,6 +208,23 @@ def sample_mniw(nu,S,M,K=None,Kinv=None):
 
 def sample_pareto(x_m,alpha):
     return x_m + np.random.pareto(alpha)
+
+def sample_crp_tablecounts(concentration,customers,colweights):
+    m = np.zeros_like(customers)
+    tot = customers.sum()
+    randseq = np.random.random(tot)
+
+    starts = np.empty_like(customers)
+    starts[0,0] = 0
+    starts.flat[1:] = np.cumsum(np.ravel(customers)[:customers.size-1])
+
+    for (i,j), n in np.ndenumerate(customers):
+        w = colweights[j]
+        for k in xrange(n):
+            m[i,j] += randseq[starts[i,j]+k] \
+                    < (concentration * w) / (k + concentration * w)
+
+    return m
 
 ### Entropy
 def invwishart_entropy(sigma,nu,chol=None):

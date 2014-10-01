@@ -12,7 +12,10 @@ from ..basic.abstractions import GibbsSampling
 from ..basic.distributions import GammaCompoundDirichlet, Multinomial, \
         MultinomialAndConcentration
 from ..util.general import rle, cumsum, rcumsum
-from ..util.cstats import sample_crp_tablecounts, count_transitions
+try:
+    from ..util.cstats import sample_crp_tablecounts, count_transitions
+except ImportError:
+    from ..util.stats import sample_crp_tablecounts, count_transitions
 
 # TODO separate out bayesian and nonbayesian versions?
 
