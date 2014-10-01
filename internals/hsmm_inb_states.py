@@ -19,8 +19,6 @@ from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 # TODO don't require fwd and bwd versions; just require one set
 # TODO implement delayed negative binomial version
 
-# TODO maybe use normalized messages instead of log messages
-
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
 
@@ -35,11 +33,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     ### HMM embedding parameters
 
     @abc.abstractproperty
-    def hmm_fwd_trans_matrix(self):
-        pass
-
-    @abc.abstractproperty
-    def hmm_bwd_trans_matrix(self):
+    def hmm_trans_matrix(self):
         pass
 
     @property
@@ -50,47 +44,18 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
 
     @property
     def hmm_pi_0(self):
-        rs = self.rs
-        starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-        pi_0 = np.zeros(rs.sum())
-        pi_0[starts] = self.pi_0
-        return pi_0
-
-    @property
-    def hmm_fwd_pi_0(self):
         if not self.left_censoring:
-            return self.hmm_pi_0
+            rs = self.rs
+            starts = np.concatenate(((0,),rs.cumsum()[:-1]))
+            pi_0 = np.zeros(rs.sum())
+            pi_0[starts] = self.pi_0
+            return pi_0
         else:
-            return top_eigenvector(self.hmm_fwd_trans_matrix)
-
-    @property
-    def hmm_bwd_pi_0(self):
-        if not self.left_censoring:
-            return self.hmm_pi_0
-        else:
-            return top_eigenvector(self.hmm_bwd_trans_matrix)
+            return top_eigenvector(self.hmm_trans_matrix)
 
     def clear_caches(self):
         super(_HSMMStatesIntegerNegativeBinomialBase,self).clear_caches()
         self._hmm_aBl = None
-
-
-    def hmm_messages_backwards(self):
-        betal = HMMStatesEigen._messages_backwards_log(
-                self.hmm_bwd_trans_matrix,
-                self.hmm_aBl)
-        self._normalizer = np.logaddexp.reduce(
-                np.log(self.hmm_bwd_pi_0) + betal[0] + self.hmm_aBl[0])
-        return betal
-
-    def hmm_messages_forwards(self):
-        alphal = HMMStatesEigen._messages_forwards_log(
-                self.hmm_fwd_trans_matrix,
-                self.hmm_fwd_pi_0,
-                self.hmm_aBl)
-        self._normalier = np.logaddexp.reduce(alphal[-1])
-        return alphal
-
 
     def _map_states(self):
         themap = np.arange(self.num_states).repeat(self.rs).astype('int32')
@@ -98,22 +63,23 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
 
     def generate_states(self):
         self.stateseq = sample_markov(
-                T=self.T,
-                trans_matrix=self.hmm_bwd_trans_matrix,
-                init_state_distn=self.hmm_bwd_pi_0)
+                T=self.T,trans_matrix=self.hmm_trans_matrix,
+                init_state_distn=self.hmm_pi_0)
         self._map_states()
 
     def Viterbi_hmm(self):
         from hmm_messages_interface import viterbi
-        self.stateseq = viterbi(self.hmm_bwd_trans_matrix,
-                self.hmm_aBl,self.hmm_bwd_pi_0,
+        self.stateseq = viterbi(
+                self.hmm_trans_matrix,self.hmm_aBl,self.hmm_pi_0,
                 np.empty(self.hmm_aBl.shape[0],dtype='int32'))
         self._map_states()
 
     def resample_hmm(self):
-        betal = self.hmm_messages_backwards()
-        self.stateseq = HMMStatesEigen._sample_forwards_log(
-                betal,self.hmm_bwd_trans_matrix,self.hmm_bwd_pi_0,self.hmm_aBl)
+        alphan, self._normalizer = \
+                HMMStatesEigen._messages_forwards_normalized(
+                        self.hmm_trans_matrix,self.hmm_pi_0,self.hmm_aBl)
+        self.stateseq = HMMStatesEigen._sample_backwards_normalized(
+                alphan,self.hmm_trans_matrix.T.copy())
         self._map_states()
 
     def resample_hsmm(self):
@@ -127,6 +93,10 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
         self.Viterbi_hmm()
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
+    @property
+    def hmm_trans_matrix(self):
+        return self.hmm_bwd_trans_matrix
+
     @property
     def hmm_bwd_trans_matrix(self):
         rs, ps = self.rs, self.ps
