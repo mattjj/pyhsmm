@@ -16,6 +16,11 @@ from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 # be made much more time and memory efficient. i have the code to do it in some
 # other branches, but dense matrix multiplies are actually competitive.
 
+# TODO don't require fwd and bwd versions; just require one set
+# TODO implement delayed negative binomial version
+
+# TODO maybe use normalized messages instead of log messages
+
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
 
@@ -350,4 +355,18 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
     @property
     def hmm_fwd_trans_matrix(self):
         return self.hmm_bwd_trans_matrix
+
+
+class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial):
+    @property
+    def hmm_trans_matrix(self):
+        raise NotImplementedError
+
+    @property
+    def hmm_aBl(self):
+        raise NotImplementedError
+
+    @property
+    def hmm_pi_0(self):
+        raise NotImplementedError
 
