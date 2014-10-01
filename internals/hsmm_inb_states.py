@@ -16,7 +16,6 @@ from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 # be made much more time and memory efficient. i have the code to do it in some
 # other branches, but dense matrix multiplies are actually competitive.
 
-# TODO don't require fwd and bwd versions; just require one set
 # TODO implement delayed negative binomial version
 
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
@@ -307,6 +306,10 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
 class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomialBase):
     @property
+    def hmm_trans_matrix(self):
+        return self.hmm_bwd_trans_matrix
+
+    @property
     def hmm_bwd_trans_matrix(self):
         rs, ps = self.rs, self.ps
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
@@ -322,21 +325,50 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         assert np.allclose(trans_matrix.sum(1),1)
         return trans_matrix
 
-    @property
-    def hmm_fwd_trans_matrix(self):
-        return self.hmm_bwd_trans_matrix
-
 
 class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial):
     @property
     def hmm_trans_matrix(self):
-        raise NotImplementedError
+        return self.hmm_bwd_trans_matrix
+
+    @property
+    def hmm_bwd_trans_matrix(self):
+        rs, ps, delays = self.rs, self.ps, self.delays
+        starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
+        trans_matrix = np.zeros((ends[-1],ends[-1]))
+
+        enters = self.enters
+        for (i,j), Aij in np.ndenumerate(self.trans_matrix):
+            block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
+            block[-1,:rs[j]] = Aij * enters[j]
+            if i == j:
+                block[:rs[i],:rs[i]] += \
+                    np.diag(np.repeat(ps[i],rs[i])) + np.diag(np.repeat(1-ps[i],rs[i]-1),k=1)
+                if delays[i] > 0:
+                    block[rs[i]-1,rs[i]] = 1.
+                    block[rs[i]:,rs[i]:] = np.eye(delays[i],k=1)
+
+        assert np.allclose(trans_matrix.sum(1),1.)
+        return trans_matrix
 
     @property
     def hmm_aBl(self):
-        raise NotImplementedError
+        if self._hmm_aBl is None:
+            self._hmm_aBl = self.aBl.repeat(self.rs+self.delays,axis=1)
+        return self._hmm_aBl
 
     @property
     def hmm_pi_0(self):
-        raise NotImplementedError
+        if self.left_censoring:
+            raise NotImplementedError
+        else:
+            rs, delays = self.rs, self.delays
+            starts = np.concatenate(((0,),(rs+delays).cumsum()[:-1]))
+            pi_0 = np.zeros((rs+delays).sum())
+            pi_0[starts] = self.pi_0
+            return pi_0
+
+    @property
+    def delays(self):
+        return np.array([d.delay for d in self.dur_distns])
 
