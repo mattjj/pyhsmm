@@ -4,8 +4,6 @@ import sys, os
 
 from util.cyutil import cythonize # my version of Cython.Build.cythonize
 
-# NOTE: distutils makes no sense
-
 extra_link_args = []
 extra_compile_args = ['-DHMM_TEMPS_ON_HEAP']
 
@@ -31,6 +29,10 @@ if '--with-mkl' in sys.argv:
 if '--with-assembly' in sys.argv:
     sys.argv.remove('--with-assembly')
     extra_compile_args.extend(['--save-temps','-masm=intel','-fverbose-asm'])
+
+if '--with-cmath' in sys.argv:
+    sys.argv.remove('--with-cmath')
+    extra_compile_args.extend(['-include','cmath'])
 
 ext_modules = cythonize('**/*.pyx')
 for e in ext_modules:
