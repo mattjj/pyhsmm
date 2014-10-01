@@ -656,18 +656,21 @@ class DelayedGeoHSMMStates(HSMMStatesPython):
     @property
     def hmm_aBl(self):
         if self._hmm_aBl is None:
-            delays = [d.delay for d in self.dur_distns]
-            self._hmm_aBl = self.aBl.repeat(delays,axis=1)
+            self._hmm_aBl = self.aBl.repeat(self.delays,axis=1)
         return self._hmm_aBl
 
     @property
     def hmm_pi_0(self):
-        delays = np.array([d.delay for d in self.dur_distns])
+        delays = self.delays
         starts = cumsum(delays,strict=True)
 
         pi_0 = np.zeros(delays.sum())
         pi_0[starts] = self.pi_0
         return pi_0
+
+    @property
+    def delays(self):
+        return np.array([d.delay for d in self.dur_distns])
 
 ##################
 #  changepoints  #
