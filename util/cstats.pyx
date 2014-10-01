@@ -81,3 +81,4 @@ def count_transitions(int32_t[::1] stateseq, int num_states):
     for i in range(T-1):
         out[stateseq[i],stateseq[i+1]] += 1
     return np.asarray(out)
+
