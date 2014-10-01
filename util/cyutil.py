@@ -1,5 +1,10 @@
 import Cython.Build
 from Cython.Build.Dependencies import *
+import os
+
+# NOTE: this code exists to add 'name' as a distutils processing directive in
+# cython files and give it a default value. Otherwise building with --inplace
+# was putting object files in places I didn't want them.
 
 # NOTE: mostly a copy of cython's create_extension_list except for the lines
 # surrounded by "begin matt added" / "end matt added"
@@ -82,7 +87,7 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
                     module_name = str(kwds['name'])
                     del kwds['name']
                 else:
-                    module_name = os.path.splitext(file)[0].replace('/','.')
+                    module_name = os.path.splitext(file)[0].replace(os.sep,'.')
                 # NOTE: end matt added
                 module_list.append(exn_type(
                         name=module_name,
