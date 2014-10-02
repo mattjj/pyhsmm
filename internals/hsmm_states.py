@@ -897,6 +897,14 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         np.seterr(**errs)
         return np.exp(logpmfs.T)
 
+
+###################
+#  sparate trans  #
+###################
+
+class HSMMStatesSeparateTrans(_SeparateTransMixin,HSMMStatesEigen):
+    pass
+
 class HSMMStatesPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMStatesPossibleChangepoints):
