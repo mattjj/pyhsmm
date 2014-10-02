@@ -948,14 +948,6 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
 
-class WeakLimitHDPHSMMDelayedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
-    _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomial
-
-    def __init__(self,dur_distns,delay=0,**kwargs):
-        for d in dur_distns:
-            d.delay = delay
-        super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
-
 class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
     pass
 
@@ -964,6 +956,17 @@ class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMMPython):
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):
     pass
+
+
+class WeakLimitHDPHSMMDelayedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
+    _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomial
+    _trans_class = transitions.WeakLimitHDPHSMMTransitions
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+
+    def __init__(self,dur_distns,delay=0,**kwargs):
+        for d in dur_distns:
+            d.delay = delay
+        super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
 
 ##########
 #  meta  #
@@ -1087,6 +1090,11 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
         WeakLimitHDPHSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
 
+
+class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
+        _SeparateTransMixin,
+        WeakLimitHDPHSMMDelayedIntNegBin):
+    _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomial
 
 ##########
 #  temp  #
