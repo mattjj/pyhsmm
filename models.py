@@ -843,6 +843,15 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
+
+class WeakLimitHDPHSMMDelayedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
+    _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomial
+
+    def __init__(self,dur_distns,delay=0,**kwargs):
+        for d in dur_distns:
+            d.delay = delay
+        super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
+
 class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
     pass
 
@@ -955,9 +964,14 @@ class _SeparateTransMixin(object):
     def Viterbi_EM_step(self):
         raise NotImplementedError
 
-class HMMSeparateTrans(
-        _SeparateTransMixin,HMM):
+class HMMSeparateTrans(_SeparateTransMixin,HMM):
     _states_class = hmm_states.HMMStatesEigenSeparateTrans
+
+class WeakLimitHDPHMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHMM):
+    _states_class = hmm_states.HMMStatesEigenSeparateTrans
+
+class WeakLimitHDPHSMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHSMM):
+    _states_class = hsmm_states.HSMMStatesSeparateTrans
 
 class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
