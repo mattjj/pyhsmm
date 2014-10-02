@@ -337,15 +337,20 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
         starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
         trans_matrix = np.zeros((ends[-1],ends[-1]))
 
-        enters = self.enters
+        enters = self.bwd_enter_rows
         for (i,j), Aij in np.ndenumerate(self.trans_matrix):
             block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
-            block[-1,:rs[j]] = Aij * enters[j]
+
+            if delays[i] == 0:
+                block[-1,:rs[j]] = Aij * enters[j] * (1-ps[i])
+            else:
+                block[-1,:rs[j]] = Aij * enters[j]
+
             if i == j:
                 block[:rs[i],:rs[i]] += \
                     np.diag(np.repeat(ps[i],rs[i])) + np.diag(np.repeat(1-ps[i],rs[i]-1),k=1)
                 if delays[i] > 0:
-                    block[rs[i]-1,rs[i]] = 1.
+                    block[rs[i]-1,rs[i]] = (1-ps[i])
                     block[rs[i]:,rs[i]:] = np.eye(delays[i],k=1)
 
         assert np.allclose(trans_matrix.sum(1),1.)
@@ -371,4 +376,8 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
     @property
     def delays(self):
         return np.array([d.delay for d in self.dur_distns])
+
+    def _map_states(self):
+        themap = np.arange(self.num_states).repeat(self.rs+self.delays).astype('int32')
+        self.stateseq = themap[self.stateseq]
 
