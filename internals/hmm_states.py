@@ -6,6 +6,7 @@ import abc, copy, warnings
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util.general import rle, top_eigenvector, rcumsum, cumsum
 from ..util.profiling import line_profiled
+from ..util.memory import empty, empty_like, aligned
 
 ######################
 #  Mixins and bases  #
@@ -48,11 +49,11 @@ class _StatesBase(object):
 
     @property
     def trans_matrix(self):
-        return self.model.trans_distn.trans_matrix
+        return aligned(self.model.trans_distn.trans_matrix)
 
     @property
     def pi_0(self):
-        return self.model.init_state_distn.pi_0
+        return aligned(self.model.init_state_distn.pi_0)
 
     @property
     def num_states(self):
@@ -88,7 +89,7 @@ class _StatesBase(object):
         if self._aBl is None:
             data = self.data
 
-            aBl = self._aBl = np.empty((data.shape[0],self.num_states))
+            aBl = self._aBl = empty((data.shape[0],self.num_states))
             for idx, obs_distn in enumerate(self.obs_distns):
                 aBl[:,idx] = obs_distn.log_likelihood(data).ravel()
             aBl[np.isnan(aBl).any(1)] = 0.
@@ -185,7 +186,7 @@ class _PossibleChangepointsMixin(object):
     def aBl(self):
         if self._aBBl is None:
             aBl = super(_PossibleChangepointsMixin,self).aBl
-            aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
+            aBBl = self._aBBl = empty((self.Tblock,self.num_states))
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
         return self._aBBl
@@ -194,7 +195,7 @@ class _PossibleChangepointsMixin(object):
     def mf_aBl(self):
         if self._mf_aBBl is None:
             aBl = super(_PossibleChangepointsMixin,self).mf_aBl
-            aBBl = self._mf_aBBl = np.empty((self.Tblock,self.num_states))
+            aBBl = self._mf_aBBl = empty((self.Tblock,self.num_states))
             for idx, (start,stop) in enumerate(self.changepoints):
                 aBBl[idx] = aBl[start:stop].sum(0)
         return self._mf_aBBl
@@ -574,19 +575,22 @@ class HMMStatesEigen(HMMStatesPython):
         from hmm_messages_interface import messages_backwards_log
         return messages_backwards_log(
                 trans_matrix,log_likelihoods,
-                np.empty_like(log_likelihoods))
+                empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
-                init_state_distn,np.empty_like(log_likelihoods))
+                init_state_distn,empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
         from hmm_messages_interface import messages_forwards_normalized
+        assert trans_matrix.ctypes.data % 32 == 0
+        assert init_state_distn.ctypes.data % 32 == 0
+        assert log_likelihoods.ctypes.data % 32 == 0
         return messages_forwards_normalized(trans_matrix,log_likelihoods,
-                init_state_distn,np.empty_like(log_likelihoods))
+                init_state_distn,empty_like(log_likelihoods))
 
     # next three methods are just for convenient testing
 

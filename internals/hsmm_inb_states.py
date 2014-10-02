@@ -8,6 +8,7 @@ import scipy.special as special
 from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
 from ..util.general import rle, top_eigenvector, cumsum
 from ..util.profiling import line_profiled
+from ..util.memory import aligned, zeros
 
 from hmm_states import HMMStatesPython, HMMStatesEigen
 from hsmm_states import HSMMStatesPython, HSMMStatesEigen
@@ -38,7 +39,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     @property
     def hmm_aBl(self):
         if self._hmm_aBl is None:
-            self._hmm_aBl = self.aBl.repeat(self.rs,axis=1)
+            self._hmm_aBl = aligned(self.aBl.repeat(self.rs,axis=1))
         return self._hmm_aBl
 
     @property
@@ -46,9 +47,9 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
         if not self.left_censoring:
             rs = self.rs
             starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-            pi_0 = np.zeros(rs.sum())
+            pi_0 = zeros(rs.sum())
             pi_0[starts] = self.pi_0
-            return pi_0
+            return aligned(pi_0)
         else:
             return top_eigenvector(self.hmm_trans_matrix)
 
@@ -70,7 +71,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
         from hmm_messages_interface import viterbi
         self.stateseq = viterbi(
                 self.hmm_trans_matrix,self.hmm_aBl,self.hmm_pi_0,
-                np.empty(self.hmm_aBl.shape[0],dtype='int32'))
+                empty(self.hmm_aBl.shape[0],dtype='int32'))
         self._map_states()
 
     def resample_hmm(self):
@@ -100,7 +101,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def hmm_bwd_trans_matrix(self):
         rs, ps = self.rs, self.ps
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
-        trans_matrix = np.zeros((ends[-1],ends[-1]))
+        trans_matrix = zeros((ends[-1],ends[-1]))
 
         enters = self.bwd_enter_rows
         for (i,j), Aij in np.ndenumerate(self.trans_matrix):
@@ -121,7 +122,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def hmm_fwd_trans_matrix(self):
         rs, ps = self.rs, self.ps
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
-        trans_matrix = np.zeros((ends[-1],ends[-1]))
+        trans_matrix = zeros((ends[-1],ends[-1]))
 
         exits = self.fwd_exit_cols
         for (i,j), Aij in np.ndenumerate(self.trans_matrix):
@@ -183,9 +184,9 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         num_r_samples = self.model.mf_num_samples \
                 if hasattr(self.model,'mf_num_samples') else 10
 
-        self.expected_states = np.zeros((self.T,self.num_states))
-        self.expected_transcounts = np.zeros((self.num_states,self.num_states))
-        self.expected_durations = np.zeros((self.num_states,self.T))
+        self.expected_states = zeros((self.T,self.num_states))
+        self.expected_transcounts = zeros((self.num_states,self.num_states))
+        self.expected_durations = zeros((self.num_states,self.T))
 
         eye = np.eye(self.num_states)/num_r_samples
         for i in xrange(num_r_samples):
@@ -211,9 +212,9 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         num_stateseq_samples_per_r = self.model.mf_num_stateseq_samples_per_r \
                 if hasattr(self.model,'mf_num_stateseq_samples_per_r') else 1
 
-        self.expected_states = np.zeros((self.T,self.num_states))
-        self.expected_transcounts = np.zeros((self.num_states,self.num_states))
-        self.expected_durations = np.zeros((self.num_states,self.T))
+        self.expected_states = zeros((self.T,self.num_states))
+        self.expected_transcounts = zeros((self.num_states,self.num_states))
+        self.expected_durations = zeros((self.num_states,self.T))
 
         mf_aBl = self.mf_aBl
 
@@ -252,7 +253,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def _hmm_stats_to_hsmm_stats(self,hmm_expected_states,hmm_expected_transcounts,normalizer):
         rs = self.rs
         starts = np.concatenate(((0,),np.cumsum(rs[:-1])))
-        dotter = np.zeros((rs.sum(),len(rs)))
+        dotter = zeros((rs.sum(),len(rs)))
         for idx, (start, length) in enumerate(zip(starts,rs)):
             dotter[start:start+length,idx] = 1.
 
@@ -271,7 +272,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def hmm_mf_bwd_pi_0(self):
         rs = self.rs
         starts = np.concatenate(((0,),rs.cumsum()[:-1]))
-        mf_pi_0 = np.zeros(rs.sum())
+        mf_pi_0 = zeros(rs.sum())
         mf_pi_0[starts] = self.mf_pi_0
         return mf_pi_0
 
@@ -279,7 +280,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     def mf_bwd_trans_matrix(self):
         rs = self.rs
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
-        trans_matrix = np.zeros((ends[-1],ends[-1]))
+        trans_matrix = zeros((ends[-1],ends[-1]))
 
         Elnps, Eln1mps = zip(*[d._fixedr_distns[d.ridx]._mf_expected_statistics() for d in self.dur_distns])
         Eps, E1mps = np.exp(Elnps), np.exp(Eln1mps) # NOTE: actually exp(E[ln(p)]) etc
@@ -313,7 +314,7 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
     def hmm_bwd_trans_matrix(self):
         rs, ps = self.rs, self.ps
         starts, ends = cumsum(rs,strict=True), cumsum(rs,strict=False)
-        trans_matrix = np.zeros((rs.sum(),rs.sum()))
+        trans_matrix = zeros((rs.sum(),rs.sum()))
 
         for (i,j), Aij in np.ndenumerate(self.trans_matrix):
             block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
@@ -335,7 +336,7 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
     def hmm_bwd_trans_matrix(self):
         rs, ps, delays = self.rs, self.ps, self.delays
         starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
-        trans_matrix = np.zeros((ends[-1],ends[-1]))
+        trans_matrix = zeros((ends[-1],ends[-1]))
 
         enters = self.enters
         for (i,j), Aij in np.ndenumerate(self.trans_matrix):
@@ -364,7 +365,7 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
         else:
             rs, delays = self.rs, self.delays
             starts = np.concatenate(((0,),(rs+delays).cumsum()[:-1]))
-            pi_0 = np.zeros((rs+delays).sum())
+            pi_0 = zeros((rs+delays).sum())
             pi_0[starts] = self.pi_0
             return pi_0
 
