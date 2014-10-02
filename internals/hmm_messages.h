@@ -136,7 +136,7 @@ namespace hmm
         NPRowVector<Type> ein_potential(in_potential_buf,M);
 #endif
 
-        ein_potential = NPMatrix<Type>(pi0,1,M);
+        ein_potential = NPRowVector<Type>(pi0,M);
         for (int t=0; t<T; t++) {
             cmax = eaBl.row(t).maxCoeff();
             ealphan.row(t) = ein_potential.array() * (eaBl.row(t) - cmax).exp();

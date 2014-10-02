@@ -1,4 +1,4 @@
-# distutils: extra_compile_args = -O3 -w
+# distutils: extra_compile_args = -Ofast -w
 # cython: boundscheck = False
 # cython: wraparound = False
 # cython: cdivision = True
