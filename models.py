@@ -1094,7 +1094,7 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
 class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMDelayedIntNegBin):
-    _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomial
+    _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans
 
 ##########
 #  temp  #
