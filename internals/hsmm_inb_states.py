@@ -9,7 +9,7 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, cumsum
 from ..util.profiling import line_profiled
 
-from hmm_states import HMMStatesPython, HMMStatesEigen
+from hmm_states import HMMStatesPython, HMMStatesEigen, _SeparateTransMixin
 from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 
 # TODO these classes are currently backed by HMM message passing, but they can
@@ -380,4 +380,9 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
     def _map_states(self):
         themap = np.arange(self.num_states).repeat(self.rs+self.delays).astype('int32')
         self.stateseq = themap[self.stateseq]
+
+class HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesDelayedIntegerNegativeBinomial):
+    pass
 
