@@ -16,8 +16,6 @@ from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 # be made much more time and memory efficient. i have the code to do it in some
 # other branches, but dense matrix multiplies are actually competitive.
 
-# TODO test delayed negative binomial version
-
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
 
