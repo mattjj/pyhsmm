@@ -635,6 +635,10 @@ class DelayedGeoHSMMStates(HSMMStatesPython):
                 alphan,self.hmm_trans_matrix.T.copy())
 
     @property
+    def delays(self):
+        return np.array([d.delay for d in self.dur_distns])
+
+    @property
     def hmm_trans_matrix(self):
         # NOTE: more general version, allows different delays, o/w we could
         # construct with np.kron
