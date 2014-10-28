@@ -3,7 +3,8 @@ from Cython.Build.Dependencies import *
 
 # NOTE: mostly a copy of cython's create_extension_list except for the lines
 # surrounded by "begin matt added" / "end matt added"
-def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=False, exclude_failures=False):
+def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=False, exclude_failures=False,
+        language=None):
     if not isinstance(patterns, list):
         patterns = [patterns]
     explicit_modules = set([m.name for m in patterns if isinstance(m, Extension)])
