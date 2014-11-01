@@ -79,6 +79,8 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
                 alphan,self.hmm_trans_matrix.T.copy())
         self._map_states()
 
+        self.alphan = alphan # TODO remove
+
     def resample_hsmm(self):
         betal, betastarl = HSMMStatesEigen.messages_backwards(self)
         HMMStatesEigen.sample_forwards(betal,betastarl)
@@ -327,10 +329,11 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
 class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial):
     @property
     def hmm_trans_matrix(self):
-        return self.hmm_bwd_trans_matrix
+        return self.hmm_trans_matrix_orig
+        # return self.hmm_trans_matrix_2
 
     @property
-    def hmm_bwd_trans_matrix(self):
+    def hmm_trans_matrix_orig(self):
         rs, ps, delays = self.rs, self.ps, self.delays
         starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
         trans_matrix = np.zeros((ends[-1],ends[-1]))
@@ -350,6 +353,50 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
                 if delays[i] > 0:
                     block[rs[i]-1,rs[i]] = (1-ps[i])
                     block[rs[i]:,rs[i]:] = np.eye(delays[i],k=1)
+
+        assert np.allclose(trans_matrix.sum(1),1.)
+        return trans_matrix
+
+    @property
+    def hmm_trans_matrix_1(self):
+        rs, ps, delays = self.rs, self.ps, self.delays
+        starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
+        trans_matrix = np.zeros((ends[-1],ends[-1]))
+
+        enters = self.bwd_enter_rows
+        for (i,j), Aij in np.ndenumerate(self.trans_matrix):
+            block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
+
+            block[-1,:rs[j]] = Aij * enters[j] * (1-ps[i])
+
+            if i == j:
+                block[-rs[i]:,-rs[i]:] += \
+                    np.diag(np.repeat(ps[i],rs[i])) + np.diag(np.repeat(1-ps[i],rs[i]-1),k=1)
+                if delays[i] > 0:
+                    block[:delays[i]:,:delays[i]] = np.eye(delays[i],k=1)
+                    block[delays[i]-1,delays[i]] = 1
+
+        assert np.allclose(trans_matrix.sum(1),1.)
+        return trans_matrix
+
+    @property
+    def hmm_trans_matrix_2(self):
+        rs, ps, delays = self.rs, self.ps, self.delays
+        starts, ends = cumsum(rs+delays,strict=True), cumsum(rs+delays,strict=False)
+        trans_matrix = np.zeros((ends[-1],ends[-1]))
+
+        enters = self.bwd_enter_rows
+        for (i,j), Aij in np.ndenumerate(self.trans_matrix):
+            block = trans_matrix[starts[i]:ends[i],starts[j]:ends[j]]
+
+            block[-1,0] = Aij * (1-ps[i])
+
+            if i == j:
+                block[-rs[i]:,-rs[i]:] += \
+                    np.diag(np.repeat(ps[i],rs[i])) + np.diag(np.repeat(1-ps[i],rs[i]-1),k=1)
+                if delays[i] > 0:
+                    block[:delays[i]:,:delays[i]] = np.eye(delays[i],k=1)
+                    block[delays[i]-1,-rs[i]:] = enters[i]
 
         assert np.allclose(trans_matrix.sum(1),1.)
         return trans_matrix
