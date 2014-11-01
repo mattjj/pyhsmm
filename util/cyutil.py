@@ -3,8 +3,9 @@ from Cython.Build.Dependencies import *
 
 # NOTE: mostly a copy of cython's create_extension_list except for the lines
 # surrounded by "begin matt added" / "end matt added"
-def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=False, exclude_failures=False):
-    if not isinstance(patterns, list):
+def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=False, language=None,
+                          exclude_failures=False):
+    if not isinstance(patterns, (list, tuple)):
         patterns = [patterns]
     explicit_modules = set([m.name for m in patterns if isinstance(m, Extension)])
     seen = set()
@@ -13,7 +14,8 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
     if not isinstance(exclude, list):
         exclude = [exclude]
     for pattern in exclude:
-        to_exclude.update(extended_iglob(pattern))
+        to_exclude.update(map(os.path.abspath, extended_iglob(pattern)))
+
     module_list = []
     for pattern in patterns:
         if isinstance(pattern, str):
@@ -22,9 +24,12 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
             name = '*'
             base = None
             exn_type = Extension
+            ext_language = language
         elif isinstance(pattern, Extension):
-            filepattern = pattern.sources[0]
-            if os.path.splitext(filepattern)[1] not in ('.py', '.pyx'):
+            for filepattern in pattern.sources:
+                if os.path.splitext(filepattern)[1] in ('.py', '.pyx'):
+                    break
+            else:
                 # ignore non-cython modules
                 module_list.append(pattern)
                 continue
@@ -32,24 +37,21 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
             name = template.name
             base = DistutilsInfo(exn=template)
             exn_type = template.__class__
+            ext_language = None  # do not override whatever the Extension says
         else:
             raise TypeError(pattern)
+
         for file in extended_iglob(filepattern):
-            if file in to_exclude:
+            if os.path.abspath(file) in to_exclude:
                 continue
             pkg = deps.package(file)
             if '*' in name:
-                # NOTE: begin matt added
-                # cython pre-0.20 had a typo here
-                try:
-                    module_name = deps.fully_qualifeid_name(file)
-                except AttributeError:
-                    module_name = deps.fully_qualified_name(file)
-                # NOTE: end matt added
+                module_name = deps.fully_qualified_name(file)
                 if module_name in explicit_modules:
                     continue
             else:
                 module_name = name
+
             if module_name not in seen:
                 try:
                     kwds = deps.distutils_info(file, aliases, base).values
@@ -61,9 +63,10 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
                     for key, value in base.values.items():
                         if key not in kwds:
                             kwds[key] = value
+
                 sources = [file]
                 if template is not None:
-                    sources += template.sources[1:]
+                    sources += [m for m in template.sources if m != filepattern]
                 if 'sources' in kwds:
                     # allow users to add .c files etc.
                     for source in kwds['sources']:
@@ -77,6 +80,10 @@ def create_extension_list(patterns, exclude=[], ctx=None, aliases=None, quiet=Fa
                         # Always include everything from the template.
                         depends = list(set(template.depends).union(set(depends)))
                     kwds['depends'] = depends
+
+                if ext_language and 'language' not in kwds:
+                    kwds['language'] = ext_language
+
                 # NOTE: begin matt added
                 if 'name' in kwds:
                     module_name = str(kwds['name'])
