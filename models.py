@@ -768,6 +768,18 @@ class _HSMMParallelTempering(_HSMMBase,_HMMParallelTempering):
         self.dur_distns, other.dur_distns = other.dur_distns, self.dur_distns
         super(_HSMMParallelTempering,self).swap_sample_with(other)
 
+class _DelayedMixin(object):
+    def resample_dur_distns(self):
+        for state, distn in enumerate(self.dur_distns):
+            distn.resample_with_truncations(
+            data=
+            [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                - s.delays[state] for s in self.states_list],
+            truncated_data=
+            [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                - s.delays[state] for s in self.states_list])
+        self._clear_caches()
+
 #################
 #  HSMM Models  #
 #################
@@ -783,7 +795,7 @@ class HSMM(HSMMPython):
 class GeoHSMM(HSMMPython):
     _states_class = hsmm_states.GeoHSMMStates
 
-class DelayedGeoHSMM(HSMMPython):
+class DelayedGeoHSMM(_DelayedMixin,HSMMPython):
     _states_class = hsmm_states.DelayedGeoHSMMStates
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
@@ -807,7 +819,7 @@ class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
                         sum(s._expected_tots[state] for s in self.states_list),
                         ))
 
-class WeakLimitDelayedGeoHSMM(WeakLimitHDPHSMM):
+class WeakLimitDelayedGeoHSMM(_DelayedMixin,WeakLimitHDPHSMM):
     _states_class = hsmm_states.DelayedGeoHSMMStates
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
@@ -854,7 +866,7 @@ class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLi
     pass
 
 
-class WeakLimitHDPHSMMDelayedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
+class WeakLimitHDPHSMMDelayedIntNegBin(_DelayedMixin,_WeakLimitHDPMixin,HSMMIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomial
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
@@ -990,7 +1002,18 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
 class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMDelayedIntNegBin):
-    _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomial
+    _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans
+
+    def resample_dur_distns(self):
+        for state, distn in enumerate(self.dur_distns):
+            distn.resample_with_truncations(
+            data=
+            [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                - s.delays[state] for s in self.states_list],
+            truncated_data=
+            [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                - s.delays[state] for s in self.states_list])
+        self._clear_caches()
 
 ##########
 #  temp  #
