@@ -9,7 +9,7 @@ from ..util.stats import sample_discrete, sample_discrete_from_log, sample_marko
 from ..util.general import rle, top_eigenvector, cumsum
 from ..util.profiling import line_profiled
 
-from hmm_states import HMMStatesPython, HMMStatesEigen
+from hmm_states import HMMStatesPython, HMMStatesEigen, _SeparateTransMixin
 from hsmm_states import HSMMStatesPython, HSMMStatesEigen
 
 # TODO these classes are currently backed by HMM message passing, but they can
@@ -435,4 +435,14 @@ class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativ
                 for A,v,p,delay in zip(As,enters,self.ps,self.delays)]
         return [v.dot(np.linalg.matrix_power(A,self.delays[state])) / (1.-norm)
                 for state, (A,v,norm) in enumerate(zip(As,enters,norms))]
+
+class HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesDelayedIntegerNegativeBinomial):
+    pass
+
+class HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesTruncatedIntegerNegativeBinomial):
+    pass
 
