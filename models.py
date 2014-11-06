@@ -980,6 +980,34 @@ class WeakLimitHDPHSMMDelayedIntNegBin(_DelayedMixin,_WeakLimitHDPMixin,HSMMIntN
             d.delay = delay
         super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
 
+class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
+    _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomial
+    _trans_class = transitions.WeakLimitHDPHSMMTransitions
+    _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+
+    def __init__(self,dur_distns,delay=0,**kwargs):
+        for d in dur_distns:
+            d.delay = delay
+        super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
+
+    def resample_dur_distns(self):
+        for state, distn in enumerate(self.dur_distns):
+            distn.resample_with_censoring_and_truncation(
+                # regular data
+                data =
+                [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
+                    for s in self.states_list],
+
+                # right censoring due to HSMM states
+                right_censored_data =
+                [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
+                    for s in self.states_list],
+
+                # left truncation level
+                left_truncation_level = distn.delay,
+                )
+        self._clear_caches()
+
 ##########
 #  meta  #
 ##########
@@ -1108,6 +1136,7 @@ class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
         WeakLimitHDPHSMMDelayedIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans
 
+    # TODO is this method needed?
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
             distn.resample_with_truncations(
@@ -1119,144 +1148,8 @@ class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
                 - s.delays[state] for s in self.states_list])
         self._clear_caches()
 
-##########
-#  temp  #
-##########
-
-class DiagGaussHSMMPossibleChangepointsSeparateTrans(
-        HSMMPossibleChangepointsSeparateTrans):
-    _states_class = hsmm_states.DiagGaussStates
-
-    def init_meanfield_from_sample(self):
-        for s in self.states_list:
-            s.init_meanfield_from_sample()
-        self.meanfield_update_parameters()
-
-    def resample_obs_distns(self):
-        # collects the statistics using fast code
-        assert all(s.data.dtype == np.float64 for s in self.states_list)
-        assert all(s.stateseq.dtype == np.int32 for s in self.states_list)
-
-        if len(self.states_list) > 0:
-            from util.temp import getstats
-            allstats = getstats(
-                    len(self.obs_distns),
-                    [s.stateseq for s in self.states_list],
-                    [s.data for s in self.states_list])
-
-            for state, (distn, stats) in enumerate(zip(self.obs_distns,allstats)):
-                distn.resample(stats=stats,temperature=self.temperature)
-        else:
-            for distn in self.obs_distns:
-                distn.resample(temperature=self.temperature)
-        self._clear_caches()
-
-class DiagGaussGMMHSMMPossibleChangepointsSeparateTrans(
-        HSMMPossibleChangepointsSeparateTrans):
-    _states_class = hsmm_states.DiagGaussGMMStates
-
-    def init_meanfield_from_sample(self,niter=5):
-        for s in self.states_list:
-            s.init_meanfield_from_sample()
-        self.meanfield_update_parameters()
-
-        # extra iterations for GMM fitting
-        for i in xrange(niter-1):
-            self.meanfield_update_obs_distns()
-
-    def resample_obs_distns(self):
-        from .util.temp import resample_gmm_labels
-
-        datas = [s.data for s in self.states_list]
-        stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
-
-        for itr in xrange(self.obs_distns[0].niter):
-            mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
-            sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
-            logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
-
-            if self.temperature is not None:
-                sigmas *= self.temperature
-
-            randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
-
-            # compute likelihoods, resample labels, and collect statistics
-            allstats, allcounts = \
-                resample_gmm_labels(stateseqs,datas,randseqs,sigmas,mus,logweights)
-
-            for stats, counts, o in zip(allstats,allcounts,self.obs_distns):
-                # resample gaussian params using statistics
-                for s, c in zip(stats,o.components):
-                    c.resample(stats=s,temperature=self.temperature)
-
-                # resample mixture weights using counts
-                o.weights.resample(counts=counts)
-
-    @property
-    def energy(self):
-        from .util.temp import hsmm_gmm_energy
-
-        datas = [s.data for s in self.states_list]
-        stateseqs = [s.stateseq.astype('int32') for s in self.states_list]
-
-        mus = np.array([[c.mu for c in d.components] for d in self.obs_distns])
-        sigmas = np.array([[c.sigmas for c in d.components] for d in self.obs_distns])
-        logweights = np.log(np.array([d.weights.weights for d in self.obs_distns]))
-
-        randseqs = [np.random.uniform(size=d.shape[0]) for d in datas]
-
-        return hsmm_gmm_energy(stateseqs,datas,randseqs,sigmas,mus,logweights)
-
-    def get_sample(self):
-        SAVETYPE = 'float16'
-
-        stateseqs = [s.stateseq for s in self.states_list]
-
-        mus = np.array([[c.mu for c in d.components]
-            for d in self.obs_distns],dtype=SAVETYPE)
-        sigmas = np.array([[c.sigmas for c in d.components]
-            for d in self.obs_distns],dtype=SAVETYPE)
-        weights = np.array([d.weights.weights for d in self.obs_distns])
-
-        transitions = {k:d.full_trans_matrix for k,d in self.trans_distns.iteritems()}
-        init_state_distns = {k:d.pi_0 for k,d in self.init_state_distns.iteritems()}
-
-        return {
-                'stateseqs':stateseqs,
-                'mus':mus,
-                'sigmas':sigmas,
-                'weights':weights,
-                'transitions':transitions,
-                'init_state_distns':init_state_distns,
-                }
-
-    def set_sample(self,s):
-        LOADTYPE = 'float64'
-
-        for states, sample_stateseq in zip(self.states_list,s['stateseqs']):
-            states.stateseq = sample_stateseq
-
-        for d, mus, sigss, w in zip(self.obs_distns,s['mus'],s['sigmas'],s['weights']):
-            d.weights.weights = w
-            for c, mu, sigs in zip(d.components,mus,sigss):
-                c.mu = mu.astype(LOADTYPE)
-                c.sigmas = sigs.astype(LOADTYPE)
-
-        for group_id in self.trans_distns:
-            self.trans_distns[group_id].trans_matrix = s['transitions'][group_id]
-            self.init_state_distns[group_id].pi_0 = s['init_state_distns'][group_id]
-
-    def save_sample(self,filename):
-        import gzip, cPickle
-        sample = self.get_sample()
-        rngstate = np.random.get_state()
-        with gzip.open(filename,'w') as outfile:
-            cPickle.dump((sample,rngstate),outfile,protocol=-1)
-
-    def load_sample(self,filename):
-        import gzip, cPickle
-        with gzip.open(filename,'r') as infile:
-            sample, rngstate = cPickle.load(infile)
-        self.set_sample(sample)
-        np.random.set_state(rngstate)
+class WeakLimitHDPHSMMTruncatedIntNegBinSeparateTrans(
+        _SeparateTransMixin,
+        WeakLimitHDPHSMMTruncatedIntNegBin):
+    _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans
 

@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
-from ..util.stats import flattendata, sample_discrete_from_log, combinedata
+from ..util.stats import flattendata, sample_discrete, sample_discrete_from_log, combinedata
 from ..util.general import rcumsum
 
 class DurationDistribution(Distribution):
@@ -34,13 +34,31 @@ class DurationDistribution(Distribution):
 
     def rvs_given_greater_than(self,x):
         tail = self.log_sf(x)
+
+        # if numerical underflow, return anything sensible
         if np.isinf(tail):
             return x+1
-        trunc = 500
-        while self.log_sf(x+trunc) - tail > -20:
-            trunc = int(1.1*trunc)
-        logprobs = self.log_pmf(np.arange(x+1,x+trunc+1)) - tail
-        return sample_discrete_from_log(logprobs)+x+1
+
+        # if big tail, rejection sample
+        elif np.exp(tail) > 0.1:
+            y = self.rvs(25)
+            while not np.any(y > x):
+                y = self.rvs(25)
+            return y[y > x][0]
+
+        # otherwise, sample directly using the pmf and sf
+        else:
+            u = np.random.rand()
+            y = x
+            while u > 0:
+                u -= np.exp(self.log_pmf(y) - tail)
+                y += 1
+            return y
+
+    def rvs_given_less_than(self,x):
+        pmf = self.pmf(np.arange(1,x))
+        pmf /= pmf.sum()
+        return sample_discrete(pmf)
 
     def expected_log_sf(self,x):
         x = np.atleast_1d(x).astype('int32')
@@ -48,20 +66,41 @@ class DurationDistribution(Distribution):
         inf = max(2*x.max(),2*1000) # approximately infinity, we hope
         return rcumsum(self.expected_log_pmf(np.arange(1,inf)),strict=True)[x]
 
-    def resample_with_truncations(self,data=[],truncated_data=[]):
+    def resample_with_censoring(self,data=[],censored_data=[]):
         '''
-        truncated_data is full of observations that were truncated, so this
-        method samples them out to be at least that large
+        censored_data is full of observations that were censored, meaning a
+        value of x really could have been anything >= x, so this method samples
+        them out to be at least that large
         '''
-        if not isinstance(truncated_data,list):
-            filled_in = np.asarray([self.rvs_given_greater_than(x-1) for x in truncated_data])
+        filled_in = self._uncensor_data(censored_data)
+        return self.resample(data=combinedata((data,filled_in)))
+
+    def _uncensor_data(censored_data):
+        # TODO numpy-vectorize this!
+        if len(censored_data) > 0:
+            if not isinstance(censored_data,list):
+                filled_in = np.asarray([self.rvs_given_greater_than(x-1)
+                    for x in censored_data])
+            else:
+                filled_in = np.asarray([self.rvs_given_greater_than(x-1)
+                    for xx in censored_data for x in xx])
         else:
-            filled_in = np.asarray([self.rvs_given_greater_than(x-1)
-                for xx in truncated_data for x in xx])
-        self.resample(data=combinedata((data,filled_in)))
+            filled_in = []
+        return filled_in
+
+    def resample_with_censoring_and_truncation(self,data=[],censored_data=[],left_truncation_level=None):
+        filled_in = self._uncensor_data(censored_data)
+
+        if left_truncation_level is not None:
+            norm = self.pmf(np.arange(1,left_truncation_level)).sum()
+            num_rejected = np.random.geometric(1-norm)-1
+            rejected_observations = self.rvs(num_rejected) if num_rejected > 0 else []
+
+        self.resample(data=combinedata((data,filled_in,rejected_observations)))
 
     @property
     def mean(self):
+        # TODO this is dumb, why is this here?
         trunc = 500
         while self.log_sf(trunc) > -20:
             trunc *= 1.5
