@@ -444,6 +444,6 @@ class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativ
         #         for A,v,p,delay in zip(As,enters,self.ps,self.delays)]
         # enters = [v.dot(np.linalg.matrix_power(A,self.delays[state])) / (1.-norm)
         enters = [v.dot(np.linalg.matrix_power(A,self.delays[state]))
-                for state, (A,v,norm) in enumerate(zip(As,enters,norms))]
+                for state, (A,v) in enumerate(zip(As,enters))]
         return [v / v.sum() for v in enters] # this should just be for numerical purposes
 
