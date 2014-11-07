@@ -988,7 +988,7 @@ class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     def __init__(self,dur_distns,delay=0,**kwargs):
         for d in dur_distns:
             d.delay = delay
-        super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
+        super(WeakLimitHDPHSMMTruncatedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
