@@ -442,6 +442,7 @@ class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativ
         enters = [stats.binom.pmf(np.arange(r)[::-1],r-1,p) for A,r,p in zip(As,self.rs,self.ps)]
         norms = [sum(v.dot(np.linalg.matrix_power(A,d))[-1]*(1-p) for d in xrange(delay))
                 for A,v,p,delay in zip(As,enters,self.ps,self.delays)]
-        return [v.dot(np.linalg.matrix_power(A,self.delays[state])) / (1.-norm)
+        enters = [v.dot(np.linalg.matrix_power(A,self.delays[state])) / (1.-norm)
                 for state, (A,v,norm) in enumerate(zip(As,enters,norms))]
+        return [v / v.sum() for v in enters]
 
