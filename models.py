@@ -687,7 +687,7 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 for s in self.states_list],
-            truncated_data=
+            censored_data=
             [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
                 for s in self.states_list])
         self._clear_caches()
@@ -775,7 +775,7 @@ class _DelayedMixin(object):
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 - s.delays[state] for s in self.states_list],
-            truncated_data=
+            censored_data=
             [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
                 - s.delays[state] for s in self.states_list])
         self._clear_caches()
@@ -1039,7 +1039,7 @@ class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 - s.delays[state] for s in self.states_list],
-            truncated_data=
+            censored_data=
             [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
                 - s.delays[state] for s in self.states_list])
         self._clear_caches()
