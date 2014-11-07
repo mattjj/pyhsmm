@@ -5,7 +5,11 @@ import abc, copy, warnings
 import scipy.stats as stats
 import scipy.special as special
 
-from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
+from ..util.stats import sample_discrete, sample_discrete_from_log
+try:
+    from ..util.cstats import sample_markov
+except ImportError:
+    from ..util.stats import sample_markov
 from ..util.general import rle, top_eigenvector, cumsum
 from ..util.profiling import line_profiled
 
