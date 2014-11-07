@@ -57,7 +57,6 @@ class DurationDistribution(Distribution):
 
     def rvs_given_less_than(self,x):
         pmf = self.pmf(np.arange(1,x))
-        pmf /= pmf.sum()
         return sample_discrete(pmf)
 
     def expected_log_sf(self,x):
@@ -75,7 +74,7 @@ class DurationDistribution(Distribution):
         filled_in = self._uncensor_data(censored_data)
         return self.resample(data=combinedata((data,filled_in)))
 
-    def _uncensor_data(censored_data):
+    def _uncensor_data(self,censored_data):
         # TODO numpy-vectorize this!
         if len(censored_data) > 0:
             if not isinstance(censored_data,list):
@@ -94,7 +93,9 @@ class DurationDistribution(Distribution):
         if left_truncation_level is not None:
             norm = self.pmf(np.arange(1,left_truncation_level)).sum()
             num_rejected = np.random.geometric(1-norm)-1
-            rejected_observations = self.rvs(num_rejected) if num_rejected > 0 else []
+            rejected_observations = self.rvs_given_less_than(left_truncation_level,num_rejected)
+        else:
+            rejected_observations = []
 
         self.resample(data=combinedata((data,filled_in,rejected_observations)))
 
