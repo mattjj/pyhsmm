@@ -999,7 +999,7 @@ class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
                     for s in self.states_list],
 
                 # right censoring due to HSMM states
-                right_censored_data =
+                censored_data =
                 [s.durations_censored[s.trunc_slice][s.stateseq_norep[s.trunc_slice] == state]
                     for s in self.states_list],
 
