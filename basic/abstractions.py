@@ -55,9 +55,9 @@ class DurationDistribution(Distribution):
                 y += 1
             return y
 
-    def rvs_given_less_than(self,x):
+    def rvs_given_less_than(self,x,num):
         pmf = self.pmf(np.arange(1,x))
-        return sample_discrete(pmf)
+        return sample_discrete(pmf,num)+1
 
     def expected_log_sf(self,x):
         x = np.atleast_1d(x).astype('int32')
