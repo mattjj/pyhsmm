@@ -14,14 +14,34 @@ from cython.parallel import prange
 cdef inline int32_t csample_discrete_normalized(floating[::1] distn, floating u):
     cdef int i
     cdef int N = distn.shape[0]
-    cdef floating tot = u
 
     for i in range(N):
-        tot -= distn[i]
-        if tot < 0:
+        u -= distn[i]
+        if u < 0:
             break
 
     return i
+
+def sample_discrete(floating[::1] distn, int num=1):
+    cdef floating tot
+    if num == 1:
+        tot = np.sum(distn) * np.random.random()
+        return csample_discrete_normalized(distn, tot)
+    else:
+        return _sample_discrete_multi(distn,num)
+
+# NOTE: there are faster methods when size is large, like the alias method
+cdef np.ndarray[int32_t,ndim=1,mode='c'] _sample_discrete_multi(
+        floating[::1] distn, int num):
+    cdef int32_t[::1] out = np.empty(num,dtype=np.int32)
+    cdef floating[::1] randseq = np.random.random(num)
+    cdef floating tot = np.sum(distn)
+    cdef int i
+
+    for i in range(num):
+        out[i] = csample_discrete_normalized(distn,tot*randseq[i])
+
+    return np.asarray(out)
 
 def sample_markov(
         int T,
