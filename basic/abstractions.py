@@ -93,7 +93,8 @@ class DurationDistribution(Distribution):
         if left_truncation_level is not None and left_truncation_level > 1:
             norm = self.pmf(np.arange(1,left_truncation_level)).sum()
             num_rejected = np.random.geometric(1-norm)-1
-            rejected_observations = self.rvs_given_less_than(left_truncation_level,num_rejected)
+            rejected_observations = self.rvs_given_less_than(left_truncation_level,num_rejected) \
+                    if num_rejected > 0 else []
         else:
             rejected_observations = []
 
