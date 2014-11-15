@@ -90,7 +90,7 @@ class DurationDistribution(Distribution):
     def resample_with_censoring_and_truncation(self,data=[],censored_data=[],left_truncation_level=None):
         filled_in = self._uncensor_data(censored_data)
 
-        if left_truncation_level is not None:
+        if left_truncation_level is not None and left_truncation_level > 1:
             norm = self.pmf(np.arange(1,left_truncation_level)).sum()
             num_rejected = np.random.geometric(1-norm)-1
             rejected_observations = self.rvs_given_less_than(left_truncation_level,num_rejected)
