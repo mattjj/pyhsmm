@@ -85,6 +85,31 @@ class _HMMBase(Model):
         else:
             return sum(s.log_likelihood() for s in self.states_list)
 
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        assert all(k > 0 for k in forecast_horizons)
+        self.add_data(data=test_data,**kwargs)
+        s = self.states_list.pop()
+        alphal = s.messages_forwards_log()
+
+        cmaxes = alphal.max(axis=1)
+        scaled_alphal = np.exp(alphal - cmaxes[:,None])
+
+        prev_k = 0
+        outs = []
+        for k in forecast_horizons:
+            step = k - prev_k
+            cmaxes = cmaxes[:-step]
+            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
+
+            future_likelihoods = np.logaddexp.reduce(
+                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
+            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+            outs.append(future_likelihoods - past_likelihoods)
+
+            prev_k = k
+
+        return outs
+
     @property
     def stateseqs(self):
         return [s.stateseq for s in self.states_list]
@@ -944,6 +969,31 @@ class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM,
 
     def _vlb(self):
         return 0. # TODO
+
+    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+        self.add_data(data=test_data,**kwargs)
+        s = self.states_list.pop()
+        alphal = s.hmm_messages_forwards_log()
+
+        cmaxes = alphal.max(axis=1)
+        scaled_alphal = np.exp(alphal - cmaxes[:,None])
+
+        prev_k = 0
+        outs = []
+        for k in forecast_horizons:
+            step = k - prev_k
+            cmaxes = cmaxes[:-step]
+            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.hmm_trans_matrix,step))
+
+            future_likelihoods = np.logaddexp.reduce(
+                    np.log(scaled_alphal) + cmaxes[:,None] + s.hmm_aBl[k:],axis=1)
+            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+            outs.append(future_likelihoods - past_likelihoods)
+
+            prev_k = k
+
+        return outs
+
 
 class WeakLimitHDPHSMMIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
