@@ -812,7 +812,7 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
-            distn.resample_with_truncations(
+            distn.resample_with_censoring_and_truncation(
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 for s in self.states_list],
@@ -900,7 +900,7 @@ class _HSMMParallelTempering(_HSMMBase,_HMMParallelTempering):
 class _DelayedMixin(object):
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
-            distn.resample_with_truncations(
+            distn.resample_with_censoring_and_truncation(
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 - s.delays[state] for s in self.states_list],
@@ -1189,7 +1189,7 @@ class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
     # TODO is this method needed?
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
-            distn.resample_with_truncations(
+            distn.resample_with_censoring_and_truncation(
             data=
             [s.durations_censored[s.untrunc_slice][s.stateseq_norep[s.untrunc_slice] == state]
                 - s.delays[state] for s in self.states_list],
