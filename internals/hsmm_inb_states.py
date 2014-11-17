@@ -95,6 +95,10 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     def Viterbi(self):
         self.Viterbi_hmm()
 
+    def hmm_messages_forwards_log(self):
+        return HMMStatesEigen._messages_forwards_log(
+                self.hmm_trans_matrix,self.hmm_pi_0,self.hmm_aBl)
+
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     @property
     def hmm_trans_matrix(self):
