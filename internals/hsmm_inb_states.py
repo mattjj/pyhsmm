@@ -334,6 +334,12 @@ class HSMMStatesIntegerNegativeBinomialVariant(_HSMMStatesIntegerNegativeBinomia
         return trans_matrix
 
 
+class HSMMStatesIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesIntegerNegativeBinomial):
+    pass
+
+
 class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial):
     @property
     def hmm_trans_matrix(self):
