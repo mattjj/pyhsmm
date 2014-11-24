@@ -1071,10 +1071,10 @@ class HSMMPossibleChangepointsSeparateTrans(
         HSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
 
-class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
-        _SeparateTransMixin,
-        WeakLimitHDPHSMMPossibleChangepoints):
-    _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+# class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
+#         _SeparateTransMixin,
+#         WeakLimitHDPHSMMPossibleChangepoints):
+#     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
 
 class WeakLimitHDPHSMMIntNegBinSeparateTrans(
         _SeparateTransMixin,
