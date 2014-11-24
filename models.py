@@ -443,7 +443,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(
-                    [(s.data,s._kwargs) for s in states_list],
+                    [self._get_joblib_pair(s) for s in states_list],
                     joblib_jobs)
             allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_stats)(self,arg) for arg in joblib_args)
@@ -452,6 +452,9 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
                     [s for grp in list_split(states_list) for s in grp],
                     [s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
+
+    def _get_joblib_pair(self,states_obj):
+        return (states_obj.data,states_obj._kwargs)
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
