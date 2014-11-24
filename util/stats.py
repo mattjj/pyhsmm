@@ -86,16 +86,21 @@ def flattendata(data):
 
 def cov(a):
     # return np.cov(a,rowvar=0,bias=1)
-    mu = a.mean(0)
     if isinstance(a,np.ma.MaskedArray):
+        mu = a.mean(0)
         return np.ma.dot(a.T,a)/a.count(0)[0] - np.ma.outer(mu,mu)
-    else:
-        return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
+    elif np.isnan(a).any():
+        a = a[~np.isnan(a).any(1)]
+    mu = a.mean(0)
+    return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
 
 def whiten(data):
-    sigma = cov(data)
+    sigma = cov(data if not isinstance(data,list) else np.concatenate(data))
     L = np.linalg.cholesky(sigma)
-    return np.linalg.solve(L,data.T).T.copy()
+    if isinstance(data,list):
+        return [np.linalg.solve(L,d.T).T.copy() for d in data]
+    else:
+        return np.linalg.solve(L,data.T).T.copy()
 
 ### Sampling functions
 
