@@ -73,7 +73,7 @@ for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
 for idx in progprint_xrange(100):
-    posteriormodel.resample_model()
+    posteriormodel.resample_model(joblib_jobs=2)
 
 for s in posteriormodel.states_list:
     s.Viterbi()

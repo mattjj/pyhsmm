@@ -278,3 +278,8 @@ def indices_to_changepoints(T,changes):
 
     return zip(changes[:-1],changes[1:])
 
+def labels_to_changepoints(labels):
+    _, durs = rle(labels)
+    cdurs = np.concatenate(((0,),durs.cumsum()))
+    return zip(cdurs[:-1],cdurs[1:])
+

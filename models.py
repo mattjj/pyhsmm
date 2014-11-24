@@ -270,7 +270,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(
-                    [(s.data,s._kwargs) for s in states_list],
+                    [self._get_joblib_pair(s) for s in states_list],
                     joblib_jobs)
             raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
@@ -278,6 +278,9 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             for s, (stateseq, log_likelihood) in zip(
                     states_list,[seq for grp in raw_stateseqs for seq in grp]):
                 s.stateseq, s._normalizer = stateseq, log_likelihood
+
+    def _get_joblib_pair(self,states_obj):
+        return (states_obj.data,states_obj._kwargs)
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):
@@ -341,13 +344,16 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(
-                    [(s.data,s._kwargs) for s in states_list],
+                    [self._get_joblib_pair(s) for s in states_list],
                     joblib_jobs)
             allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_stats)(self,arg) for arg in joblib_args)
 
             for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
+
+    def _get_joblib_pair(self,states_obj):
+        return (states_obj.data,states_obj._kwargs)
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
