@@ -318,7 +318,6 @@ class HSMMStatesPython(_StatesBase):
 
     ### Gibbs sampling
 
-    @line_profiled
     def resample(self):
         self.aBl
         betal, betastarl = self.messages_backwards()
@@ -783,7 +782,6 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         return self.caBl[tblock+1:][:self.trunc], self.caBl[tblock]
         # return self.aBl[tblock:].cumsum(0)[:self.trunc]
 
-    @line_profiled
     def dur_potentials(self,tblock):
         possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc].astype('int32')
         return self.aDl[possible_durations -1]
@@ -1002,7 +1000,6 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
 #  HSMM message functions  #
 ############################
 
-@line_profiled
 def hsmm_messages_backwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentials,
@@ -1034,7 +1031,6 @@ def hsmm_messages_backwards_log(
     np.seterr(**errs)
     return betal, betastarl, normalizer
 
-@line_profiled
 def hsmm_messages_forwards_log(
     trans_potential, initial_state_potential,
     reverse_cumulative_obs_potentials, reverse_dur_potentials, reverse_dur_survival_potentials,
@@ -1064,7 +1060,6 @@ def hsmm_messages_forwards_log(
 
     return alphal, alphastarl, normalizer
 
-@line_profiled
 def hsmm_sample_forwards_log(
     trans_potentials, initial_state_potential,
     cumulative_obs_potentials, dur_potentials, dur_survival_potentails,
@@ -1112,7 +1107,6 @@ def hsmm_sample_forwards_log(
 
     return stateseq, durations
 
-@line_profiled
 def hsmm_maximizing_assignment(
     N, T,
     trans_potentials, initial_state_potential,

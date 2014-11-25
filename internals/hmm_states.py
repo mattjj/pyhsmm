@@ -347,7 +347,6 @@ class HMMStatesPython(_StatesBase):
         betal = self.messages_backwards_log()
         self.sample_forwards_log(betal)
 
-    @line_profiled
     def resample_normalized(self):
         alphan = self.messages_forwards_normalized()
         self.sample_backwards_normalized(alphan)
