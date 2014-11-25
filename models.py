@@ -272,7 +272,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             joblib_args = util.general.list_split(
                     [self._get_joblib_pair(s) for s in states_list],
                     joblib_jobs)
-            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
+            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='threading',max_nbytes=None,pre_dispatch='all')\
                     (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
 
             for s, (stateseq, log_likelihood) in zip(
