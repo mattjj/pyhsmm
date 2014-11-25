@@ -276,8 +276,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             parallel.model = self
             parallel.args = joblib_args
 
-            raw_stateseqs = Parallel(
-                    n_jobs=joblib_jobs,backend='threading',max_nbytes=None,pre_dispatch='all')\
+            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(parallel._get_sampled_stateseq)(idx)
                             for idx in range(len(joblib_args)))
 
