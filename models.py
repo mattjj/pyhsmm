@@ -266,7 +266,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         from joblib import Parallel, delayed
         from parallel import _get_sampled_stateseq
 
-        warn('joblib is segfaulting on OS X only, not sure why')
+        # warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(

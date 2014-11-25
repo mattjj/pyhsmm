@@ -20,6 +20,9 @@ class HSMMStatesPython(_StatesBase):
         self.left_censoring = left_censoring
         self.trunc = trunc
 
+        self._kwargs = dict(self._kwargs,trunc=trunc,
+                left_censoring=left_censoring,right_censoring=right_censoring)
+
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 
     ### properties for the outside world
