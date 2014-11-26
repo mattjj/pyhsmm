@@ -242,28 +242,43 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
     def _joblib_resample_states(self,states_list,joblib_jobs):
         from joblib import Parallel, delayed
-        from parallel import _get_sampled_stateseq
+        import parallel
 
         # warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
             joblib_args = util.general.list_split(
-                    [(s.data,s._kwargs) for s in states_list],
+                    [self._get_joblib_pair(s) for s in states_list],
                     joblib_jobs)
+
+            parallel.model = self
+            parallel.args = joblib_args
+
             raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(_get_sampled_stateseq)(self,arg) for arg in joblib_args)
+                    (delayed(parallel._get_sampled_stateseq)(idx)
+                            for idx in range(len(joblib_args)))
 
             for s, (stateseq, log_likelihood) in zip(
                     states_list,[seq for grp in raw_stateseqs for seq in grp]):
                 s.stateseq, s._normalizer = stateseq, log_likelihood
 
+    def _get_joblib_pair(self,states_obj):
+        return (states_obj.data,states_obj._kwargs)
+
     def _joblib_resample_obs_distns(self,joblib_jobs):
         from joblib import Parallel, delayed
-        from parallel import _get_sampled_obs_params
+        import parallel
+
+        parallel.model = self
+        parallel.states_list = self.states_list
 
         if len(self.obs_distns) > 0:
             params = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(_get_sampled_obs_params)(self
+                    (delayed(parallel._get_sampled_obs_params)(idx)
+                            for idx in range(len(self.obs_distns)))
+
+            for o, p in zip(self.obs_distns,params):
+                o.parameters = p
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,joblib_jobs=0):

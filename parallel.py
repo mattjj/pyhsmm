@@ -1,7 +1,16 @@
 from __future__ import division
 import numpy as np
 
-def _get_stats(model,grp):
+# NOTE: pass arguments through global variables instead of arguments to exploit
+# the fact that they're read-only and multiprocessing/joblib uses fork
+
+model = None
+states_list = None
+args = None
+
+def _get_stats(idx):
+    grp = args[idx]
+
     if len(grp) == 0:
         return []
 
@@ -17,7 +26,9 @@ def _get_stats(model,grp):
 
     return [s.all_expected_stats for s in states_list]
 
-def _get_sampled_stateseq(model,grp):
+def _get_sampled_stateseq(idx):
+    grp = args[idx]
+
     if len(grp) == 0:
         return []
 
@@ -30,7 +41,8 @@ def _get_sampled_stateseq(model,grp):
 
     return [(s.stateseq, s.log_likelihood()) for s in states_list]
 
-def _get_sampled_stateseq_and_labels(model,grp):
+def _get_sampled_stateseq_and_labels(idx):
+    grp = args[idx]
     if len(grp) == 0:
         return []
 
@@ -43,4 +55,8 @@ def _get_sampled_stateseq_and_labels(model,grp):
 
     return [(s.stateseq,s.component_labels,s.log_likelihood())
             for s in states_list]
+
+def _get_sampled_obs_params(idx):
+    model.obs_distns[idx].resample([s.data[s.stateseq == idx] for s in states_list])
+    return model.obs_distns[idx].parameters
 
