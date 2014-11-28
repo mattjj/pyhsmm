@@ -1074,6 +1074,9 @@ class HMMSeparateTrans(_SeparateTransMixin,HMM):
 class WeakLimitHDPHMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHMM):
     _states_class = hmm_states.HMMStatesEigenSeparateTrans
 
+class WeakLimitStickyHDPHMMSeparateTrans(_SeparateTransMixin,WeakLimitStickyHDPHMM):
+    _states_class = hmm_states.HMMStatesEigenSeparateTrans
+
 class WeakLimitHDPHSMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHSMM):
     _states_class = hsmm_states.HSMMStatesSeparateTrans
 
