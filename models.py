@@ -703,9 +703,9 @@ class _HSMMBase(_HMMBase):
 
 class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
     @line_profiled
-    def resample_parameters(self):
+    def resample_parameters(self,**kwargs):
         self.resample_dur_distns()
-        super(_HSMMGibbsSampling,self).resample_parameters()
+        super(_HSMMGibbsSampling,self).resample_parameters(**kwargs)
 
     def resample_dur_distns(self):
         for state, distn in enumerate(self.dur_distns):
