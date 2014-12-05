@@ -323,12 +323,12 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
         self._clear_caches()
 
-    def resample_states(self,joblib_jobs=0):
-        if joblib_jobs == 0:
+    def resample_states(self,num_procs=0):
+        if num_procs == 0:
             for s in self.states_list:
                 s.resample()
         else:
-            self._joblib_resample_states(self.states_list,joblib_jobs)
+            self._multiprocessing_resample_states(self.states_list,num_procs)
 
     def copy_sample(self):
         new = copy.copy(self)
@@ -338,32 +338,31 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         new.states_list = [s.copy_sample(new) for s in self.states_list]
         return new
 
-    ### joblib parallel stuff here
+    ### multiprocessing stuff here
 
-    def _joblib_resample_states(self,states_list,joblib_jobs):
-        from joblib import Parallel, delayed
-        import parallel
-
-        # warn('joblib is segfaulting on OS X only, not sure why')
+    def _multiprocessing_resample_states(self,states_list,num_procs):
+        # NOTE: this implementation assumes we have a fork() with copy-on-write
 
         if len(states_list) > 0:
-            joblib_args = util.general.list_split(
-                    [self._get_joblib_pair(s) for s in states_list],
-                    joblib_jobs)
+            from multiprocessing import Pool
+            import parallel
+
+            multiprocessing_args = util.general.list_split(
+                    [self._get_multiprocessing_pair(s) for s in states_list],
+                    num_procs)
 
             parallel.model = self
-            parallel.args = joblib_args
+            parallel.args = multiprocessing_args
 
-            raw_stateseqs = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(parallel._get_sampled_stateseq)(idx)
-                            for idx in range(len(joblib_args)))
+            p = Pool(num_procs)
+            raw_stateseqs = p.map(parallel._get_sampled_stateseq, range(len(multiprocessing_args)))
 
             for s, (stateseq, log_likelihood) in zip(
                     [s for grp in list_split(states_list,joblib_jobs) for s in grp],
                     [seq for grp in raw_stateseqs for seq in grp]):
                 s.stateseq, s._normalizer = stateseq, log_likelihood
 
-    def _get_joblib_pair(self,states_obj):
+    def _get_multiprocessing_pair(self,states_obj):
         return (states_obj.data,states_obj._kwargs)
 
     def _joblib_resample_obs_distns(self,joblib_jobs):
@@ -382,20 +381,20 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
                 o.parameters = p
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
-    def meanfield_coordinate_descent_step(self,joblib_jobs=0):
-        self._meanfield_update_sweep(joblib_jobs=joblib_jobs)
+    def meanfield_coordinate_descent_step(self,num_procs=0):
+        self._meanfield_update_sweep(num_procs=num_procs)
         return self._vlb()
 
-    def _meanfield_update_sweep(self,joblib_jobs=0):
+    def _meanfield_update_sweep(self,num_procs=0):
         # NOTE: we want to update the states factor last to make the VLB
         # computation efficient, but to update the parameters first we have to
         # ensure everything in states_list has expected statistics computed
         self._meanfield_update_states_list(
             [s for s in self.states_list if not hasattr(s,'expected_states')],
-            joblib_jobs)
+            num_procs)
 
         self.meanfield_update_parameters()
-        self.meanfield_update_states(joblib_jobs)
+        self.meanfield_update_states(num_procs)
 
     def meanfield_update_parameters(self):
         self.meanfield_update_obs_distns()
@@ -415,15 +414,15 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         self.init_state_distn.meanfieldupdate(
                 [s.expected_states[0] for s in self.states_list])
 
-    def meanfield_update_states(self,joblib_jobs=0):
-        self._meanfield_update_states_list(self.states_list,joblib_jobs=joblib_jobs)
+    def meanfield_update_states(self,num_procs=0):
+        self._meanfield_update_states_list(self.states_list,num_procs=num_procs)
 
-    def _meanfield_update_states_list(self,states_list,joblib_jobs=0):
-        if joblib_jobs == 0:
+    def _meanfield_update_states_list(self,states_list,num_procs=0):
+        if num_procs == 0:
             for s in states_list:
                 s.meanfieldupdate()
         else:
-            self._joblib_meanfield_update_states(states_list,joblib_jobs)
+            self._multiprocessing_meanfield_update_states(states_list,num_procs)
 
     def _vlb(self):
         vlb = 0.
@@ -433,40 +432,41 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
-    ### joblib parallel stuff here
+    ### multiprocessing stuff here
 
-    def _joblib_meanfield_update_states(self,states_list,joblib_jobs):
-        from joblib import Parallel, delayed
-        from parallel import _get_stats
-
-        warn('joblib is segfaulting on OS X only, not sure why')
-
+    def _multiprocessing_meanfield_update_states(self,states_list,num_procs):
         if len(states_list) > 0:
-            joblib_args = util.general.list_split(
-                    [self._get_joblib_pair(s) for s in states_list],
-                    joblib_jobs)
-            allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(_get_stats)(self,arg) for arg in joblib_args)
+            from multiprocessing import Pool
+            import parallel
+
+            parallel.model = self
+            parallel.args = multiprocessing_args
+
+            multiprocessing_args = util.general.list_split(
+                    [self._get_multiprocessing_pair(s) for s in states_list],
+                    num_procs)
+
+            allstats = p.map(parallel._get_stats, range(len(multiprocessing_args)))
 
             for s, stats in zip(
                     [s for grp in list_split(states_list) for s in grp],
                     [s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
 
-    def _get_joblib_pair(self,states_obj):
+    def _get_multiprocessing_pair(self,states_obj):
         return (states_obj.data,states_obj._kwargs)
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
-    # joblib stuff to work
-    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,joblib_jobs=0,**kwargs):
+    # multiprocessing stuff to work
+    def meanfield_sgdstep(self,minibatch,minibatchfrac,stepsize,num_procs=0,**kwargs):
         ## compute the local mean field step for the minibatch
         mb_states_list = self._get_mb_states_list(minibatch,**kwargs)
-        if joblib_jobs == 0:
+        if num_procs == 0:
             for s in mb_states_list:
                 s.meanfieldupdate()
         else:
-            self._joblib_meanfield_update_states(mb_states_list,joblib_jobs)
+            self._multiprocessing_meanfield_update_states(mb_states_list,num_procs)
 
         ## take a global step on the parameters
         self._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
