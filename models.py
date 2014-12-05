@@ -278,6 +278,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
             p = Pool(num_procs)
             raw_stateseqs = p.map(parallel._get_sampled_stateseq, range(len(multiprocessing_args)))
+            p.close()
 
             for s, (stateseq, log_likelihood) in zip(
                     states_list,[seq for grp in raw_stateseqs for seq in grp]):
@@ -352,7 +353,9 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
                     [self._get_multiprocessing_pair(s) for s in states_list],
                     num_procs)
 
+            p = Pool(num_procs)
             allstats = p.map(parallel._get_stats, range(len(multiprocessing_args)))
+            p.close()
 
             for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
