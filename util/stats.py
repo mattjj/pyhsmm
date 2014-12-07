@@ -90,7 +90,7 @@ def getdata(l):
 def mean(datalist):
     return getdata(datalist).mean(0)
 
-def cov(a):
+def cov(datalist):
     return np.cov(getdata(datalist),rowvar=0,bias=1)
 
 def whiten(datalist):
