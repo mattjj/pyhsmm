@@ -25,8 +25,7 @@ def mask_data(data):
     return np.ma.masked_array(np.nan_to_num(data),np.isnan(data),fill_value=0.,hard_mask=True)
 
 def gi(data):
-    out = (np.isnan(atleast_2d(data)).sum(1) == 0).ravel()
-    return out if len(out) != 0 else None
+    return ~np.isnan(np.atleast_2d(data).reshape(data.shape[0],-1)).any(1)
 
 def getdatasize(data):
     if isinstance(data,np.ma.masked_array):
@@ -85,18 +84,26 @@ def flattendata(data):
 
 ### misc
 
-def cov(a):
-    # return np.cov(a,rowvar=0,bias=1)
-    mu = a.mean(0)
-    if isinstance(a,np.ma.MaskedArray):
-        return np.ma.dot(a.T,a)/a.count(0)[0] - np.ma.outer(mu,mu)
-    else:
-        return a.T.dot(a)/a.shape[0] - np.outer(mu,mu)
+def getdata(l):
+    return np.concatenate([x[gi(x)] for x in general.flatiter(l)])
 
-def whiten(data):
-    sigma = cov(data)
-    L = np.linalg.cholesky(sigma)
-    return np.linalg.solve(L,data.T).T.copy()
+def mean(datalist):
+    return getdata(datalist).mean(0)
+
+def cov(a):
+    return np.cov(getdata(datalist),rowvar=0,bias=1)
+
+def whiten(datalist):
+    mu, L = mean(datalist), np.linalg.cholesky(cov(datalist))
+    def apply_whitening(x):
+        return np.linalg.solve(L, (x-mu).T).T + mu
+    return general.treemap(apply_whitening, datalist)
+
+def diag_whiten(datalist):
+    mu, l = mean(datalist), np.sqrt(diag_of_cov(datalist))
+    def apply_whitening(x):
+        return (x-mu)/l + mu
+    return general.treemap(apply_whitening, datalist)
 
 def count_transitions(stateseq, num_states):
     out = np.zeros((num_states,num_states),dtype=np.int32)

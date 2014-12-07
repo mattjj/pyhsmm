@@ -278,3 +278,17 @@ def indices_to_changepoints(T,changes):
 
     return zip(changes[:-1],changes[1:])
 
+
+def flatiter(l):
+    if isinstance(l,list):
+        for x in l:
+            for y in flatiter(x):
+                yield y
+    else:
+        yield l
+
+def treemap(f,l):
+    if isinstance(l, list):
+        return [treemap(f,_) for _ in l]
+    else:
+        return f(l)
