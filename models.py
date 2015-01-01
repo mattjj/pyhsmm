@@ -89,6 +89,14 @@ class _HMMBase(Model):
         return [s.stateseq for s in self.states_list]
 
     @property
+    def durations(self):
+        return [util.general.rle(s.stateseq)[1] for s in self.states_list]
+
+    @property
+    def stateseqs_norep(self):
+        return [util.general.rle(s.stateseq)[0] for s in self.states_list]
+
+    @property
     def num_states(self):
         return len(self.obs_distns)
 
