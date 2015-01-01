@@ -267,7 +267,8 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
                             for idx in range(len(joblib_args)))
 
             for s, (stateseq, log_likelihood) in zip(
-                    states_list,[seq for grp in raw_stateseqs for seq in grp]):
+                    [s for grp in list_split(states_list,joblib_jobs) for s in grp],
+                    [seq for grp in raw_stateseqs for seq in grp]):
                 s.stateseq, s._normalizer = stateseq, log_likelihood
 
     def _get_joblib_pair(self,states_obj):
@@ -355,7 +356,9 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             allstats = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
                     (delayed(_get_stats)(self,arg) for arg in joblib_args)
 
-            for s, stats in zip(states_list,[s for grp in allstats for s in grp]):
+            for s, stats in zip(
+                    [s for grp in list_split(states_list) for s in grp],
+                    [s for grp in allstats for s in grp]):
                 s.all_expected_stats = stats
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
