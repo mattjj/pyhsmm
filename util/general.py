@@ -254,8 +254,10 @@ def get_file(remote_url,local_path):
                 shutil.copyfileobj(remotefile,localfile)
 
 def list_split(lst,num):
-    assert num > 0
-    return [lst[start::num] for start in range(num)]
+    assert 0 < num <= len(lst)
+    lens = [len(lst[start::num]) for start in range(num)]
+    starts, stops = cumsum(lens,strict=True), cumsum(lens,strict=False)
+    return [lst[start:stop] for start,stop in zip(starts,stops)]
 
 def indicators_to_changepoints(indseq,which='ends'):
     shift = 1 if which == 'ends' else 0
