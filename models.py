@@ -2,7 +2,8 @@ from __future__ import division
 import numpy as np
 from numpy import newaxis as na
 import itertools, collections, operator, random, abc, copy
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib import cm
 from warnings import warn
 
@@ -102,7 +103,27 @@ class _HMMBase(Model):
 
     @property
     def num_parameters(self):
-        return sum(o.num_parameters() for o in self.obs_distns) + self.num_states**2
+        return sum(o.num_parameters() for o in self.obs_distns) \
+                + self.num_states**2 - self.num_states
+
+    @property
+    def used_states(self):
+        'a list of the used states in the order they appear'
+        canonical_ids = collections.defaultdict(itertools.count().next)
+        for s in self.states_list:
+            for state in s.stateseq:
+                canonical_ids[state]
+        return map(operator.itemgetter(0),
+                sorted(canonical_ids.items(),key=operator.itemgetter(1)))
+
+    @property
+    def state_usages(self):
+        if len(self.states_list) > 0:
+            state_usages = sum(np.bincount(s.stateseq,minlength=self.num_states)
+                    for s in self.states_list)
+            return state_usages / state_usages.sum()
+        else:
+            return np.ones(self.num_states)
 
     ### predicting
 
@@ -136,56 +157,102 @@ class _HMMBase(Model):
 
     ### plotting
 
-    def _get_used_states(self,states_objs=None):
-        if states_objs is None:
-            states_objs = self.states_list
-        canonical_ids = collections.defaultdict(itertools.count().next)
-        for s in states_objs:
-            for state in s.stateseq:
-                canonical_ids[state]
-        return map(operator.itemgetter(0),
-                sorted(canonical_ids.items(),key=operator.itemgetter(1)))
+    def plot(self,fig=None,update=False,draw=True):
 
-    def _get_colors(self,states_objs=None):
-        states_objs = self.states_list if states_objs is None else states_objs
-        if len(states_objs) > 0:
-            states = self._get_used_states(states_objs)
+        if len(self.states_list) <= 3:
+            fig = fig if fig else plt.figure(figsize=(4+len(self.states_list),4))
+            gs = GridSpec(4+len(self.states_list),1)
+
+            feature_ax = plt.subplot(gs[:4,:])
+            stateseq_axs = [plt.subplot(gs[4+idx]) for idx in range(len(self.states_list))]
         else:
-            states = range(len(self.obs_distns))
-        numstates = len(states)
-        return dict(zip(states,np.linspace(0,1,numstates,endpoint=True)))
+            fig = fig if fig else plt.figure(figsize=(8,4))
+            gs = GridSpec(1,2)
+            sgs = GridSpecFromSubplotSpec(len(self.states_list),1,subplot_spec=gs[1])
 
-    def plot_observations(self,colors=None,states_objs=None):
-        if states_objs is None:
-            states_objs = self.states_list
+            feature_ax = plt.subplot(gs[0])
+            stateseq_axs = [plt.subplot(panel) for panel in sgs]
 
-        if colors is None:
-            colors = self._get_colors()
-        cmap = cm.get_cmap()
+        sp1_artists = self.plot_observations(feature_ax,update=update)
 
-        if len(states_objs) > 0:
-            used_states = self._get_used_states(states_objs)
-            for state,o in enumerate(self.obs_distns):
-                if state in used_states:
-                    o.plot(
-                        color=cmap(colors[state]),
-                        data=[s.data[(s.stateseq == state) & (~np.isnan(s.data).any(1))]
-                                if s.data is not None else None
-                            for s in states_objs],
-                        indices=[np.where(s.stateseq == state)[0] for s in states_objs],
-                        label='%d' % state)
-        else:
-            N = len(self.obs_distns)
-            weights = np.repeat(1./N,N).dot(
-                    np.linalg.matrix_power(self.trans_distn.trans_matrix,1000))
-            for state, o in enumerate(self.obs_distns):
+        sp2_artists = []
+        for s, ax in zip(self.states_list,stateseq_axs):
+            sp2_artists.extend(
+                [s.plot(ax,update=update)
+                    for idx, s in enumerate(self.states_list)])
+
+        if draw: plt.draw()
+        return sp1_artists + sp2_artists
+
+    def plot_observations(self,ax=None,color=None,update=False):
+        ax = ax if ax else plt.gca()
+        state_colors = self._get_colors(color)
+        scatter_artists = self._plot_2d_data_scatter(ax,state_colors,update)
+        param_artists = self._plot_2d_obs_params(ax,state_colors,update)
+        return scatter_artists + param_artists
+
+    def _plot_2d_data_scatter(self,ax=None,state_colors=None,update=False):
+        # TODO this is a special-case hack. breaks for 1D obs.
+        # should only do this if the obs collection has a 2D_feature method
+        ax = ax if ax else plg.gca()
+        state_colors = state_colors if state_colors else self._get_colors()
+
+        artists = []
+        for s in self.states_list:
+            colorseq = [state_colors[state] for state in s.stateseq]
+            if update and hasattr(s,'_data_scatter'):
+                s._data_scatter.set_offsets(s.data[:,:2])
+                s._data_scatter.set_color(colorseq)
+            else:
+                s._data_scatter = ax.scatter(s.data[:,0],s.data[:,1],c=colorseq,s=5)
+            artists.append(s._data_scatter)
+
+        return artists
+
+    def _plot_2d_obs_params(self,ax=None,state_colors=None,update=False):
+        keepaxis = ax is not None
+        ax = ax if ax else plt.gca()
+        plt.axes(ax)
+        axis = ax.axis()
+
+        state_colors = state_colors if state_colors else self._get_colors()
+
+        usages = self.state_usages
+
+        artists = []
+        for state, (o, w) in enumerate(zip(self.obs_distns,usages)):
+            artists.extend(
                 o.plot(
-                        color=cmap(colors[state]),
-                        label='%d' % state,
-                        alpha=min(1.,weights[state]+0.05))
-        plt.title('Observation Distributions')
+                    color=state_colors[state],
+                    label='%d' % state,
+                    alpha=min(0.25,1.-(1.-w)**2)/0.25,
+                    update=update,draw=False))
 
-    def plot(self,color=None,legend=False):
+        if keepaxis: ax.axis(axis)
+        return artists
+
+    def _get_colors(self,color=None,scalars=False):
+        if color is None:
+            cmap = cm.get_cmap()
+
+            used_states = self.used_states
+            unused_states = [idx for idx in range(self.num_states) if idx not in used_states]
+
+            colorseq = np.random.RandomState(0).permutation(np.linspace(0,1,self.num_states))
+            colors = dict((idx, v if scalars else cmap(v)) for idx, v in zip(used_states,colorseq))
+
+            for state in unused_states:
+                colors[state] = cmap(1.)
+
+            return colors
+        elif isinstance(color,dict):
+            return color
+        else:
+            return dict((idx,color) for idx in range(self.num_states))
+
+
+
+    def plot_old(self,color=None,legend=False):
         plt.gcf() #.set_size_inches((10,10))
 
         if len(self.states_list) > 0:
@@ -682,35 +749,35 @@ class _HSMMBase(_HMMBase):
                 + sum(d.num_parameters() for d in self.dur_distns) \
                 + self.num_states**2 - self.num_states
 
-    def plot_durations(self,colors=None,states_objs=None):
-        if colors is None:
-            colors = self._get_colors()
-        if states_objs is None:
-            states_objs = self.states_list
+#     def plot_durations(self,colors=None,states_objs=None):
+#         if colors is None:
+#             colors = self._get_colors()
+#         if states_objs is None:
+#             states_objs = self.states_list
 
-        cmap = cm.get_cmap()
-        used_states = self._get_used_states(states_objs)
-        for state,d in enumerate(self.dur_distns):
-            if state in used_states:
-                d.plot(color=cmap(colors[state]),
-                        data=[s.durations[s.stateseq_norep == state]
-                            for s in states_objs])
-        plt.title('Durations')
+#         cmap = cm.get_cmap()
+#         used_states = self._get_used_states(states_objs)
+#         for state,d in enumerate(self.dur_distns):
+#             if state in used_states:
+#                 d.plot(color=cmap(colors[state]),
+#                         data=[s.durations[s.stateseq_norep == state]
+#                             for s in states_objs])
+#         plt.title('Durations')
 
-    def plot(self,color=None):
-        plt.gcf() #.set_size_inches((10,10))
-        colors = self._get_colors(self.states_list)
+#     def plot(self,color=None):
+#         plt.gcf() #.set_size_inches((10,10))
+#         colors = self._get_colors(self.states_list)
 
-        num_subfig_cols = len(self.states_list)
-        for subfig_idx,s in enumerate(self.states_list):
-            plt.subplot(3,num_subfig_cols,1+subfig_idx)
-            self.plot_observations(colors=colors,states_objs=[s])
+#         num_subfig_cols = len(self.states_list)
+#         for subfig_idx,s in enumerate(self.states_list):
+#             plt.subplot(3,num_subfig_cols,1+subfig_idx)
+#             self.plot_observations(colors=colors,states_objs=[s])
 
-            plt.subplot(3,num_subfig_cols,1+num_subfig_cols+subfig_idx)
-            s.plot(colors_dict=colors)
+#             plt.subplot(3,num_subfig_cols,1+num_subfig_cols+subfig_idx)
+#             s.plot(colors_dict=colors)
 
-            plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
-            self.plot_durations(colors=colors,states_objs=[s])
+#             plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
+#             self.plot_durations(colors=colors,states_objs=[s])
 
 class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
     @line_profiled

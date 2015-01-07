@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 import scipy.linalg
-import copy, collections, os, shutil
+import copy, collections, os, shutil, hashlib
 from contextlib import closing
 from urllib2 import urlopen
 from itertools import izip, chain, count, ifilter
@@ -279,6 +279,10 @@ def indices_to_changepoints(T,changes):
         changes.append(T)
 
     return zip(changes[:-1],changes[1:])
+
+def ndarrayhash(v):
+    assert isinstance(v,np.ndarray)
+    return hashlib.sha1(v).hexdigest()
 
 
 def flatiter(l):

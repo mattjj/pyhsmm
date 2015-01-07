@@ -545,20 +545,27 @@ class HMMStatesPython(_StatesBase):
 
     ### plotting
 
-    def plot(self,colors_dict=None,vertical_extent=(0,1),**kwargs):
-        from matplotlib import pyplot as plt
-        states,durations = rle(self.stateseq)
-        X,Y = np.meshgrid(np.hstack((0,durations.cumsum())),vertical_extent)
+    def plot(self,ax=None,state_colors=None,update=False):
+        ax = ax if ax else plt.gca()
+        state_colors = state_colors if state_colors else self.model._get_colors(scalars=True)
 
-        if colors_dict is not None:
-            C = np.array([[colors_dict[state] for state in states]])
-        else:
-            C = states[na,:]
+        stateseq_norep, durations = rle(self.stateseq)
+        X, Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
+        C = np.array([[state_colors[state] for state in stateseq_norep]])
 
-        plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
-        plt.ylim(vertical_extent)
-        plt.xlim((0,durations.sum()))
-        plt.yticks([])
+        if update and hasattr(self,'_artists'):
+            ax.collections.remove(self._artists)
+
+        pcolor_artist = ax.pcolorfast(X,Y,C,vmin=0,vmax=1,alpha=0.3)
+        ax.set_ylim((0,1))
+        ax.set_xlim((0,self.T))
+        ax.set_yticks([])
+
+        # TODO plot scalars!
+
+        self._artists = [pcolor_artist]
+
+        return self._artists
 
 class HMMStatesEigen(HMMStatesPython):
     def generate_states(self):
