@@ -297,22 +297,19 @@ class _HMMBase(Model):
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
     @line_profiled
-    def resample_model(self,states_jobs=0,obs_jobs=0):
-        self.resample_parameters(joblib_jobs=obs_jobs)
-        self.resample_states(joblib_jobs=states_jobs)
+    def resample_model(self,num_procs=0):
+        self.resample_parameters()
+        self.resample_states(num_procs=num_procs)
 
     @line_profiled
-    def resample_parameters(self,joblib_jobs=0):
-        self.resample_obs_distns(joblib_jobs=joblib_jobs)
+    def resample_parameters(self):
+        self.resample_obs_distns()
         self.resample_trans_distn()
         self.resample_init_state_distn()
 
-    def resample_obs_distns(self,joblib_jobs=0):
-        if joblib_jobs == 0:
-            for state, distn in enumerate(self.obs_distns):
-                distn.resample([s.data[s.stateseq == state] for s in self.states_list])
-        else:
-            self._joblib_resample_obs_distns(joblib_jobs)
+    def resample_obs_distns(self):
+        for state, distn in enumerate(self.obs_distns):
+            distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
 
     def resample_trans_distn(self):
@@ -359,27 +356,12 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             p.close()
 
             for s, (stateseq, log_likelihood) in zip(
-                    [s for grp in list_split(states_list,joblib_jobs) for s in grp],
+                    [s for grp in list_split(states_list,num_procs) for s in grp],
                     [seq for grp in raw_stateseqs for seq in grp]):
                 s.stateseq, s._normalizer = stateseq, log_likelihood
 
     def _get_multiprocessing_pair(self,states_obj):
         return (states_obj.data,states_obj._kwargs)
-
-    def _joblib_resample_obs_distns(self,joblib_jobs):
-        from joblib import Parallel, delayed
-        import parallel
-
-        parallel.model = self
-        parallel.states_list = self.states_list
-
-        if len(self.obs_distns) > 0:
-            params = Parallel(n_jobs=joblib_jobs,backend='multiprocessing')\
-                    (delayed(parallel._get_sampled_obs_params)(idx)
-                            for idx in range(len(self.obs_distns)))
-
-            for o, p in zip(self.obs_distns,params):
-                o.parameters = p
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,num_procs=0):

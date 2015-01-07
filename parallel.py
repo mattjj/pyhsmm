@@ -5,7 +5,6 @@ import numpy as np
 # the fact that they're read-only and multiprocessing/joblib uses fork
 
 model = None
-states_list = None
 args = None
 
 def _get_stats(idx):
@@ -55,8 +54,4 @@ def _get_sampled_stateseq_and_labels(idx):
 
     return [(s.stateseq,s.component_labels,s.log_likelihood())
             for s in states_list]
-
-def _get_sampled_obs_params(idx):
-    model.obs_distns[idx].resample([s.data[s.stateseq == idx] for s in states_list])
-    return model.obs_distns[idx].parameters
 

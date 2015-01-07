@@ -440,11 +440,6 @@ class HSMMStatesDelayedIntegerNegativeBinomial(HSMMStatesIntegerNegativeBinomial
         themap = np.arange(self.num_states).repeat(self.rs+self.delays).astype('int32')
         self.stateseq = themap[self.stateseq]
 
-class HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans(
-        _SeparateTransMixin,
-        HSMMStatesDelayedIntegerNegativeBinomial):
-    pass
-
 class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativeBinomial):
     @property
     def bwd_enter_rows(self):
@@ -456,4 +451,14 @@ class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativ
         enters = [v.dot(np.linalg.matrix_power(A,self.delays[state]))
                 for state, (A,v) in enumerate(zip(As,enters))]
         return [v / v.sum() for v in enters] # this should just be for numerical purposes
+
+class HSMMStatesDelayedIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesDelayedIntegerNegativeBinomial):
+    pass
+
+class HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans(
+        _SeparateTransMixin,
+        HSMMStatesTruncatedIntegerNegativeBinomial):
+    pass
 
