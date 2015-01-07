@@ -115,12 +115,12 @@ class _HMMBase(Model):
         return [s.stateseq for s in self.states_list]
 
     @property
-    def durations(self):
-        return [util.general.rle(s.stateseq)[1] for s in self.states_list]
+    def stateseqs_norep(self):
+        return [s.stateseq_norep for s in self.states_list]
 
     @property
-    def stateseqs_norep(self):
-        return [util.general.rle(s.stateseq)[0] for s in self.states_list]
+    def durations(self):
+        return [s.durations for s in self.states_list]
 
     @property
     def num_states(self):
@@ -765,14 +765,6 @@ class _HSMMBase(_HMMBase):
             left_censoring=left_censoring,
             trunc=trunc,
             **kwargs))
-
-    @property
-    def stateseqs_norep(self):
-        return [s.stateseq_norep for s in self.states_list]
-
-    @property
-    def durations(self):
-        return [s.durations for s in self.states_list]
 
     @property
     def num_parameters(self):

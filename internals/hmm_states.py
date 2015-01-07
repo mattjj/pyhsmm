@@ -62,6 +62,16 @@ class _StatesBase(object):
     def num_states(self):
         return self.model.num_states
 
+    ### convenience properties
+
+    @property
+    def stateseq_norep(self):
+        return rle(self.stateseq)[0]
+
+    @property
+    def durations(self):
+        return rle(self.stateseq)[1]
+
     ### generation
 
     def generate(self):
