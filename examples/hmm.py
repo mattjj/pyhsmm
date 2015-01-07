@@ -24,7 +24,7 @@ fit the model). Maybe this demo should use multinomial emissions...
 #  load data  #
 ###############
 
-data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:1500]
+data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:2500]
 
 #########################
 #  posterior inference  #
