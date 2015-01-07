@@ -31,6 +31,10 @@ class _MixturePropertiesMixin(object):
     _labels_class = _Labels
 
     @property
+    def num_states(self):
+        return len(self.obs_distns)
+
+    @property
     def states_list(self):
         return self.labels_list
 
