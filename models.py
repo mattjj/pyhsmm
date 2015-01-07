@@ -12,7 +12,7 @@ from basic.abstractions import Model, ModelGibbsSampling, \
 import basic.distributions
 from internals import hmm_states, hsmm_states, hsmm_inb_states, \
         initial_state, transitions
-frmo util.general import list_split
+from util.general import list_split
 from util.profiling import line_profiled
 
 ################
