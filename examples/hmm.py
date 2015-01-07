@@ -24,7 +24,7 @@ fit the model). Maybe this demo should use multinomial emissions...
 #  load data  #
 ###############
 
-data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))
+data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:1500]
 
 #########################
 #  posterior inference  #
@@ -50,7 +50,6 @@ posteriormodel.add_data(data)
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()
 
-plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('HDP-HMM sampled model after 100 iterations')
 
@@ -65,7 +64,6 @@ posteriormodel.add_data(data)
 for idx in progprint_xrange(100):
     posteriormodel.resample_model()
 
-plt.figure()
 posteriormodel.plot()
 plt.gcf().suptitle('Sticky HDP-HMM sampled model after 100 iterations')
 

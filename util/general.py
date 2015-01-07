@@ -192,6 +192,18 @@ def block_view(a,block_shape):
     strides = (a.strides[0]*block_shape[0],a.strides[1]*block_shape[1]) + a.strides
     return ast(a,shape=shape,strides=strides)
 
+def AR_striding(data,nlags):
+    data = np.asarray(data)
+    if not data.flags.c_contiguous:
+        data = data.copy(order='C')
+    if data.ndim == 1:
+        data = np.reshape(data,(-1,1))
+    sz = data.dtype.itemsize
+    return ast(
+            data,
+            shape=(data.shape[0]-nlags,data.shape[1]*(nlags+1)),
+            strides=(data.shape[1]*sz,sz))
+
 def count_transitions(stateseq,minlength=None):
     if minlength is None:
         minlength = stateseq.max() + 1

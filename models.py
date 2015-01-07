@@ -183,15 +183,15 @@ class _HMMBase(Model):
     ### plotting
 
     def plot(self,fig=None,update=False,draw=True):
-
+        sz = 6
         if len(self.states_list) <= 3:
-            fig = fig if fig else plt.figure(figsize=(4+len(self.states_list),4))
-            gs = GridSpec(4+len(self.states_list),1)
+            fig = fig if fig else plt.figure(figsize=(sz+len(self.states_list),sz))
+            gs = GridSpec(sz+len(self.states_list),1)
 
-            feature_ax = plt.subplot(gs[:4,:])
-            stateseq_axs = [plt.subplot(gs[4+idx]) for idx in range(len(self.states_list))]
+            feature_ax = plt.subplot(gs[:sz,:])
+            stateseq_axs = [plt.subplot(gs[sz+idx]) for idx in range(len(self.states_list))]
         else:
-            fig = fig if fig else plt.figure(figsize=(8,4))
+            fig = fig if fig else plt.figure(figsize=(2*sz,sz))
             gs = GridSpec(1,2)
             sgs = GridSpecFromSubplotSpec(len(self.states_list),1,subplot_spec=gs[1])
 
@@ -203,10 +203,11 @@ class _HMMBase(Model):
         sp2_artists = []
         for s, ax in zip(self.states_list,stateseq_axs):
             sp2_artists.extend(
-                [s.plot(ax,update=update)
+                [s.plot(ax,update=update,draw=False)
                     for idx, s in enumerate(self.states_list)])
 
         if draw: plt.draw()
+
         return sp1_artists + sp2_artists
 
     def plot_observations(self,ax=None,color=None,update=False):

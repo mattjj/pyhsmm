@@ -2,13 +2,15 @@ from __future__ import division
 import numpy as np
 from numpy import newaxis as na
 import abc, copy, warnings
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 
 from ..util.stats import sample_discrete, sample_discrete_from_log
 try:
     from ..util.cstats import sample_markov
 except ImportError:
     from ..util.stats import sample_markov
-from ..util.general import rle, top_eigenvector, rcumsum, cumsum
+from ..util.general import rle, top_eigenvector, rcumsum, cumsum, AR_striding
 from ..util.profiling import line_profiled
 
 ######################
@@ -112,6 +114,56 @@ class _StatesBase(object):
     @abc.abstractmethod
     def log_likelihood(self):
         pass
+
+    ### plotting
+
+    def plot(self,ax=None,state_colors=None,update=False,draw=True):
+        ax = ax if ax else plt.gca()
+        state_colors = state_colors if state_colors else self.model._get_colors(scalars=True)
+
+        pcolor_artist = self._plot_pcolor_states(ax,state_colors,update)
+        data_values_artist = self._plot_data_values(ax,state_colors,update)
+
+        if draw: plt.draw()
+
+        return [pcolor_artist, data_values_artist]
+
+    def _plot_pcolor_states(self,ax,state_colors,update):
+        if update and hasattr(self,'_pcolor_artist'):
+            ax.collections.remove(self._pcolor_artist)
+
+        stateseq_norep, durations = rle(self.stateseq)
+        datamin, datamax = self.data.min(), self.data.max()
+        X, Y = np.meshgrid(np.hstack((0,durations.cumsum())),(datamin,datamax))
+        C = np.array([[state_colors[state] for state in stateseq_norep]])
+
+        self._pcolor_artist = ax.pcolorfast(X,Y,C,vmin=0,vmax=1,alpha=0.3)
+        ax.set_ylim((datamin,datamax))
+        ax.set_xlim((0,self.T))
+        ax.set_yticks([])
+
+        return self._pcolor_artist
+
+    def _plot_data_values(self,ax,state_colors,update):
+        # TODO should do line simplification, like my hero Mike Bostock!
+        colorseq = np.tile(
+            np.array([state_colors[state] for state in self.stateseq[:-1]]),
+            self.data.shape[1])
+
+        if update and hasattr(self,'_data_lc'):
+            self._data_lc.set_array(colorseq)
+        else:
+            ts = np.arange(self.T)
+            # TODO this isn't quite right... order is wrong?
+            segments = np.vstack(
+                [AR_striding(np.hstack((ts[:,None], scalarseq[:,None])),1).reshape(-1,2,2)
+                    for scalarseq in self.data.T])
+            lc = self._data_lc = LineCollection(segments)
+            lc.set_array(colorseq)
+            lc.set_linewidth(0.5)
+            ax.add_collection(lc)
+
+        return self._data_lc
 
 class _SeparateTransMixin(object):
     def __init__(self,group_id,**kwargs):
@@ -554,30 +606,6 @@ class HMMStatesPython(_StatesBase):
             stateseq[idx] = args[idx,stateseq[idx-1]]
 
         return stateseq
-
-    ### plotting
-
-    def plot(self,ax=None,state_colors=None,update=False):
-        ax = ax if ax else plt.gca()
-        state_colors = state_colors if state_colors else self.model._get_colors(scalars=True)
-
-        stateseq_norep, durations = rle(self.stateseq)
-        X, Y = np.meshgrid(np.hstack((0,durations.cumsum())),(0,1))
-        C = np.array([[state_colors[state] for state in stateseq_norep]])
-
-        if update and hasattr(self,'_artists'):
-            ax.collections.remove(self._artists)
-
-        pcolor_artist = ax.pcolorfast(X,Y,C,vmin=0,vmax=1,alpha=0.3)
-        ax.set_ylim((0,1))
-        ax.set_xlim((0,self.T))
-        ax.set_yticks([])
-
-        # TODO plot scalars!
-
-        self._artists = [pcolor_artist]
-
-        return self._artists
 
 class HMMStatesEigen(HMMStatesPython):
     def generate_states(self):
