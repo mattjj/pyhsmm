@@ -12,7 +12,7 @@ from basic.abstractions import Model, ModelGibbsSampling, \
 import basic.distributions
 from internals import hmm_states, hsmm_states, hsmm_inb_states, \
         initial_state, transitions
-import util.general
+frmo util.general import list_split
 from util.profiling import line_profiled
 
 ################
@@ -344,7 +344,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         # warn('joblib is segfaulting on OS X only, not sure why')
 
         if len(states_list) > 0:
-            joblib_args = util.general.list_split(
+            joblib_args = list_split(
                     [self._get_joblib_pair(s) for s in states_list],
                     num_procs)
 
@@ -423,7 +423,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             import parallel
 
 
-            joblib_args = util.general.list_split(
+            joblib_args = list_split(
                     [self._get_joblib_pair(s) for s in states_list],
                     num_procs)
 
