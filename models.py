@@ -300,25 +300,6 @@ class _HMMBase(Model):
             return dict((idx,color) for idx in range(self.num_states))
 
 
-
-    def plot_old(self,color=None,legend=False):
-        plt.gcf() #.set_size_inches((10,10))
-
-        if len(self.states_list) > 0:
-            colors = self._get_colors(self.states_list)
-            num_subfig_cols = len(self.states_list)
-            for subfig_idx,s in enumerate(self.states_list):
-                plt.subplot(2,num_subfig_cols,1+subfig_idx)
-                self.plot_observations(colors=colors,states_objs=[s])
-
-                plt.subplot(2,num_subfig_cols,1+num_subfig_cols+subfig_idx)
-                s.plot(colors_dict=colors)
-
-            if legend:
-                plt.legend()
-        else:
-            self.plot_observations()
-
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
     @line_profiled
     def resample_model(self,num_procs=0):
