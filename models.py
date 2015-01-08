@@ -182,26 +182,24 @@ class _HMMBase(Model):
 
     ### plotting
 
-    def plot(self,fig=None,update=False,draw=True):
-        sz = 6
-        update = update and (fig is not None) and hasattr(fig,'_gridspec')
+    _fig_sz = 6
 
-        if len(self.states_list) <= 3:
-            fig = fig if fig else plt.figure(figsize=(sz+len(self.states_list),sz))
-            gs = GridSpec(sz+len(self.states_list),1) if not hasattr(fig,'_gridspec') else fig._gridspec
+    def make_figure(self):
+        sz = self._fig_sz
 
-            feature_ax = plt.subplot(gs[:sz,:])
-            stateseq_axs = [plt.subplot(gs[sz+idx]) for idx in range(len(self.states_list))]
+        if len(self.states_list) <= 2:
+            fig = plt.figure(figsize=(sz+len(self.states_list),sz))
         else:
-            fig = fig if fig else plt.figure(figsize=(2*sz,sz))
-            gs = GridSpec(1,2) if not hasattr(fig,'_gridspec') else fig._gridspec
-            sgs = GridSpecFromSubplotSpec(len(self.states_list),1,subplot_spec=gs[1])
+            fig = plt.figure(figsize=(2*sz,sz))
 
-            feature_ax = plt.subplot(gs[0])
-            stateseq_axs = [plt.subplot(panel) for panel in sgs]
+        return fig
+
+    def plot(self,fig=None,update=False,draw=True):
+        update = update and (fig is not None)
+        fig = fig if fig else self.make_figure()
+        feature_ax, stateseq_axs = self._get_axes(fig)
 
         sp1_artists = self.plot_observations(feature_ax,update=update)
-
         sp2_artists = []
         for s, ax in zip(self.states_list,stateseq_axs):
             sp2_artists.extend(
@@ -209,9 +207,30 @@ class _HMMBase(Model):
                     for idx, s in enumerate(self.states_list)])
 
         if draw: plt.draw()
-        fig._gridspec = gs
 
         return sp1_artists + sp2_artists
+
+
+    def _get_axes(self,fig):
+        sz = self._fig_sz
+
+        if hasattr(fig,'_feature_ax') and hasattr(fig,'_stateseq_axs'):
+            return fig._feature_ax, fig._stateseq_axs
+        else:
+            if len(self.states_list) <= 2:
+                gs = GridSpec(sz+len(self.states_list),1)
+
+                feature_ax = plt.subplot(gs[:sz,:])
+                stateseq_axs = [plt.subplot(gs[sz+idx]) for idx in range(len(self.states_list))]
+            else:
+                gs = GridSpec(1,2)
+                sgs = GridSpecFromSubplotSpec(len(self.states_list),1,subplot_spec=gs[1])
+
+                feature_ax = plt.subplot(gs[0])
+                stateseq_axs = [plt.subplot(panel) for panel in sgs]
+
+            fig._feature_ax, fig._stateseq_axs = feature_ax, stateseq_axs
+            return feature_ax, stateseq_axs
 
     def plot_observations(self,ax=None,color=None,update=False):
         ax = ax if ax else plt.gca()
@@ -242,7 +261,6 @@ class _HMMBase(Model):
     def _plot_2d_obs_params(self,ax=None,state_colors=None,update=False):
         keepaxis = ax is not None
         ax = ax if ax else plt.gca()
-        plt.axes(ax)
         axis = ax.axis()
 
         state_colors = state_colors if state_colors else self._get_colors()
