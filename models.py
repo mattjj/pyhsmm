@@ -264,7 +264,6 @@ class _HMMBase(Model):
         axis = ax.axis()
 
         state_colors = state_colors if state_colors else self._get_colors()
-
         usages = self.state_usages
 
         artists = []
@@ -274,16 +273,18 @@ class _HMMBase(Model):
                     color=state_colors[state],
                     label='%d' % state,
                     alpha=min(0.25,1.-(1.-w)**2)/0.25,
-                    update=update,draw=False))
+                    ax=ax, update=update,draw=False))
 
         if keepaxis: ax.axis(axis)
+
         return artists
 
     def _get_colors(self,color=None,scalars=False):
         if color is None:
             cmap = cm.get_cmap()
 
-            used_states = self.used_states
+            freqs = self.state_usages
+            used_states = sorted(self.used_states, key=lambda x: freqs[x], reverse=True)
             unused_states = [idx for idx in range(self.num_states) if idx not in used_states]
 
             colorseq = np.random.RandomState(0).permutation(np.linspace(0,1,self.num_states))

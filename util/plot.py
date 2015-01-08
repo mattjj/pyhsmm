@@ -4,11 +4,12 @@ from matplotlib import pyplot as plt
 
 # TODO move pca to stats
 
-def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.,artists=None):
+def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.,ax=None,artists=None):
     '''
     Plots mean and cov ellipsoid into current axes. Must be 2D. lmbda is a covariance matrix.
     '''
     assert len(mu) == 2
+    ax = ax if ax else plt.gca()
 
     # TODO use artists!
 
@@ -17,9 +18,9 @@ def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.,a
     ellipse = np.dot(np.linalg.cholesky(lmbda),circle)
 
     if artists is None:
-        point = plt.scatter([mu[0]],[mu[1]],marker='D',color=color,s=4,alpha=alpha) \
+        point = ax.scatter([mu[0]],[mu[1]],marker='D',color=color,s=4,alpha=alpha) \
                 if centermarker else None
-        line, = plt.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',
+        line, = ax.plot(ellipse[0,:] + mu[0], ellipse[1,:] + mu[1],linestyle='-',
                 linewidth=2,color=color,label=label,alpha=alpha)
     else:
         line, point = artists
