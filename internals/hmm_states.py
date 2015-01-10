@@ -121,31 +121,30 @@ class _StatesBase(object):
         ax = ax if ax else plt.gca()
         state_colors = state_colors if state_colors else self.model._get_colors(scalars=True)
 
-        pcolor_artist = self._plot_pcolor_states(ax,state_colors,update)
+        self._plot_pcolor_states(ax,state_colors,update)
         data_values_artist = self._plot_data_values(ax,state_colors,update)
 
         if draw: plt.draw()
 
-        return [pcolor_artist, data_values_artist]
+        return [data_values_artist]
 
     def _plot_pcolor_states(self,ax,state_colors,update):
-        if update and hasattr(self,'_pcolor_artist'):
-            ax.collections.remove(self._pcolor_artist)
+        # TODO pcolormesh instead of pcolorfast?
+
+        if update and self._pcolor_im in ax.images:
+            self._pcolor_im.remove()
 
         stateseq_norep, durations = rle(self.stateseq)
         datamin, datamax = self.data.min(), self.data.max()
-        X, Y = np.meshgrid(np.hstack((0,durations.cumsum())),(datamin,datamax))
-        C = np.array([[state_colors[state] for state in stateseq_norep]])
+        x, y = np.hstack((0,durations.cumsum())), np.array([datamin,datamax])
+        C = np.atleast_2d([state_colors[state] for state in stateseq_norep])
 
-        self._pcolor_artist = ax.pcolorfast(X,Y,C,vmin=0,vmax=1,alpha=0.3)
+        self._pcolor_im = ax.pcolorfast(x,y,C,vmin=0,vmax=1,alpha=0.3)
         ax.set_ylim((datamin,datamax))
         ax.set_xlim((0,self.T))
         ax.set_yticks([])
 
-        return self._pcolor_artist
-
     def _plot_data_values(self,ax,state_colors,update):
-        # TODO should do line simplification, like my hero Mike Bostock!
         colorseq = np.tile(
             np.array([state_colors[state] for state in self.stateseq[:-1]]),
             self.data.shape[1])

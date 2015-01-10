@@ -200,11 +200,11 @@ class _HMMBase(Model):
         feature_ax, stateseq_axs = self._get_axes(fig)
 
         sp1_artists = self.plot_observations(feature_ax,update=update)
-        sp2_artists = []
-        for s, ax in zip(self.states_list,stateseq_axs):
-            sp2_artists.extend(
-                [s.plot(ax,update=update,draw=False)
-                    for idx, s in enumerate(self.states_list)])
+
+        assert len(stateseq_axs) == len(self.states_list)
+        sp2_artists = \
+            [artist for s, ax in zip(self.states_list,stateseq_axs)
+                    for artist in s.plot(ax,update=update,draw=False)]
 
         if draw: plt.draw()
 
@@ -227,7 +227,10 @@ class _HMMBase(Model):
                 sgs = GridSpecFromSubplotSpec(len(self.states_list),1,subplot_spec=gs[1])
 
                 feature_ax = plt.subplot(gs[0])
-                stateseq_axs = [plt.subplot(panel) for panel in sgs]
+                stateseq_axs = [plt.subplot(sgs[idx]) for idx in range(len(self.states_list))]
+
+            for ax in stateseq_axs:
+                ax.grid('off')
 
             fig._feature_ax, fig._stateseq_axs = feature_ax, stateseq_axs
             return feature_ax, stateseq_axs
@@ -270,8 +273,7 @@ class _HMMBase(Model):
         for state, (o, w) in enumerate(zip(self.obs_distns,usages)):
             artists.extend(
                 o.plot(
-                    color=state_colors[state],
-                    label='%d' % state,
+                    color=state_colors[state], label='%d' % state,
                     alpha=min(0.25,1.-(1.-w)**2)/0.25,
                     ax=ax, update=update,draw=False))
 
