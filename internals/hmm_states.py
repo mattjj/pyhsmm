@@ -131,7 +131,7 @@ class _StatesBase(object):
     def _plot_pcolor_states(self,ax,state_colors,update):
         # TODO pcolormesh instead of pcolorfast?
 
-        if update and self._pcolor_im in ax.images:
+        if update and hasattr(self,'_pcolor_im') and self._pcolor_im in ax.images:
             self._pcolor_im.remove()
 
         stateseq_norep, durations = rle(self.stateseq)
