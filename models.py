@@ -85,7 +85,7 @@ class _HMMBase(Model):
         else:
             return sum(s.log_likelihood() for s in self.states_list)
 
-    def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
+    def predictive_likelihoods(self,test_data,forecast_horizons,num_procs=None,**kwargs):
         assert all(k > 0 for k in forecast_horizons)
         self.add_data(data=test_data,**kwargs)
         s = self.states_list.pop()
@@ -94,19 +94,33 @@ class _HMMBase(Model):
         cmaxes = alphal.max(axis=1)
         scaled_alphal = np.exp(alphal - cmaxes[:,None])
 
-        prev_k = 0
-        outs = []
-        for k in forecast_horizons:
-            step = k - prev_k
-            cmaxes = cmaxes[:-step]
-            scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
+        if not num_procs:
+            prev_k = 0
+            outs = []
+            for k in forecast_horizons:
+                step = k - prev_k
+                cmaxes = cmaxes[:-step]
+                scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
 
-            future_likelihoods = np.logaddexp.reduce(
-                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
-            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
-            outs.append(future_likelihoods - past_likelihoods)
+                future_likelihoods = np.logaddexp.reduce(
+                        np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
+                past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+                outs.append(future_likelihoods - past_likelihoods)
 
-            prev_k = k
+                prev_k = k
+        else:
+            from joblib import Parallel, delayed
+            import parallel
+
+            parallel.cmaxes = cmaxes
+            parallel.alphal = alphal
+            parallel.scaled_alphal = scaled_alphal
+            parallel.trans_matrix = s.trans_matrix
+            parallel.aBl = s.aBl
+
+            outs = Parallel(n_jobs=num_procs,backend='multiprocessing')\
+                    (delayed(parallel._get_predictive_likelihoods)(k)
+                            for k in forecast_horizons)
 
         return outs
 
@@ -184,13 +198,13 @@ class _HMMBase(Model):
 
     _fig_sz = 6
 
-    def make_figure(self):
+    def make_figure(self,**kwargs):
         sz = self._fig_sz
 
         if len(self.states_list) <= 2:
-            fig = plt.figure(figsize=(sz+len(self.states_list),sz))
+            fig = plt.figure(figsize=(sz+len(self.states_list),sz),**kwargs)
         else:
-            fig = plt.figure(figsize=(2*sz,sz))
+            fig = plt.figure(figsize=(2*sz,sz),**kwargs)
 
         return fig
 

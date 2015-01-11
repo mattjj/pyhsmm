@@ -55,3 +55,17 @@ def _get_sampled_stateseq_and_labels(idx):
     return [(s.stateseq,s.component_labels,s.log_likelihood())
             for s in states_list]
 
+
+cmaxes = None
+alphal = None
+scaled_alphal = None
+trans_matrix = None
+aBl = None
+def _get_predictive_likelihoods(k):
+    future_likelihoods = np.logaddexp.reduce(
+            np.log(scaled_alphal[:-k].dot(np.linalg.matrix_power(trans_matrix,k))) \
+                    + cmaxes[:-k,None] + aBl[k:], axis=1)
+    past_likelihoods = np.logaddexp.reduce(alphal[:-k], axis=1)
+
+    return future_likelihoods - past_likelihoods
+
