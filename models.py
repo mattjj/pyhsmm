@@ -1,7 +1,9 @@
 from __future__ import division
 import numpy as np
-from numpy import newaxis as na
-import itertools, collections, operator, random, abc, copy
+import itertools
+import collections
+import operator
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib import cm
@@ -9,7 +11,6 @@ from warnings import warn
 
 from basic.abstractions import Model, ModelGibbsSampling, \
         ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
-import basic.distributions
 from internals import hmm_states, hsmm_states, hsmm_inb_states, \
         initial_state, transitions
 from util.general import list_split
@@ -18,6 +19,7 @@ from util.profiling import line_profiled
 ################
 #  HMM Mixins  #
 ################
+
 
 class _HMMBase(Model):
     _states_class = hmm_states.HMMStatesPython
@@ -224,7 +226,6 @@ class _HMMBase(Model):
 
         return sp1_artists + sp2_artists
 
-
     def _get_axes(self,fig):
         sz = self._fig_sz
 
@@ -260,7 +261,7 @@ class _HMMBase(Model):
         # TODO this is a special-case hack. breaks for 1D obs. only looks at
         # first two components of ND obs.
         # should only do this if the obs collection has a 2D_feature method
-        ax = ax if ax else plg.gca()
+        ax = ax if ax else plt.gca()
         state_colors = state_colors if state_colors else self._get_colors()
 
         artists = []
@@ -384,6 +385,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
     def _get_joblib_pair(self,states_obj):
         return (states_obj.data,states_obj._kwargs)
 
+
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,num_procs=0):
         self._meanfield_update_sweep(num_procs=num_procs)
@@ -443,7 +445,6 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             from joblib import Parallel, delayed
             import parallel
 
-
             joblib_args = list_split(
                     [self._get_joblib_pair(s) for s in states_list],
                     num_procs)
@@ -461,6 +462,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
 
     def _get_joblib_pair(self,states_obj):
         return (states_obj.data,states_obj._kwargs)
+
 
 class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
     # NOTE: classes with this mixin should also have the _HMMMeanField mixin for
@@ -507,6 +509,7 @@ class _HMMSVI(_HMMBase,ModelMeanFieldSVI):
                 [s.expected_states[0] for s in mb_states_list],
                 minibatchfrac,stepsize)
 
+
 class _HMMEM(_HMMBase,ModelEM):
     def EM_step(self):
         assert len(self.states_list) > 0, 'Must have data to run EM'
@@ -552,6 +555,7 @@ class _HMMEM(_HMMBase,ModelEM):
         else:
             return -2*self.log_likelihood(data) + self.num_parameters() * np.log(data.shape[0])
 
+
 class _HMMViterbiEM(_HMMBase,ModelMAPEM):
     def Viterbi_EM_fit(self, tol=0.1, maxiter=20):
         return self.MAP_EM_fit(tol, maxiter)
@@ -582,7 +586,8 @@ class _HMMViterbiEM(_HMMBase,ModelMAPEM):
     def _Viterbi_M_step_trans_distn(self):
         self.trans_distn.max_likelihood([s.stateseq for s in self.states_list])
 
-    MAP_EM_step = Viterbi_EM_step # for the ModelMAPEM interface
+    MAP_EM_step = Viterbi_EM_step  # for the ModelMAPEM interface
+
 
 class _WeakLimitHDPMixin(object):
     def __init__(self,
@@ -607,6 +612,7 @@ class _WeakLimitHDPMixin(object):
         super(_WeakLimitHDPMixin,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
 
+
 class _HMMPossibleChangepointsMixin(object):
     _states_class = hmm_states.HMMStatesPossibleChangepoints
 
@@ -622,7 +628,7 @@ class _HMMPossibleChangepointsMixin(object):
                 minibatch = [minibatch]
                 changepoints = [changepoints]
             else:
-                assert  isinstance(changepoints,(list,tuple))  \
+                assert isinstance(changepoints,(list,tuple))  \
                         and isinstance(changepoints[0],(list,tuple)) \
                         and isinstance(changepoints[0][0],tuple)
                 assert len(minibatch) == len(changepoints)
@@ -656,6 +662,7 @@ class _HMMPossibleChangepointsMixin(object):
                 return loglike
         else:
             return sum(s.log_likelihood() for s in self.states_list)
+
 
 class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
     @property
@@ -694,30 +701,37 @@ class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
 #  HMM models  #
 ################
 
+
 class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,
         _HMMViterbiEM,_HMMParallelTempering):
     pass
 
+
 class HMM(HMMPython):
     _states_class = hmm_states.HMMStatesEigen
+
 
 class WeakLimitHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: shouldn't really inherit EM or ViterbiEM, but it's convenient!
     _trans_class = transitions.WeakLimitHDPHMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
 
+
 class WeakLimitHDPHMM(_WeakLimitHDPMixin,HMM):
     _trans_class = transitions.WeakLimitHDPHMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHMMTransitionsConc
+
 
 class DATruncHDPHMMPython(_WeakLimitHDPMixin,HMMPython):
     # NOTE: weak limit mixin is poorly named; we just want its init method
     _trans_class = transitions.DATruncHDPHMMTransitions
     _trans_conc_class = None
 
+
 class DATruncHDPHMM(_WeakLimitHDPMixin,HMM):
     _trans_class = transitions.DATruncHDPHMMTransitions
     _trans_conc_class = None
+
 
 class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
     # TODO concentration resampling, too!
@@ -741,12 +755,14 @@ class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
         super(WeakLimitStickyHDPHMM,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
 
+
 class HMMPossibleChangepoints(_HMMPossibleChangepointsMixin,HMM):
     pass
 
 #################
 #  HSMM Mixins  #
 #################
+
 
 class _HSMMBase(_HMMBase):
     _states_class = hsmm_states.HSMMStatesPython
@@ -805,6 +821,7 @@ class _HSMMBase(_HMMBase):
 #             plt.subplot(3,num_subfig_cols,1+2*num_subfig_cols+subfig_idx)
 #             self.plot_durations(colors=colors,states_objs=[s])
 
+
 class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
     @line_profiled
     def resample_parameters(self,**kwargs):
@@ -827,6 +844,7 @@ class _HSMMGibbsSampling(_HSMMBase,_HMMGibbsSampling):
         new.dur_distns = [d.copy_sample() for d in self.dur_distns]
         return new
 
+
 class _HSMMEM(_HSMMBase,_HMMEM):
     def _M_step(self):
         super(_HSMMEM,self)._M_step()
@@ -838,6 +856,7 @@ class _HSMMEM(_HSMMBase,_HMMEM):
                     [np.arange(1,s.expected_durations[state].shape[0]+1)
                         for s in self.states_list],
                     [s.expected_durations[state] for s in self.states_list])
+
 
 class _HSMMMeanField(_HSMMBase,_HMMMeanField):
     def meanfield_update_parameters(self):
@@ -856,6 +875,7 @@ class _HSMMMeanField(_HSMMBase,_HMMMeanField):
         vlb += sum(d.get_vlb() for d in self.dur_distns)
         return vlb
 
+
 class _HSMMSVI(_HSMMBase,_HMMSVI):
     def _meanfield_sgdstep_parameters(self,mb_states_list,minibatchfrac,stepsize):
         super(_HSMMSVI,self)._meanfield_sgdstep_parameters(mb_states_list,minibatchfrac,stepsize)
@@ -869,6 +889,7 @@ class _HSMMSVI(_HSMMBase,_HMMSVI):
                     [s.expected_durations[state] for s in mb_states_list],
                     minibatchfrac,stepsize)
 
+
 class _HSMMINBEMMixin(_HMMEM,ModelEM):
     def EM_step(self):
         super(_HSMMINBEMMixin,self).EM_step()
@@ -876,6 +897,7 @@ class _HSMMINBEMMixin(_HMMEM,ModelEM):
             distn.max_likelihood(data=None,stats=(
                 sum(s.expected_dur_ns[state] for s in self.states_list),
                 sum(s.expected_dur_tots[state] for s in self.states_list)))
+
 
 class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
     def Viterbi_EM_step(self):
@@ -890,13 +912,16 @@ class _HSMMViterbiEM(_HSMMBase,_HMMViterbiEM):
     def _Viterbi_M_step_trans_distn(self):
         self.trans_distn.max_likelihood([s.stateseq_norep for s in self.states_list])
 
+
 class _HSMMPossibleChangepointsMixin(_HMMPossibleChangepointsMixin):
     _states_class = hsmm_states.HSMMStatesPossibleChangepoints
+
 
 class _HSMMParallelTempering(_HSMMBase,_HMMParallelTempering):
     def swap_sample_with(self,other):
         self.dur_distns, other.dur_distns = other.dur_distns, self.dur_distns
         super(_HSMMParallelTempering,self).swap_sample_with(other)
+
 
 class _DelayedMixin(object):
     def resample_dur_distns(self):
@@ -914,28 +939,35 @@ class _DelayedMixin(object):
 #  HSMM Models  #
 #################
 
+
 class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,
         _HSMMViterbiEM,_HSMMEM,_HSMMParallelTempering):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
 
+
 class HSMM(HSMMPython):
     _states_class = hsmm_states.HSMMStatesEigen
+
 
 class GeoHSMM(HSMMPython):
     _states_class = hsmm_states.GeoHSMMStates
 
+
 class DelayedGeoHSMM(_DelayedMixin,HSMMPython):
     _states_class = hsmm_states.DelayedGeoHSMMStates
+
 
 class WeakLimitHDPHSMMPython(_WeakLimitHDPMixin,HSMMPython):
     # NOTE: shouldn't technically inherit EM or ViterbiEM, but it's convenient
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
+
 class WeakLimitHDPHSMM(_WeakLimitHDPMixin,HSMM):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
+
 
 class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
     _states_class = hsmm_states.GeoHSMMStates
@@ -949,13 +981,16 @@ class WeakLimitGeoHDPHSMM(WeakLimitHDPHSMM):
                         sum(s._expected_tots[state] for s in self.states_list),
                         ))
 
+
 class WeakLimitDelayedGeoHSMM(_DelayedMixin,WeakLimitHDPHSMM):
     _states_class = hsmm_states.DelayedGeoHSMMStates
+
 
 class DATruncHDPHSMM(_WeakLimitHDPMixin,HSMM):
     # NOTE: weak limit mixin is poorly named; we just want its init method
     _trans_class = transitions.DATruncHDPHSMMTransitions
     _trans_conc_class = None
+
 
 class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM,
         _HSMMParallelTempering):
@@ -969,7 +1004,7 @@ class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM,
             d._resample_from_mf()
 
     def _vlb(self):
-        return 0. # TODO
+        return 0.  # TODO
 
     def predictive_likelihoods(self,test_data,forecast_horizons,**kwargs):
         self.add_data(data=test_data,**kwargs)
@@ -1000,11 +1035,13 @@ class WeakLimitHDPHSMMIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
     _trans_conc_class = transitions.WeakLimitHDPHSMMTransitionsConc
 
+
 class HSMMIntNegBinVariant(_HSMMGibbsSampling,_HSMMINBEMMixin,_HSMMViterbiEM,
         _HSMMParallelTempering):
     _trans_class = transitions.HSMMTransitions
     _trans_conc_class = transitions.HSMMTransitionsConc
     _states_class = hsmm_inb_states.HSMMStatesIntegerNegativeBinomialVariant
+
 
 class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
     _trans_class = transitions.WeakLimitHDPHSMMTransitions
@@ -1014,8 +1051,10 @@ class WeakLimitHDPHSMMIntNegBinVariant(_WeakLimitHDPMixin,HSMMIntNegBinVariant):
 class GeoHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,GeoHSMM):
     pass
 
+
 class HSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,HSMMPython):
     pass
+
 
 class WeakLimitHDPHSMMPossibleChangepoints(_HSMMPossibleChangepointsMixin,WeakLimitHDPHSMM):
     pass
@@ -1030,6 +1069,7 @@ class WeakLimitHDPHSMMDelayedIntNegBin(_DelayedMixin,_WeakLimitHDPMixin,HSMMIntN
         for d in dur_distns:
             d.delay = delay
         super(WeakLimitHDPHSMMDelayedIntNegBin,self).__init__(dur_distns=dur_distns,**kwargs)
+
 
 class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomial
@@ -1062,6 +1102,7 @@ class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
 ##########
 #  meta  #
 ##########
+
 
 class _SeparateTransMixin(object):
     def __init__(self,*args,**kwargs):
@@ -1135,7 +1176,6 @@ class _SeparateTransMixin(object):
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
-
     ### SVI
 
     def _meanfield_sgdstep_trans_distn(self,mb_states_list,minibatchfrac,stepsize):
@@ -1162,22 +1202,28 @@ class _SeparateTransMixin(object):
     def Viterbi_EM_step(self):
         raise NotImplementedError
 
+
 class HMMSeparateTrans(_SeparateTransMixin,HMM):
     _states_class = hmm_states.HMMStatesEigenSeparateTrans
+
 
 class WeakLimitHDPHMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHMM):
     _states_class = hmm_states.HMMStatesEigenSeparateTrans
 
+
 class WeakLimitStickyHDPHMMSeparateTrans(_SeparateTransMixin,WeakLimitStickyHDPHMM):
     _states_class = hmm_states.HMMStatesEigenSeparateTrans
 
+
 class WeakLimitHDPHSMMSeparateTrans(_SeparateTransMixin,WeakLimitHDPHSMM):
     _states_class = hsmm_states.HSMMStatesSeparateTrans
+
 
 class HSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HSMMPossibleChangepoints):
     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
 
 class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
@@ -1188,6 +1234,7 @@ class WeakLimitHDPHSMMPossibleChangepointsSeparateTrans(
 #         _SeparateTransMixin,
 #         WeakLimitHDPHSMMPossibleChangepoints):
 #     _states_class = hsmm_states.HSMMStatesPossibleChangepointsSeparateTrans
+
 
 class WeakLimitHDPHSMMIntNegBinSeparateTrans(
         _SeparateTransMixin,
@@ -1212,8 +1259,8 @@ class WeakLimitHDPHSMMDelayedIntNegBinSeparateTrans(
                 - s.delays[state] for s in self.states_list])
         self._clear_caches()
 
+
 class WeakLimitHDPHSMMTruncatedIntNegBinSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMTruncatedIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans
-
