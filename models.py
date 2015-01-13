@@ -348,6 +348,7 @@ class _HMMBase(Model):
             return dict((idx,color) for idx in range(self.num_states))
 
     def plot_stateseq(self,s,ax=None,update=False,draw=True):
+        s = self.states_list[s] if isinstance(s,int) else s
         ax = ax if ax else plt.gca()
         state_colors = self._get_colors(scalars=True)
 
@@ -358,9 +359,14 @@ class _HMMBase(Model):
 
         return [data_values_artist]
 
-    def _plot_stateseq_pcolor(self,s,ax,state_colors,update):
+    def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,update=False):
         # TODO pcolormesh instead of pcolorfast?
         from util.general import rle
+
+        s = self.states_list[s] if isinstance(s,int) else s
+        ax = ax if ax else plt.gca()
+        state_colors = state_colors if state_colors else self._get_colors(scalars=True)
+
         if update and hasattr(s,'_pcolor_im') and s._pcolor_im in ax.images:
             s._pcolor_im.remove()
 
