@@ -49,17 +49,9 @@ posteriormodel = pyhsmm.models.WeakLimitHDPHSMM(
         dur_distns=dur_distns)
 posteriormodel.add_data(data,trunc=60) # duration truncation speeds things up when it's possible
 
-models = []
 for idx in progprint_xrange(150):
     posteriormodel.resample_model()
-    if (idx+1) % 10 == 0:
-        models.append(copy.deepcopy(posteriormodel))
 
-for idx, model in enumerate(models):
-    plt.clf()
-    model.plot()
-    plt.gcf().suptitle('HDP-HSMM sampled after %d iterations' % (10*(idx+1)))
-    if SAVE_FIGURES:
-        plt.savefig('iter_%.3d.png' % (10*(idx+1)))
+posteriormodel.plot()
 
 plt.show()
