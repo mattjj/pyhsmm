@@ -1,24 +1,22 @@
 from __future__ import division
 import numpy as np
-from numpy import newaxis as na
-import abc, copy, warnings
+import abc
 import scipy.stats as stats
 import scipy.special as special
 
-from ..util.stats import sample_discrete, sample_discrete_from_log
 try:
     from ..util.cstats import sample_markov
 except ImportError:
     from ..util.stats import sample_markov
-from ..util.general import rle, top_eigenvector, cumsum
-from ..util.profiling import line_profiled
+from ..util.general import top_eigenvector, cumsum
 
 from hmm_states import HMMStatesPython, HMMStatesEigen, _SeparateTransMixin
-from hsmm_states import HSMMStatesPython, HSMMStatesEigen
+from hsmm_states import HSMMStatesEigen
 
 # TODO these classes are currently backed by HMM message passing, but they can
 # be made much more time and memory efficient. i have the code to do it in some
 # other branches, but dense matrix multiplies are actually competitive.
+
 
 class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     __metaclass__ = abc.ABCMeta
@@ -83,7 +81,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
                 alphan,self.hmm_trans_matrix.T.copy())
         self._map_states()
 
-        self.alphan = alphan # TODO remove
+        self.alphan = alphan  # TODO remove
 
     def resample_hsmm(self):
         betal, betastarl = HSMMStatesEigen.messages_backwards(self)
@@ -98,6 +96,7 @@ class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
     def hmm_messages_forwards_log(self):
         return HMMStatesEigen._messages_forwards_log(
                 self.hmm_trans_matrix,self.hmm_pi_0,self.hmm_aBl)
+
 
 class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
     @property
@@ -118,7 +117,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
                 block[...] += np.diag(np.repeat(ps[i],rs[i])) \
                         + np.diag(np.repeat(1-ps[i],rs[i]-1),k=1)
 
-        assert np.allclose(trans_matrix.sum(1),1)
+        assert np.allclose(trans_matrix.sum(1),1) or self.trans_matrix.shape == (1,1)
         return trans_matrix
 
     @property
@@ -205,7 +204,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
             self.expected_states += eye[self.stateseq]
             self.expected_transcounts += \
                 count_transitions(self.stateseq_norep,minlength=self.num_states)\
-                /num_r_samples
+                / num_r_samples
             for state in xrange(self.num_states):
                 self.expected_durations[state] += \
                     np.bincount(
@@ -230,7 +229,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
                 d._resample_r_from_mf()
             self.clear_caches()
 
-            trans = self.mf_bwd_trans_matrix # TODO check this
+            trans = self.mf_bwd_trans_matrix  # TODO check this
             init = self.hmm_mf_bwd_pi_0
             aBl = mf_aBl.repeat(self.rs,axis=1)
 
