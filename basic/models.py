@@ -62,7 +62,7 @@ class _MixturePropertiesMixin(object):
 
     def predict(self,seed_data,timesteps,**kwargs):
         # NOTE: seed_data doesn't matter!
-        return self.generate(timesteps,keep=False)[0]
+        return self.generate(timesteps,keep=False)
 
     @classmethod
     def from_pbb_mixture(cls,mixture):
