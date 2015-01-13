@@ -490,26 +490,6 @@ class HSMMStatesPython(_StatesBase):
         return expected_durations
 
 
-    ### plotting
-
-    # def plot(self,colors_dict=None,**kwargs):
-    #     # TODO almost identical to HMM.plot, but with reference to
-    #     # stateseq_norep
-    #     from matplotlib import pyplot as plt
-    #     X,Y = np.meshgrid(np.hstack((0,self.durations_censored.cumsum())),(0,1))
-
-    #     if colors_dict is not None:
-    #         C = np.array([[colors_dict[state] for state in self.stateseq_norep]])
-    #     else:
-    #         C = self.stateseq_norep[na,:]
-
-    #     plt.pcolor(X,Y,C,vmin=0,vmax=1,**kwargs)
-    #     plt.ylim((0,1))
-    #     plt.xlim((0,self.T))
-    #     plt.yticks([])
-    #     plt.title('State Sequence')
-
-
 # TODO call this 'time homog'
 class HSMMStatesEigen(HSMMStatesPython):
     # NOTE: the methods in this class only work with iid emissions (i.e. without

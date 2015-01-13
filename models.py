@@ -163,6 +163,10 @@ class _HMMBase(Model):
         return [s.durations for s in self.states_list]
 
     @property
+    def datas(self):
+        return [s.data for s in self.states_list]
+
+    @property
     def num_states(self):
         return len(self.obs_distns)
 
@@ -243,8 +247,8 @@ class _HMMBase(Model):
 
         assert len(stateseq_axs) == len(self.states_list)
         sp2_artists = \
-            [artist for s, ax in zip(self.states_list,stateseq_axs)
-                    for artist in s.plot(ax,update=update,draw=False)]
+            [artist for s,ax,data in zip(self.states_list,stateseq_axs,self.datas)
+                    for artist in self.plot_stateseq(s,ax,update=update,draw=False)]
 
         if draw: plt.draw()
 
@@ -289,18 +293,21 @@ class _HMMBase(Model):
         state_colors = state_colors if state_colors else self._get_colors()
 
         artists = []
-        for s in self.states_list:
+        for s, data in zip(self.states_list,self.datas):
             colorseq = [state_colors[state] for state in s.stateseq]
             if update and hasattr(s,'_data_scatter'):
-                s._data_scatter.set_offsets(s.data[:,:2])
+                s._data_scatter.set_offsets(data[:,:2])
                 s._data_scatter.set_color(colorseq)
             else:
-                s._data_scatter = ax.scatter(s.data[:,0],s.data[:,1],c=colorseq,s=5)
+                s._data_scatter = ax.scatter(data[:,0],data[:,1],c=colorseq,s=5)
             artists.append(s._data_scatter)
 
         return artists
 
     def _plot_2d_obs_params(self,ax=None,state_colors=None,update=False):
+        if not all(hasattr(o,'plot') for o in self.obs_distns):
+            return []
+
         keepaxis = ax is not None
         ax = ax if ax else plt.gca()
         axis = ax.axis()
@@ -339,6 +346,57 @@ class _HMMBase(Model):
             return color
         else:
             return dict((idx,color) for idx in range(self.num_states))
+
+    def plot_stateseq(self,s,ax=None,update=False,draw=True):
+        ax = ax if ax else plt.gca()
+        state_colors = self._get_colors(scalars=True)
+
+        self._plot_stateseq_pcolor(s,ax,state_colors,update)
+        data_values_artist = self._plot_stateseq_data_values(s,ax,state_colors,update)
+
+        if draw: plt.draw()
+
+        return [data_values_artist]
+
+    def _plot_stateseq_pcolor(self,s,ax,state_colors,update):
+        # TODO pcolormesh instead of pcolorfast?
+        from util.general import rle
+        if update and hasattr(s,'_pcolor_im') and s._pcolor_im in ax.images:
+            s._pcolor_im.remove()
+
+        stateseq_norep, durations = rle(s.stateseq)
+        datamin, datamax = s.data.min(), s.data.max()
+        x, y = np.hstack((0,durations.cumsum())), np.array([datamin,datamax])
+        C = np.atleast_2d([state_colors[state] for state in stateseq_norep])
+
+        s._pcolor_im = ax.pcolorfast(x,y,C,vmin=0,vmax=1,alpha=0.3)
+        ax.set_ylim((datamin,datamax))
+        ax.set_xlim((0,s.T))
+        ax.set_yticks([])
+
+    def _plot_stateseq_data_values(self,s,ax,state_colors,update):
+        from matplotlib.collections import LineCollection
+        from util.general import AR_striding, rle
+
+        data = s.data
+        colorseq = np.tile(
+            np.array([state_colors[state] for state in s.stateseq[:-1]]),
+            data.shape[1])
+
+        if update and hasattr(s,'_data_lc'):
+            s._data_lc.set_array(colorseq)
+        else:
+            ts = np.arange(s.T)
+            segments = np.vstack(
+                [AR_striding(np.hstack((ts[:,None], scalarseq[:,None])),1).reshape(-1,2,2)
+                    for scalarseq in data.T])
+            lc = s._data_lc = LineCollection(segments)
+            lc.set_array(colorseq)
+            lc.set_linewidth(0.5)
+            ax.add_collection(lc)
+
+        return s._data_lc
+
 
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
