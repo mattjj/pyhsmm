@@ -55,7 +55,6 @@ for idx in progprint_xrange(150):
     if (idx+1) % 10 == 0:
         models.append(copy.deepcopy(posteriormodel))
 
-fig = plt.figure()
 for idx, model in enumerate(models):
     plt.clf()
     model.plot()

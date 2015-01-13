@@ -107,9 +107,9 @@ class _HMMBase(Model):
     def predict(self,seed_data,timesteps,**kwargs):
         full_data = np.vstack((seed_data,np.nan*np.ones((timesteps,seed_data.shape[1]))))
         self.add_data(full_data,**kwargs)
-        s = model.states_list.pop()
+        s = self.states_list.pop()
         s.resample() # fills in states
-        return s._generate_obs(s) # fills in nan obs
+        return self._generate_obs(s) # fills in nan obs
 
     def predictive_likelihoods(self,test_data,forecast_horizons,num_procs=None,**kwargs):
         assert all(k > 0 for k in forecast_horizons)
