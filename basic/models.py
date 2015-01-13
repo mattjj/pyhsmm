@@ -3,6 +3,8 @@
 # H(S)MM model fits to pybasicbayes mixture model fits, it's easier to write one
 # code path by using these models.
 
+from copy import deepcopy
+
 import pybasicbayes
 from ..util.general import rle
 
@@ -61,6 +63,15 @@ class _MixturePropertiesMixin(object):
     def predict(self,seed_data,timesteps,**kwargs):
         # NOTE: seed_data doesn't matter!
         return self.generate(timesteps,keep=False)[0]
+
+    @classmethod
+    def from_pbb_mixture(cls,mixture):
+        self = cls(
+            weights_obj=deepcopy(mixture.weights),
+            components=deepcopy(mixture.components))
+        for l in mixture.labels_list:
+            self.add_data(l.data,z=l.z)
+        return self
 
 class Mixture(_MixturePropertiesMixin,pybasicbayes.models.Mixture):
     pass
