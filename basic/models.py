@@ -58,6 +58,10 @@ class _MixturePropertiesMixin(object):
     def obs_distns(self,distns):
         self.components = distns
 
+    def predict(self,seed_data,timesteps,**kwargs):
+        # NOTE: seed_data doesn't matter!
+        return self.generate(timesteps,keep=False)[0]
+
 class Mixture(_MixturePropertiesMixin,pybasicbayes.models.Mixture):
     pass
 

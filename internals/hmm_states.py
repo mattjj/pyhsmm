@@ -76,19 +76,9 @@ class _StatesBase(object):
 
     ### generation
 
-    def generate(self):
-        self.generate_states()
-        return self.generate_obs()
-
     @abc.abstractmethod
     def generate_states(self):
         pass
-
-    def generate_obs(self):
-        counts = np.bincount(self.stateseq,minlength=self.num_states)
-        obs = [iter(o.rvs(count)) for o, count in zip(self.obs_distns,counts)]
-        self.data = np.squeeze(np.vstack([obs[state].next() for state in self.stateseq]))
-        return self.data
 
     ### messages and likelihoods
 

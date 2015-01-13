@@ -67,10 +67,27 @@ class _HMMBase(Model):
 
     def generate(self,T,keep=True):
         s = self._states_class(model=self,T=T,initialize_from_prior=True)
-        data, stateseq = s.generate_obs(), s.stateseq
+        data = self._generate_obs(s)
         if keep:
             self.states_list.append(s)
-        return data, stateseq
+        return data, s.stateseq
+
+    def _generate_obs(self,s):
+        if s.data is None:
+            # generating brand new data sequence
+            counts = np.bincount(s.stateseq,minlength=self.num_states)
+            obs = [iter(o.rvs(count)) for o, count in zip(s.obs_distns,counts)]
+            s.data = np.squeeze(np.vstack([obs[state].next() for state in s.stateseq]))
+        else:
+            # filling in missing data
+            data = s.data
+            nan_idx, = np.where(np.isnan(data).any(1))
+            counts = np.bincount(s.stateseq[nan_idx],minlength=self.num_states)
+            obs = [iter(o.rvs(count)) for o, count in zip(s.obs_distns,counts)]
+            for idx, state in zip(nan_idx, s.stateseq[nan_idx]):
+                data[idx] = obs[state].next()
+
+        return s.data
 
     def log_likelihood(self,data=None,**kwargs):
         if data is not None:
@@ -86,6 +103,13 @@ class _HMMBase(Model):
                 return loglike
         else:
             return sum(s.log_likelihood() for s in self.states_list)
+
+    def predict(self,seed_data,timesteps,**kwargs):
+        full_data = np.vstack((seed_data,np.nan*np.ones((timesteps,seed_data.shape[1]))))
+        self.add_data(full_data,**kwargs)
+        s = model.states_list.pop()
+        s.resample() # fills in states
+        return s._generate_obs(s) # fills in nan obs
 
     def predictive_likelihoods(self,test_data,forecast_horizons,num_procs=None,**kwargs):
         assert all(k > 0 for k in forecast_horizons)
