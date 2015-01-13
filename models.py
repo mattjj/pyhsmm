@@ -1352,3 +1352,4 @@ class WeakLimitHDPHSMMTruncatedIntNegBinSeparateTrans(
         _SeparateTransMixin,
         WeakLimitHDPHSMMTruncatedIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans
+
