@@ -12,6 +12,7 @@ from pyhsmm.util.text import progprint_xrange
 ###############
 
 data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:2500]
+data += 0.5*np.random.normal(size=data.shape) # some extra noise
 
 ##################
 #  set up model  #
@@ -49,6 +50,6 @@ def make_frame_mpl(t):
     model.plot(fig=fig,update=True,draw=False)
     return mplfig_to_npimage(fig)
 
-animation = VideoClip(make_frame_mpl, duration=3)
+animation = VideoClip(make_frame_mpl, duration=5)
 animation.write_videofile('gibbs.mp4',fps=50)
 
