@@ -238,23 +238,25 @@ class _HMMBase(Model):
 
         return fig
 
-    def plot(self,fig=None,update=False,draw=True):
+    def plot(self,fig=None,plot_slice=slice(None),update=False,draw=True):
         update = update and (fig is not None)
         fig = fig if fig else self.make_figure()
         feature_ax, stateseq_axs = self._get_axes(fig)
 
-        sp1_artists = self.plot_observations(feature_ax,update=update)
+        sp1_artists = self.plot_observations(feature_ax,plot_slice=plot_slice,update=update)
 
         assert len(stateseq_axs) == len(self.states_list)
         sp2_artists = \
             [artist for s,ax,data in zip(self.states_list,stateseq_axs,self.datas)
-                    for artist in self.plot_stateseq(s,ax,update=update,draw=False)]
+                for artist in self.plot_stateseq(s,ax,plot_slice,update=update,draw=False)]
 
         if draw: plt.draw()
 
         return sp1_artists + sp2_artists
 
     def _get_axes(self,fig):
+        # TODO is attaching these to the figure a good idea? why not save them
+        # here and reuse them if we recognize the figure being passed in
         sz = self._fig_sz
 
         if hasattr(fig,'_feature_ax') and hasattr(fig,'_stateseq_axs'):
@@ -278,14 +280,14 @@ class _HMMBase(Model):
             fig._feature_ax, fig._stateseq_axs = feature_ax, stateseq_axs
             return feature_ax, stateseq_axs
 
-    def plot_observations(self,ax=None,color=None,update=False):
+    def plot_observations(self,ax=None,color=None,plot_slice=slice(None),update=False):
         ax = ax if ax else plt.gca()
         state_colors = self._get_colors(color)
-        scatter_artists = self._plot_2d_data_scatter(ax,state_colors,update)
+        scatter_artists = self._plot_2d_data_scatter(ax,state_colors,plot_slice,update)
         param_artists = self._plot_2d_obs_params(ax,state_colors,update)
         return scatter_artists + param_artists
 
-    def _plot_2d_data_scatter(self,ax=None,state_colors=None,update=False):
+    def _plot_2d_data_scatter(self,ax=None,state_colors=None,plot_slice=slice(None),update=False):
         # TODO this is a special-case hack. breaks for 1D obs. only looks at
         # first two components of ND obs.
         # should only do this if the obs collection has a 2D_feature method
@@ -294,7 +296,9 @@ class _HMMBase(Model):
 
         artists = []
         for s, data in zip(self.states_list,self.datas):
-            colorseq = [state_colors[state] for state in s.stateseq]
+            data = data[plot_slice]
+            colorseq = [state_colors[state] for state in s.stateseq[plot_slice]]
+
             if update and hasattr(s,'_data_scatter'):
                 s._data_scatter.set_offsets(data[:,:2])
                 s._data_scatter.set_color(colorseq)
@@ -347,19 +351,19 @@ class _HMMBase(Model):
         else:
             return dict((idx,color) for idx in range(self.num_states))
 
-    def plot_stateseq(self,s,ax=None,update=False,draw=True):
+    def plot_stateseq(self,s,ax=None,plot_slice=slice(None),update=False,draw=True):
         s = self.states_list[s] if isinstance(s,int) else s
         ax = ax if ax else plt.gca()
         state_colors = self._get_colors(scalars=True)
 
-        self._plot_stateseq_pcolor(s,ax,state_colors,update)
-        data_values_artist = self._plot_stateseq_data_values(s,ax,state_colors,update)
+        self._plot_stateseq_pcolor(s,ax,state_colors,plot_slice,update)
+        data_values_artist = self._plot_stateseq_data_values(s,ax,state_colors,plot_slice,update)
 
         if draw: plt.draw()
 
         return [data_values_artist]
 
-    def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,update=False):
+    def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,plot_slice=slice(None),update=False):
         # TODO pcolormesh instead of pcolorfast?
         from util.general import rle
 
@@ -370,29 +374,33 @@ class _HMMBase(Model):
         if update and hasattr(s,'_pcolor_im') and s._pcolor_im in ax.images:
             s._pcolor_im.remove()
 
-        stateseq_norep, durations = rle(s.stateseq)
-        datamin, datamax = s.data.min(), s.data.max()
+        data = s.data[plot_slice]
+        stateseq = s.stateseq[plot_slice]
+
+        stateseq_norep, durations = rle(stateseq)
+        datamin, datamax = data.min(), data.max()
+
         x, y = np.hstack((0,durations.cumsum())), np.array([datamin,datamax])
         C = np.atleast_2d([state_colors[state] for state in stateseq_norep])
 
         s._pcolor_im = ax.pcolorfast(x,y,C,vmin=0,vmax=1,alpha=0.3)
         ax.set_ylim((datamin,datamax))
-        ax.set_xlim((0,s.T))
+        ax.set_xlim((0,len(stateseq)))
         ax.set_yticks([])
 
-    def _plot_stateseq_data_values(self,s,ax,state_colors,update):
+    def _plot_stateseq_data_values(self,s,ax,state_colors,plot_slice,update):
         from matplotlib.collections import LineCollection
         from util.general import AR_striding, rle
 
-        data = s.data
-        colorseq = np.tile(
-            np.array([state_colors[state] for state in s.stateseq[:-1]]),
-            data.shape[1])
+        data = s.data[plot_slice]
+        stateseq = s.stateseq[plot_slice]
+
+        colorseq = np.tile(np.array([state_colors[state] for state in stateseq[:-1]]),data.shape[1])
 
         if update and hasattr(s,'_data_lc'):
             s._data_lc.set_array(colorseq)
         else:
-            ts = np.arange(s.T)
+            ts = np.arange(len(stateseq))
             segments = np.vstack(
                 [AR_striding(np.hstack((ts[:,None], scalarseq[:,None])),1).reshape(-1,2,2)
                     for scalarseq in data.T])

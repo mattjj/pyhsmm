@@ -43,11 +43,11 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 from moviepy.editor import VideoClip
 
 fig = model.make_figure()
-model.plot(fig=fig,draw=False)
+model.plot(fig=fig,draw=False,plot_slice=slice(0,100))
 
 def make_frame_mpl(t):
     model.resample_model()
-    model.plot(fig=fig,update=True,draw=False)
+    model.plot(fig=fig,update=True,draw=False,plot_slice=slice(0,100))
     return mplfig_to_npimage(fig)
 
 animation = VideoClip(make_frame_mpl, duration=5)
