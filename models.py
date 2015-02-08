@@ -331,12 +331,19 @@ class _HMMBase(Model):
 
         return artists
 
-    def _get_colors(self,color=None,scalars=False):
+    def _get_colors(self,color=None,scalars=False,color_method=None):
+        color_method = color_method if color_method else 'usage'
         if color is None:
             cmap = cm.get_cmap()
 
-            freqs = self.state_usages
-            used_states = sorted(self.used_states, key=lambda x: freqs[x], reverse=True)
+            if color_method == 'usage':
+                freqs = self.state_usages
+                used_states = sorted(self.used_states, key=lambda x: freqs[x], reverse=True)
+            elif color_method == 'order':
+                used_states = self.used_states
+            else:
+                raise ValueError("color_method must be 'usage' or 'order'")
+
             unused_states = [idx for idx in range(self.num_states) if idx not in used_states]
 
             colorseq = np.random.RandomState(0).permutation(np.linspace(0,1,self.num_states))
@@ -363,13 +370,15 @@ class _HMMBase(Model):
 
         return [data_values_artist]
 
-    def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,plot_slice=slice(None),update=False):
+    def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,
+            plot_slice=slice(None),update=False,color_method=None):
         # TODO pcolormesh instead of pcolorfast?
         from util.general import rle
 
         s = self.states_list[s] if isinstance(s,int) else s
         ax = ax if ax else plt.gca()
-        state_colors = state_colors if state_colors else self._get_colors(scalars=True)
+        state_colors = state_colors if state_colors \
+                else self._get_colors(scalars=True,color_method=color_method)
 
         if update and hasattr(s,'_pcolor_im') and s._pcolor_im in ax.images:
             s._pcolor_im.remove()
