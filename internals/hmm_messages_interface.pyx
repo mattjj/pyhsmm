@@ -1,4 +1,3 @@
-# distutils: name = internals.hmm_messages_interface
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast -std=c++11
 # distutils: include_dirs = deps/Eigen3/
