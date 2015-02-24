@@ -1,0 +1,8 @@
+*.pyc
+*.pyo
+/tags
+/build
+*.c
+/*.cpp
+/*.so
+/*.cpp
