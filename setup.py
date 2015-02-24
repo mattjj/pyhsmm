@@ -2,11 +2,17 @@ from distutils.core import setup
 import numpy as np
 import sys, os
 
+##
+## TODO: ideally, make Cython optional. Allow compilation
+## compilation from Cython-generated *.c files, which would
+## allow users to install the package without having Cython.
+## Technically only developers need to be able to run Cython.
+## 
 try:
     import Cython
     from Cython.Build import cythonize
 except ImportError:
-    print "Cannot import Cython!"
+    print "Cannot import Cython! Cython is required for pyhsmm."
 
 ## Not necessary anymore
 #from util import cyutil
