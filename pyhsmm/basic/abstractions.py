@@ -4,8 +4,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from pybasicbayes.abstractions import *
-from ..util.stats import flattendata, sample_discrete, sample_discrete_from_log, combinedata
-from ..util.general import rcumsum
+import pyhsmm
+from pyhsmm.util.stats import flattendata, sample_discrete, sample_discrete_from_log, combinedata
+from pyhsmm.util.general import rcumsum
 
 class DurationDistribution(Distribution):
     __metaclass__ = abc.ABCMeta

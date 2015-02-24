@@ -52,6 +52,15 @@ repository, which is only the case if ``pyhsmm`` was cloned from
 github with the ``--recursive`` flag.
 
 
+## Running unit tests ##
+
+Unit tests for the package can be run with:
+
+```
+python -m unittest discover pyhsmm
+```
+
+
 ## Running ##
 
 See the examples directory.

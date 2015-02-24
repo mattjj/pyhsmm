@@ -6,7 +6,8 @@
 from copy import deepcopy
 
 import pybasicbayes
-from ..util.general import rle
+import pyhsmm
+from pyhsmm.util.general import rle
 
 class _Labels(pybasicbayes.internals.labels.Labels):
     @property
