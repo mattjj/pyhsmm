@@ -1,9 +1,10 @@
 from __future__ import division
 import numpy as np
 
-from ..util.general import top_eigenvector
-from ..basic.abstractions import GibbsSampling, MaxLikelihood
-from ..basic.distributions import Categorical
+import pyhsmm
+from pyhsmm.util.general import top_eigenvector
+from pyhsmm.basic.abstractions import GibbsSampling, MaxLikelihood
+from pyhsmm.basic.distributions import Categorical
 
 class UniformInitialState(object):
     def __init__(self,model):

@@ -8,14 +8,15 @@ import copy
 
 from scipy.special import digamma, gammaln
 
-from ..basic.abstractions import GibbsSampling
-from ..basic.distributions import GammaCompoundDirichlet, Multinomial, \
+import pyhsmm
+from pyhsmm.basic.abstractions import GibbsSampling
+from pyhsmm.basic.distributions import GammaCompoundDirichlet, Multinomial, \
         MultinomialAndConcentration
-from ..util.general import rle, cumsum, rcumsum
+from pyhsmm.util.general import rle, cumsum, rcumsum
 try:
-    from ..util.cstats import sample_crp_tablecounts, count_transitions
+    from pyhsmm.util.cstats import sample_crp_tablecounts, count_transitions
 except ImportError:
-    from ..util.stats import sample_crp_tablecounts, count_transitions
+    from pyhsmm.util.stats import sample_crp_tablecounts, count_transitions
 
 # TODO separate out bayesian and nonbayesian versions?
 

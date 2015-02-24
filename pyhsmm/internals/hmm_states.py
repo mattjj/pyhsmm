@@ -4,13 +4,14 @@ from numpy import newaxis as na
 import abc, copy, warnings
 import matplotlib.pyplot as plt
 
-from ..util.stats import sample_discrete, sample_discrete_from_log
+import pyhsmm
+from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log
 try:
-    from ..util.cstats import sample_markov
+    from pyhsmm.util.cstats import sample_markov
 except ImportError:
-    from ..util.stats import sample_markov
-from ..util.general import rle, top_eigenvector, rcumsum, cumsum
-from ..util.profiling import line_profiled
+    from pyhsmm.util.stats import sample_markov
+from pyhsmm.util.general import rle, top_eigenvector, rcumsum, cumsum
+from pyhsmm.util.profiling import line_profiled
 
 ######################
 #  Mixins and bases  #

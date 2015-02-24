@@ -5,8 +5,9 @@ from nose.plugins.attrib import attr
 import os
 import matplotlib.pyplot as plt
 
-from .. import models, distributions
-from ..util import testing
+import pyhsmm
+from pyhsmm import models, distributions
+from pyhsmm.util import testing
 
 ##########
 #  util  #

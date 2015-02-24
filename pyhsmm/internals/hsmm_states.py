@@ -5,9 +5,10 @@ from numpy.random import random
 from matplotlib import pyplot as plt
 import abc, copy, warnings
 
-from ..util.stats import sample_discrete, sample_discrete_from_log, sample_markov
-from ..util.general import rle, top_eigenvector, rcumsum, cumsum
-from ..util.profiling import line_profiled
+import pyhsmm
+from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log, sample_markov
+from pyhsmm.util.general import rle, top_eigenvector, rcumsum, cumsum
+from pyhsmm.util.profiling import line_profiled
 
 import hmm_states
 from hmm_states import _StatesBase, _SeparateTransMixin, \
@@ -391,7 +392,7 @@ class HSMMStatesPython(_StatesBase):
             np.hstack([(self.stateseq == i).astype('float64')[:,na]
                 for i in range(self.num_states)])
 
-        from ..util.general import count_transitions
+        from pyhsmm.util.general import count_transitions
         self.expected_transcounts = \
             count_transitions(self.stateseq_norep,minlength=self.num_states)
 
@@ -678,7 +679,7 @@ class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMState
             np.hstack([(self.stateseq == i).astype('float64')[:,na]
                 for i in range(self.num_states)])
 
-        from ..util.general import count_transitions
+        from pyhsmm.util.general import count_transitions
         self.expected_transcounts = \
             count_transitions(self.stateseq_norep,minlength=self.num_states)
 
@@ -966,7 +967,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             if self.model.temperature is not None:
                 sigmas *= self.model.temperature
 
-            from ..util.temp import gmm_likes
+            from pyhsmm.util.temp import gmm_likes
             self._aBBl = np.empty((self.Tblock,self.num_states))
             gmm_likes(self.data,sigmas,mus,weights,changepoints,self._aBBl)
         return self._aBBl

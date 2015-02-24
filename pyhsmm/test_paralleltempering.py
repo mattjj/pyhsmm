@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
-
 from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
 
 #####################
