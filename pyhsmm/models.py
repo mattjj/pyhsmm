@@ -9,12 +9,13 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib import cm
 from warnings import warn
 
-from basic.abstractions import Model, ModelGibbsSampling, \
+import pyhsmm
+from pyhsmm.basic.abstractions import Model, ModelGibbsSampling, \
         ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
-from internals import hmm_states, hsmm_states, hsmm_inb_states, \
+from pyhsmm.internals import hmm_states, hsmm_states, hsmm_inb_states, \
         initial_state, transitions
-from util.general import list_split
-from util.profiling import line_profiled
+from pyhsmm.util.general import list_split
+from pyhsmm.util.profiling import line_profiled
 
 ################
 #  HMM Mixins  #
@@ -373,7 +374,7 @@ class _HMMBase(Model):
     def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,
             plot_slice=slice(None),update=False,color_method=None):
         # TODO pcolormesh instead of pcolorfast?
-        from util.general import rle
+        from pyhsmm.util.general import rle
 
         s = self.states_list[s] if isinstance(s,int) else s
         ax = ax if ax else plt.gca()
@@ -399,7 +400,7 @@ class _HMMBase(Model):
 
     def _plot_stateseq_data_values(self,s,ax,state_colors,plot_slice,update):
         from matplotlib.collections import LineCollection
-        from util.general import AR_striding, rle
+        from pyhsmm.util.general import AR_striding, rle
 
         data = s.data[plot_slice]
         stateseq = s.stateseq[plot_slice]
