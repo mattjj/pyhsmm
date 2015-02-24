@@ -47,6 +47,10 @@ repository directory and run:
 pip install . 
 ```
 
+This installation requires that ``pybasicbayes`` is present in the
+repository, which is only the case if ``pyhsmm`` was cloned from
+github with the ``--recursive`` flag.
+
 
 ## Running ##
 
