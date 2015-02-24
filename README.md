@@ -38,9 +38,8 @@ Some things to keep in mind:
   instructions
 
 
-Building with pip
-========
-
+## Building with pip ##
+ 
 The library can now be built with ``pip``. To install, enter the
 repository directory and run:
 
