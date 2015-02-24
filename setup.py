@@ -2,7 +2,15 @@ from distutils.core import setup
 import numpy as np
 import sys, os
 
-from util.cyutil import cythonize # my version of Cython.Build.cythonize
+try:
+    import Cython
+    from Cython.Build import cythonize
+except ImportError:
+    print "Cannot import Cython!"
+
+## Not necessary anymore
+#from util import cyutil
+#from cyutil import cythonize # my version of Cython.Build.cythonize
 
 # NOTE: distutils makes no sense
 
@@ -32,13 +40,52 @@ if '--with-assembly' in sys.argv:
     sys.argv.remove('--with-assembly')
     extra_compile_args.extend(['--save-temps','-masm=intel','-fverbose-asm'])
 
-ext_modules = cythonize('**/*.pyx')
+ext_modules = cythonize('./pyhsmm/*/*.pyx')
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
 
-setup(
-    ext_modules=ext_modules,
-    include_dirs=[np.get_include(),],
+long_description = open("./readme.md").read()
+
+##
+## Temporary hack: check for pybasicbayes presence
+## and register it as a submodule of pyhsmm. This means
+## the repository had to be cloned with '--recursive' flag.
+## The real solution is to make pybasicbayes a real Python package
+## too and register it as a dependency in 'install_requires' below.
+##
+if not os.path.isdir("./pyhsmm/basic/pybasicbayes"):
+    print "Cannot find \'pybasicbayes\'. Did you clone the pyhsmm repository " \
+          "with --clone?"
+    print "Aborting installation..."
+    sys.exit(1)
+
+PYHSMM_VERSION = "0.1"
+
+setup(name = 'pyhsmm',
+      version = PYHSMM_VERSION,
+      description = "Bayesian inference in HSMMs and HMMs",
+      long_description = long_description,
+      author = 'Matt Johnson',
+      author_email = 'mattjj@csail.mit.edu',
+      maintainer = 'Matt Johnson',
+      maintainer_email = 'mattjj@csail.mit.edu',
+      packages = ['pyhsmm',
+                  'pyhsmm.basic',
+                  'pyhsmm.internals',
+                  'pyhsmm.plugins',
+                  'pyhsmm.testing',
+                  'pyhsmm.util'],
+      platforms = 'ALL',
+      keywords = ['bayesian', 'inference', 'mcmc', 'time-series',
+                  'monte-carlo'],
+      install_requires = [
+          "Cython >= 0.20.1",
+          "numpy",
+          "scipy",
+          "matplotlib"
+          ],
+       ext_modules=ext_modules,
+       include_dirs=[np.get_include(),]
 )
 
