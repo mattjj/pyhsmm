@@ -34,7 +34,20 @@ Some things to keep in mind:
 `-stdlib=libc++`
 * to use processor-tuned instructions with g++, you can pass the
   `--with-native` flag or set `CCFLAGS` to include `-march=native`, but the
-  assembler that ships with OS X 10.8 is too old to know about AVX instructions
+  assembler that ships with OS X 10.8 is too old to know about AVX
+  instructions
+
+
+Building with pip
+========
+
+The library can now be built with ``pip``. To install, enter the
+repository directory and run:
+
+```
+pip install . 
+```
+
 
 ## Running ##
 
