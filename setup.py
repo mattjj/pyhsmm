@@ -78,6 +78,7 @@ setup(name = 'pyhsmm',
           "numpy",
           "scipy",
           "matplotlib",
+          "nose",
           "pybasicbayes"
           ],
       package_data={"pyhsmm": [os.path.join("examples", "*.txt")]},
