@@ -51,20 +51,7 @@ for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
 
-long_description = open("./readme.md").read()
-
-##
-## Temporary hack: check for pybasicbayes presence
-## and register it as a submodule of pyhsmm. This means
-## the repository had to be cloned with '--recursive' flag.
-## The real solution is to make pybasicbayes a real Python package
-## too and register it as a dependency in 'install_requires' below.
-##
-if not os.path.isdir("./pyhsmm/basic/pybasicbayes"):
-    print "Cannot find \'pybasicbayes\'. Did you clone the pyhsmm repository " \
-          "with --clone?"
-    print "Aborting installation..."
-    sys.exit(1)
+long_description = open("README.md").read()
 
 PYHSMM_VERSION = "0.1"
 
@@ -79,6 +66,7 @@ setup(name = 'pyhsmm',
       packages = ['pyhsmm',
                   'pyhsmm.basic',
                   'pyhsmm.internals',
+                  'pyhsmm.examples',
                   'pyhsmm.plugins',
                   'pyhsmm.testing',
                   'pyhsmm.util'],
@@ -89,9 +77,16 @@ setup(name = 'pyhsmm',
           "Cython >= 0.20.1",
           "numpy",
           "scipy",
-          "matplotlib"
+          "matplotlib",
+          "pybasicbayes"
           ],
-       ext_modules=ext_modules,
-       include_dirs=[np.get_include(),]
+      package_data={"pyhsmm": [os.path.join("examples", "*.txt")]},
+      ext_modules=ext_modules,
+      include_dirs=[np.get_include(),],
+      classifiers = [
+        'Intended Audience :: Science/Research',
+        'Programming Language :: Python',
+        'Programming Language :: C++'
+        ]          
 )
 
