@@ -73,6 +73,8 @@ else:
     names = ['.'.join(os.path.split(p)) for p in paths]
     ext_modules = []
     for name, path in zip(names, paths):
+        # Note: this assumes that all Cython generated files
+        # are *.cpp and will fail for *.c generated Cython files
         source_path = path + ".cpp"
         if not os.path.isfile(source_path):
             print "Warning: could not find %s" %(source_path)
