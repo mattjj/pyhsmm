@@ -51,14 +51,11 @@ for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
 
-long_description = open("README.md").read()
-
 PYHSMM_VERSION = "0.1"
 
 setup(name = 'pyhsmm',
       version = PYHSMM_VERSION,
       description = "Bayesian inference in HSMMs and HMMs",
-      long_description = long_description,
       author = 'Matt Johnson',
       author_email = 'mattjj@csail.mit.edu',
       maintainer = 'Matt Johnson',
