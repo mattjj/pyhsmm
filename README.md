@@ -8,58 +8,48 @@ and HDP-HSMM, mostly with weak-limit approximations.
 There are also some extensions:
 
 * [autoregressive models](https://github.com/mattjj/pyhsmm-autoregressive)
+* [switching linear dynamical systems](https://github.com/mattjj/pyhsmm-slds)
 * [factorial models](https://github.com/mattjj/pyhsmm-factorial)
 
-## Building and Running ##
+## Installing from PyPI ##
+
+Give this a shot
+
+```bash
+pip install pyhsmm
+```
+
+## Manual build ##
 This library depends on having numpy, scipy, cython, and matplotlib installed.
-You can clone this library and its other dependencies into your current working
-directory with
+Clone the repository into your working directory
 
 ```bash
 git clone --recursive git://github.com/mattjj/pyhsmm.git
+cd pyhsmm
 ```
 
-Build it with
+you can build in-place with
 
 ```bash
-cd pyhsmm
-python setup.py build_ext --inplace
+python setup.py build_ext --inplace --with-cython
 ```
 
-Tested with g++ 4.8 (recommended) and the clang++ that ships with OS X 10.8.
+or install it with
+
+```
+python setup.py install --with-cython
+```
+
+Tested with g++ 4.8 and higher (recommended) and clang++.
 
 Some things to keep in mind:
 * if you use OS X's default (clang) compiler on OS 10.8 or earlier, you should
   pass the `--with-old-clang` option or set `CCFLAGS` and `LDFLAGS` to include
-`-stdlib=libc++`
+  `-stdlib=libc++`
 * to use processor-tuned instructions with g++, you can pass the
   `--with-native` flag or set `CCFLAGS` to include `-march=native`, but the
   assembler that ships with OS X 10.8 is too old to know about AVX
   instructions
-
-
-## Building with pip ##
-
-The library can now be built with ``pip``. To install, enter the
-repository directory and run:
-
-```
-pip install .
-```
-
-This installation requires that ``pybasicbayes`` is present in the
-repository, which is only the case if ``pyhsmm`` was cloned from
-github with the ``--recursive`` flag.
-
-
-## Running unit tests ##
-
-Unit tests for the package can be run with:
-
-```
-python -m unittest discover pyhsmm
-```
-
 
 ## Running ##
 
@@ -73,6 +63,7 @@ might also want to add pyhsmm to your global Python path (e.g. by copying it to
 your site-packages directory).
 
 ## A Simple Demonstration ##
+
 Here's how to draw from the HDP-HSMM posterior over HSMMs given a sequence of
 observations. (The same example, along with the code to generate the synthetic
 data loaded in this example, can be found in `examples/basic.py`.)
