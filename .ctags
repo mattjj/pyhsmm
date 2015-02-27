@@ -1,5 +1,5 @@
---exclude=deps
---exclude=basic/pybasicbayes
+--exclude=pyhsmm/deps
+--exclude=pyhsmm/basic/pybasicbayes
 --exclude=util
 --python-kinds=-i
 --recurse=yes

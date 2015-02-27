@@ -1,11 +1,11 @@
 from __future__ import division
+import sys
 import numpy as np
 np.seterr(divide='ignore')
 from matplotlib import pyplot as plt
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
-
 from pyhsmm.basic.pybasicbayes.parallel_tempering import ParallelTempering
 
 #####################
@@ -68,22 +68,25 @@ dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams) for state in
 #         alpha=6.,init_state_concentration=6.,
 #         obs_distns=obs_distns,dur_distns=dur_distns)
 
-posteriormodel = pyhsmm.models.DiagGaussHSMMPossibleChangepointsSeparateTrans(
-        alpha=6.,init_state_concentration=6.,
-        obs_distns=obs_distns,dur_distns=dur_distns)
+print "Skipping parallel testing test for now..."
 
-posteriormodel.add_data(data,changepoints,group_id=0)
+if False:
+    posteriormodel = pyhsmm.models.DiagGaussHSMMPossibleChangepointsSeparateTrans(
+            alpha=6.,init_state_concentration=6.,
+            obs_distns=obs_distns,dur_distns=dur_distns)
+
+    posteriormodel.add_data(data,changepoints,group_id=0)
 
 
-pt = ParallelTempering(posteriormodel,[100.])
-pt.run(100,10)
-for (T1,T2), count in pt.swapcounts.items():
-    print 'temperature pair (%0.2f, %0.2f) swapped %d times' % (T1,T2,count)
-    print '(%0.3f%% of the time)' % ((count / pt.itercount) * 100)
-    print
+    pt = ParallelTempering(posteriormodel,[100.])
+    pt.run(100,10)
+    for (T1,T2), count in pt.swapcounts.items():
+        print 'temperature pair (%0.2f, %0.2f) swapped %d times' % (T1,T2,count)
+        print '(%0.3f%% of the time)' % ((count / pt.itercount) * 100)
+        print
 
-plt.figure()
-pt.unit_temp_model.plot()
+    plt.figure()
+    pt.unit_temp_model.plot()
 
-plt.show()
+    plt.show()
 

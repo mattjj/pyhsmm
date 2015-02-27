@@ -1,6 +1,6 @@
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast -w -DNDEBUG -std=c++11
-# distutils: include_dirs = deps/Eigen3/
+# distutils: include_dirs = pyhsmm/deps/Eigen3/
 # cython: boundscheck = False
 
 import numpy as np
