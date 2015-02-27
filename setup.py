@@ -4,6 +4,8 @@ import sys
 import os
 from glob import glob
 
+PYHSMM_VERSION = "0.1.3"
+
 ###########################
 #  compilation arguments  #
 ###########################
@@ -68,8 +70,6 @@ for e in ext_modules:
 ############
 #  basics  #
 ############
-
-PYHSMM_VERSION = "0.1.1"
 
 setup(name='pyhsmm',
       version=PYHSMM_VERSION,
