@@ -1,1 +1,1 @@
-recursive-include deps *
+recursive-include pyhsmm/deps *
