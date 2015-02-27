@@ -6,6 +6,21 @@ from glob import glob
 
 PYHSMM_VERSION = "0.1.3"
 
+# Clean files (for developers only)
+if len(sys.argv) >= 2 and sys.argv[1] == "clean":
+    print "Cleaning files..."
+    if os.path.isdir("build"):
+        os.removedirs("build/")
+    fnames_to_remove = glob(os.path.join("pyhsmm", "**", "*.so"))
+    fnames_to_remove.extend(glob("*.egg-info"))
+    # Remove *.cpp/*.c files that are in pyhsmm/
+    # note that this assumes that all *.cpp/*.c files are Cython-generated
+    fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.cpp")))
+    fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.c")))
+    for fname in fnames_to_remove:
+        # Remove files
+        os.remove(so_fname)
+
 ###########################
 #  compilation arguments  #
 ###########################
