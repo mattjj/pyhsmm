@@ -1,1 +1,5 @@
 recursive-include pyhsmm/deps *
+recursive-include pyhsmm *.pyx
+recursive-include pyhsmm *.cpp
+recursive-include pyhsmm *.h
+recursive-include pyhsmm *.c
