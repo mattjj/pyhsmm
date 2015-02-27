@@ -46,7 +46,7 @@ if '--with-assembly' in sys.argv:
     sys.argv.remove('--with-assembly')
     extra_compile_args.extend(['--save-temps','-masm=intel','-fverbose-asm'])
 
-ext_modules = cythonize('./pyhsmm/*/*.pyx')
+ext_modules = cythonize('pyhsmm/*/*.pyx')
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
