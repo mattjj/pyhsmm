@@ -29,6 +29,7 @@ if '--with-native' in sys.argv:
 
 if '--with-mkl' in sys.argv:
     sys.argv.remove('--with-mkl')
+    # NOTE: there's no way this will work on Windows
     extra_compile_args.extend(['-m64','-I' + os.environ['MKLROOT'] + '/include','-DEIGEN_USE_MKL_ALL'])
     extra_link_args.extend(('-Wl,--start-group %(MKLROOT)s/lib/intel64/libmkl_intel_lp64.a %(MKLROOT)s/lib/intel64/libmkl_core.a %(MKLROOT)s/lib/intel64/libmkl_sequential.a -Wl,--end-group -lm' % {'MKLROOT':os.environ['MKLROOT']}).split(' '))
 
@@ -47,18 +48,18 @@ else:
 #  extension modules  #
 #######################
 
-ext_modules_pathspec = 'pyhsmm/**/*.pyx'
+cython_pathspec = os.path.join('pyhsmm','**','*.pyx')
 
 if use_cython:
     from Cython.Build import cythonize
-    ext_modules = cythonize(ext_modules_pathspec)
+    ext_modules = cythonize(cython_pathspec)
 else:
-    paths = [os.path.splitext(fp)[0] for fp in glob(ext_modules_pathspec)]
+    paths = [os.path.splitext(fp)[0] for fp in glob(cython_pathspec)]
     names = ['.'.join(os.path.split(p)) for p in paths]
     ext_modules = [
         Extension(name,
                   sources=[path + '.cpp'],
-                  include_dirs=['pyhsmm/deps/Eigen3/'],
+                  include_dirs=[os.path.join('pyhsmm','deps','Eigen3')],
                   extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
                                       '-DHMM_TEMPS_ON_HEAP'])
         for name, path in zip(names,paths)]
