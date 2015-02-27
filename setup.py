@@ -1,19 +1,15 @@
-from distutils.core import setup
+from distutils.core import setup, Extension
 import numpy as np
 import sys
 import os
+from glob import glob
 
-# TODO: ideally, make Cython optional. Allow compilation compilation from
-# Cython-generated *.c files, which would allow users to install the package
-# without having Cython. Technically only developers need to be able to run
-# Cython.
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    print "Cannot import Cython! Cython is required for pyhsmm."
+###########################
+#  compilation arguments  #
+###########################
 
 extra_link_args = []
-extra_compile_args = ['-DHMM_TEMPS_ON_HEAP','-DNDEBUG','-w']
+extra_compile_args = []
 
 if '--with-old-clang' in sys.argv:
     sys.argv.remove('--with-old-clang')
@@ -38,12 +34,42 @@ if '--with-assembly' in sys.argv:
     sys.argv.remove('--with-assembly')
     extra_compile_args.extend(['--save-temps','-masm=intel','-fverbose-asm'])
 
-ext_modules = cythonize('./pyhsmm/**/*.pyx')
+if '--with-cython' in sys.argv:
+    sys.argv.remove('--with-cython')
+    use_cython = True
+else:
+    use_cython = False
+
+
+#######################
+#  extension modules  #
+#######################
+
+ext_modules_pathspec = 'pyhsmm/**/*.pyx'
+
+if use_cython:
+    from Cython.Build import cythonize
+    ext_modules = cythonize(ext_modules_pathspec)
+else:
+    paths = [os.path.splitext(fp)[0] for fp in glob(ext_modules_pathspec)]
+    names = ['.'.join(os.path.split(p)) for p in paths]
+    ext_modules = [
+        Extension(name,
+                  sources=[path + '.cpp'],
+                  include_dirs=['pyhsmm/deps/Eigen3/'],
+                  extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
+                                      '-DHMM_TEMPS_ON_HEAP'])
+        for name, path in zip(names,paths)]
+
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
 
-PYHSMM_VERSION = "0.1"
+############
+#  basics  #
+############
+
+PYHSMM_VERSION = "0.1.1"
 
 setup(name='pyhsmm',
       version=PYHSMM_VERSION,

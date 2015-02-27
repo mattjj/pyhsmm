@@ -1,4 +1,5 @@
-# distutils: extra_compile_args = -Ofast -w
+# distutils: language = c++
+# distutils: extra_compile_args = -O3 -w
 # cython: boundscheck = False
 # cython: wraparound = False
 # cython: cdivision = True
