@@ -1,4 +1,5 @@
 # Bayesian inference in HSMMs and HMMs #
+
 This is a Python library for approximate unsupervised inference in
 Bayesian Hidden Markov Models (HMMs) and explicit-duration Hidden semi-Markov
 Models (HSMMs), focusing on the Bayesian Nonparametric extensions, the HDP-HMM
@@ -8,7 +9,6 @@ There are also some extensions:
 
 * [autoregressive models](https://github.com/mattjj/pyhsmm-autoregressive)
 * [factorial models](https://github.com/mattjj/pyhsmm-factorial)
-* [collapsed HDP sampling inference](https://github.com/mattjj/pyhsmm-collapsedinfinite).
 
 ## Building and Running ##
 This library depends on having numpy, scipy, cython, and matplotlib installed.
@@ -39,12 +39,12 @@ Some things to keep in mind:
 
 
 ## Building with pip ##
- 
+
 The library can now be built with ``pip``. To install, enter the
 repository directory and run:
 
 ```
-pip install . 
+pip install .
 ```
 
 This installation requires that ``pybasicbayes`` is present in the
@@ -214,6 +214,9 @@ defined in `basic/abstractions.py`. Also see the plugins. To get a flavor of
 the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
 
 ## References ##
+* Matthew J. Johnson. [Bayesian Time Series Models and Scalable
+  Inference](http://www.mit.edu/~mattjj/thesis.pdf). MIT PhD Thesis, May 2014.
+
 * Matthew J. Johnson and Alan S. Willsky. [Bayesian Nonparametric Hidden
   Semi-Markov Models](http://www.jmlr.org/papers/volume14/johnson13a/johnson13a.pdf).
   Journal of Machine Learning Research (JMLR), 14:673–701, February 2013.
@@ -234,4 +237,8 @@ the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
     year={2013},
 }
 ```
+
+## Authors ##
+
+[Matt Johnson](https://github.com/mattjj), [Alex Wiltschko](https://github.com/alexbw), [Yarden Katz](https://github.com/yarden), [Chia-ying (Jackie) Lee](https://github.com/jacquelineCelia), [Scott Linderman](https://github.com/slinderman), [Kevin Squire](https://github.com/kmsquire), [Nick Foti](https://github.com/nfoti).
 
