@@ -1,24 +1,16 @@
 from distutils.core import setup
 import numpy as np
-import sys, os
+import sys
+import os
 
-##
-## TODO: ideally, make Cython optional. Allow compilation
-## compilation from Cython-generated *.c files, which would
-## allow users to install the package without having Cython.
-## Technically only developers need to be able to run Cython.
-## 
+# TODO: ideally, make Cython optional. Allow compilation compilation from
+# Cython-generated *.c files, which would allow users to install the package
+# without having Cython. Technically only developers need to be able to run
+# Cython.
 try:
-    import Cython
     from Cython.Build import cythonize
 except ImportError:
     print "Cannot import Cython! Cython is required for pyhsmm."
-
-## Not necessary anymore
-#from util import cyutil
-#from cyutil import cythonize # my version of Cython.Build.cythonize
-
-# NOTE: distutils makes no sense
 
 extra_link_args = []
 extra_compile_args = ['-DHMM_TEMPS_ON_HEAP','-DNDEBUG','-w']
@@ -53,38 +45,37 @@ for e in ext_modules:
 
 PYHSMM_VERSION = "0.1"
 
-setup(name = 'pyhsmm',
-      version = PYHSMM_VERSION,
-      description = "Bayesian inference in HSMMs and HMMs",
-      author = 'Matt Johnson',
-      author_email = 'mattjj@csail.mit.edu',
-      maintainer = 'Matt Johnson',
-      maintainer_email = 'mattjj@csail.mit.edu',
-      packages = ['pyhsmm',
-                  'pyhsmm.basic',
-                  'pyhsmm.internals',
-                  'pyhsmm.examples',
-                  'pyhsmm.plugins',
-                  'pyhsmm.testing',
-                  'pyhsmm.util'],
-      platforms = 'ALL',
-      keywords = ['bayesian', 'inference', 'mcmc', 'time-series',
-                  'monte-carlo'],
-      install_requires = [
+setup(name='pyhsmm',
+      version=PYHSMM_VERSION,
+      description="Bayesian inference in HSMMs and HMMs",
+      author='Matthew James Johnson',
+      author_email='mattjj@csail.mit.edu',
+      maintainer='Matthew James Johnson',
+      maintainer_email='mattjj@csail.mit.edu',
+      packages=['pyhsmm',
+                'pyhsmm.basic',
+                'pyhsmm.internals',
+                'pyhsmm.examples',
+                'pyhsmm.plugins',
+                'pyhsmm.testing',
+                'pyhsmm.util'],
+      platforms='ALL',
+      keywords=['bayesian', 'inference', 'mcmc', 'time-series',
+                'monte-carlo'],
+      install_requires=[
           "Cython >= 0.20.1",
           "numpy",
           "scipy",
           "matplotlib",
           "nose",
-          "pybasicbayes"
-          ],
+          "pybasicbayes",
+      ],
       package_data={"pyhsmm": [os.path.join("examples", "*.txt")]},
       ext_modules=ext_modules,
       include_dirs=[np.get_include(),],
-      classifiers = [
-        'Intended Audience :: Science/Research',
-        'Programming Language :: Python',
-        'Programming Language :: C++'
-        ]          
-)
+      classifiers=[
+          'Intended Audience :: Science/Research',
+          'Programming Language :: Python',
+          'Programming Language :: C++',
+      ])
 
