@@ -48,7 +48,7 @@ else:
 #  extension modules  #
 #######################
 
-cython_pathspec = os.path.join('pyhsmm','**','*.pyx')
+cython_pathspec = os.path.join('pyhsmm', '**', '*.pyx')
 
 if use_cython:
     from Cython.Build import cythonize
@@ -59,7 +59,7 @@ else:
     ext_modules = [
         Extension(name,
                   sources=[path + '.cpp'],
-                  include_dirs=[os.path.join('pyhsmm','deps','Eigen3')],
+                  include_dirs=[os.path.join('deps','Eigen3')],
                   extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
                                       '-DHMM_TEMPS_ON_HEAP'])
         for name, path in zip(names,paths)]
