@@ -71,13 +71,18 @@ if use_cython:
 else:
     paths = [os.path.splitext(fp)[0] for fp in glob(cython_pathspec)]
     names = ['.'.join(os.path.split(p)) for p in paths]
-    ext_modules = [
-        Extension(name,
-                  sources=[path + '.cpp'],
-                  include_dirs=[os.path.join('deps','Eigen3')],
-                  extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
-                                      '-DHMM_TEMPS_ON_HEAP'])
-        for name, path in zip(names,paths)]
+    ext_modules = []
+    for name, path in zip(names, paths):
+        source_path = path + ".cpp"
+        if not os.path.isfile(source_path):
+            print "Warning: could not find %s" %(source_path)
+            print "  - Skipping"
+            continue
+        ext_module = Extension(name,
+                               sources=[source_path],
+                               include_dirs=[os.path.join('deps','Eigen3')],
+                               extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
+                                                   '-DHMM_TEMPS_ON_HEAP'])
 
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
