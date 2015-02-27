@@ -111,7 +111,6 @@ setup(name='pyhsmm',
       keywords=['bayesian', 'inference', 'mcmc', 'time-series',
                 'monte-carlo'],
       install_requires=[
-          "Cython >= 0.20.1",
           "numpy",
           "scipy",
           "matplotlib",
