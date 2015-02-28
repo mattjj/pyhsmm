@@ -2,24 +2,42 @@ from distutils.core import setup, Extension
 import numpy as np
 import sys
 import os
+import shutil
 from glob import glob
 
 PYHSMM_VERSION = "0.1.3"
 
-# Clean files (for developers only)
+#####################################
+# Clean files (for developers only) #
+#####################################
+
 if len(sys.argv) >= 2 and sys.argv[1] == "clean":
     print "Cleaning files..."
     if os.path.isdir("build"):
-        os.removedirs("build/")
+        shutil.rmtree("build/")
     fnames_to_remove = glob(os.path.join("pyhsmm", "**", "*.so"))
     fnames_to_remove.extend(glob("*.egg-info"))
     # Remove *.cpp/*.c files that are in pyhsmm/
-    # note that this assumes that all *.cpp/*.c files are Cython-generated
+    # NOTE: this assumes that all *.cpp/*.c files are Cython-generated
     fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.cpp")))
     fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.c")))
     for fname in fnames_to_remove:
         # Remove files
-        os.remove(so_fname)
+        os.remove(fname)
+    sys.exit(0)
+
+################################
+# check if Cython is available #
+################################
+    
+def is_cython_avail():
+    try:
+        from Cython.Build import cythonize
+        return True
+    except:
+        return False
+
+cython_avail = is_cython_avail()
 
 ###########################
 #  compilation arguments  #
@@ -54,24 +72,44 @@ if '--with-assembly' in sys.argv:
 
 if '--with-cython' in sys.argv:
     sys.argv.remove('--with-cython')
+    # if cython is not available, flag error
+    if not cython_avail:
+        print "Asked to use Cython but it is not installed."
+        sys.exit(1)
     use_cython = True
 else:
     use_cython = False
 
 
+#######################################
+# handle source distributions (sdist) #
+#######################################
+
+# If we're using sdist, then we have to use Cython
+if sys.argv[1] == "sdist":
+    # Override 'build_ext' of Cython with distutils's build_ext
+    from distutils.command import build_ext
+    if not cython_avail:
+        print "Making sdist requires Cython to be installed."
+        sys.exit(1)
+    use_cython = True
+        
 #######################
 #  extension modules  #
 #######################
 
 cython_pathspec = os.path.join('pyhsmm', '**', '*.pyx')
 
+ext_modules = []
 if use_cython:
+    print "Using Cython.."
     from Cython.Build import cythonize
+    from Cython.Distutils import build_ext
     ext_modules = cythonize(cython_pathspec)
 else:
+    print "Not using Cython. Building from C/C++ source..."
     paths = [os.path.splitext(fp)[0] for fp in glob(cython_pathspec)]
     names = ['.'.join(os.path.split(p)) for p in paths]
-    ext_modules = []
     for name, path in zip(names, paths):
         # Note: this assumes that all Cython generated files
         # are *.cpp and will fail for *.c generated Cython files
@@ -80,12 +118,15 @@ else:
             print "Warning: could not find %s" %(source_path)
             print "  - Skipping"
             continue
+        print "Making extension %s" %(name)
         ext_module = Extension(name,
                                sources=[source_path],
                                include_dirs=[os.path.join('deps','Eigen3')],
                                extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
                                                    '-DHMM_TEMPS_ON_HEAP'])
+        ext_modules.append(ext_module)
 
+    
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
