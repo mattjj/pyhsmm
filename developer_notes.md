@@ -1,4 +1,4 @@
-Here's the pipeline as I have it now. It works on my end:
+Some notes on current build/compile pipeline:
 
 If you're a developer
 ----------------------------
