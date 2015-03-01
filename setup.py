@@ -86,9 +86,7 @@ else:
 #######################################
 
 # If we're using sdist, then we have to use Cython
-if sys.argv[1] == "sdist":
-    # Override 'build_ext' of Cython with distutils's build_ext
-    from distutils.command import build_ext
+if len(sys.argv) >= 2 and sys.argv[1] == "sdist":
     if not cython_avail:
         print "Making sdist requires Cython to be installed."
         sys.exit(1)
@@ -118,6 +116,8 @@ else:
             print "Warning: could not find %s" %(source_path)
             print "  - Skipping"
             continue
+        # Make paths into Python module names
+        name = name.replace("/", ".")
         print "Making extension %s" %(name)
         ext_module = Extension(name,
                                sources=[source_path],
@@ -126,10 +126,10 @@ else:
                                                    '-DHMM_TEMPS_ON_HEAP'])
         ext_modules.append(ext_module)
 
-    
 for e in ext_modules:
     e.extra_compile_args.extend(extra_compile_args)
     e.extra_link_args.extend(extra_link_args)
+
 
 ############
 #  basics  #
@@ -166,6 +166,6 @@ setup(name='pyhsmm',
       classifiers=[
           'Intended Audience :: Science/Research',
           'Programming Language :: Python',
-          'Programming Language :: C++',
+          'Programming Language :: C++'
       ])
 
