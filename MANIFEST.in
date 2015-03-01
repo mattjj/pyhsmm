@@ -1,4 +1,4 @@
 recursive-include deps *
 recursive-include pyhsmm *.pyx
 recursive-include pyhsmm *.h
-
+include setuphelper.py

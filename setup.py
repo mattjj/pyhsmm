@@ -5,42 +5,28 @@ import os
 import shutil
 from glob import glob
 
+import setuphelper
+
 PYHSMM_VERSION = "0.1.3"
 
-#####################################
-# Clean files (for developers only) #
-#####################################
+########################################################
+# check if Cython is available and define pyx location #
+########################################################
+    
+cython_avail = setuphelper.is_cython_avail()
+# where Cython code lives
+cython_pathspec = os.path.join('pyhsmm', '**', '*.pyx')
+
+# where Cython-generated C/C++ files are
+cython_generated_fnames = \
+  setuphelper.get_cython_generated_sources(cython_pathspec)
+
+############################################
+## clean build files (for developers only) #
+############################################
 
 if len(sys.argv) >= 2 and sys.argv[1] == "clean":
-    print "Cleaning files..."
-    if os.path.isdir("build"):
-        shutil.rmtree("build/")
-    fnames_to_remove = glob(os.path.join("pyhsmm", "**", "*.so"))
-    fnames_to_remove.extend(glob("*.egg-info"))
-    # Remove *.cpp/*.c files that are in pyhsmm/
-    # NOTE: this assumes that all *.cpp/*.c files are Cython-generated
-    fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.cpp")))
-    fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.c")))
-    for fname in fnames_to_remove:
-        # Remove files if you can
-        try:
-            os.remove(fname)
-        except:
-            pass
-    sys.exit(0)
-
-################################
-# check if Cython is available #
-################################
-    
-def is_cython_avail():
-    try:
-        from Cython.Build import cythonize
-        return True
-    except:
-        return False
-
-cython_avail = is_cython_avail()
+    setuphelper.clean_build(fnames_to_remove=cython_generated_fnames)
 
 ###########################
 #  compilation arguments  #
@@ -94,19 +80,18 @@ if len(sys.argv) >= 2 and sys.argv[1] == "sdist":
         print "Making sdist requires Cython to be installed."
         sys.exit(1)
     use_cython = True
-        
+
 #######################
 #  extension modules  #
 #######################
-
-cython_pathspec = os.path.join('pyhsmm', '**', '*.pyx')
-
 ext_modules = []
+cmdclass = {}
 if use_cython:
     print "Using Cython.."
     from Cython.Build import cythonize
     from Cython.Distutils import build_ext
     ext_modules = cythonize(cython_pathspec)
+    cmdclass.update({'build_ext': build_ext})
 else:
     print "Not using Cython. Building from C/C++ source..."
     paths = [os.path.splitext(fp)[0] for fp in glob(cython_pathspec)]
@@ -164,6 +149,7 @@ setup(name='pyhsmm',
           "pybasicbayes",
       ],
       package_data={"pyhsmm": [os.path.join("examples", "*.txt")]},
+      cmdclass=cmdclass,
       ext_modules=ext_modules,
       include_dirs=[np.get_include(),],
       classifiers=[
