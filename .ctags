@@ -1,4 +1,4 @@
---exclude=pyhsmm/deps
+--exclude=deps/
 --exclude=pyhsmm/basic/pybasicbayes
 --exclude=util
 --python-kinds=-i
