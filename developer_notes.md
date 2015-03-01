@@ -46,7 +46,7 @@ This will make a source distribution in ``dist/``. Untar that somewhere fresh an
 
 ```
 cd pyhsmm-0.1.x/
-pip install .
+pip install --edit .
 ```
 
 This should trigger compilation of *.cpp files **without** invoking Cython or requiring it to be installed on the machine where you're installing the pyhsmm release.
