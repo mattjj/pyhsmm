@@ -121,7 +121,7 @@ else:
         print "Making extension %s" %(name)
         ext_module = Extension(name,
                                sources=[source_path],
-                               include_dirs=[os.path.join('deps','Eigen3')],
+                               include_dirs=[os.path.join('deps', 'Eigen3')],
                                extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w',
                                                    '-DHMM_TEMPS_ON_HEAP'])
         ext_modules.append(ext_module)
