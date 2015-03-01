@@ -22,8 +22,11 @@ if len(sys.argv) >= 2 and sys.argv[1] == "clean":
     fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.cpp")))
     fnames_to_remove.extend(glob(os.path.join("pyhsmm", "**", "*.c")))
     for fname in fnames_to_remove:
-        # Remove files
-        os.remove(fname)
+        # Remove files if you can
+        try:
+            os.remove(fname)
+        except:
+            pass
     sys.exit(0)
 
 ################################
