@@ -21,6 +21,8 @@ pip install pyhsmm
 
 ## Manual build ##
 This library depends on having numpy, scipy, cython, and matplotlib installed.
+It has been tested with Python 2.7.9.
+
 Clone the repository into your working directory
 
 ```bash
