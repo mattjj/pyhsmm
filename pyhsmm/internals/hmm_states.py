@@ -12,6 +12,8 @@ except ImportError:
     from pyhsmm.util.stats import sample_markov
 from pyhsmm.util.general import rle, top_eigenvector, rcumsum, cumsum
 from pyhsmm.util.profiling import line_profiled
+import pyhsmm.internals.hmm_messages_interface as hmm_messages_interface
+
 
 ######################
 #  Mixins and bases  #
