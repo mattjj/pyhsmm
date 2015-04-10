@@ -1,18 +1,14 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
-from numpy.random import random
-from matplotlib import pyplot as plt
-import abc, copy, warnings
 
-import pyhsmm
-from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log, sample_markov
-from pyhsmm.util.general import rle, top_eigenvector, rcumsum, cumsum
-from pyhsmm.util.profiling import line_profiled
+from pyhsmm.util.stats import sample_discrete
+from pyhsmm.util.general import rle, rcumsum, cumsum
 
 import hmm_states
 from hmm_states import _StatesBase, _SeparateTransMixin, \
-        HMMStatesPython, HMMStatesEigen
+    HMMStatesPython, HMMStatesEigen
+
 
 class HSMMStatesPython(_StatesBase):
     def __init__(self,model,right_censoring=True,left_censoring=False,trunc=None,
@@ -21,8 +17,9 @@ class HSMMStatesPython(_StatesBase):
         self.left_censoring = left_censoring
         self.trunc = trunc
 
-        self._kwargs = dict(self._kwargs,trunc=trunc,
-                left_censoring=left_censoring,right_censoring=right_censoring)
+        self._kwargs = dict(
+            self._kwargs,trunc=trunc,
+            left_censoring=left_censoring,right_censoring=right_censoring)
 
         super(HSMMStatesPython,self).__init__(model,stateseq=stateseq,**kwargs)
 

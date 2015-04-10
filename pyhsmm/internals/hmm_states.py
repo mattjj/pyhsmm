@@ -1,17 +1,15 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
-import abc, copy, warnings
-import matplotlib.pyplot as plt
+import abc
+import copy
 
-import pyhsmm
-from pyhsmm.util.stats import sample_discrete, sample_discrete_from_log
+from pyhsmm.util.stats import sample_discrete
 try:
     from pyhsmm.util.cstats import sample_markov
 except ImportError:
     from pyhsmm.util.stats import sample_markov
-from pyhsmm.util.general import rle, top_eigenvector, rcumsum, cumsum
-from pyhsmm.util.profiling import line_profiled
+from pyhsmm.util.general import rle
 
 ######################
 #  Mixins and bases  #
@@ -44,7 +42,7 @@ class _StatesBase(object):
         new.stateseq = self.stateseq.copy()
         return new
 
-    _kwargs = {} # used in subclasses for joblib stuff
+    _kwargs = {}  # used in subclasses for joblib stuff
 
     ### model properties
 
