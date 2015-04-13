@@ -73,7 +73,7 @@ for idx, (data, changepoints) in enumerate(zip(datas,changepointss)):
     posteriormodel.add_data(data=data,changepoints=changepoints,group_id=idx)
 
 for idx in progprint_xrange(100):
-    posteriormodel.resample_model(joblib_jobs=2)
+    posteriormodel.resample_model(num_procs=2)
 
 for s in posteriormodel.states_list:
     s.Viterbi()
@@ -106,7 +106,7 @@ posteriormodel.plot()
 
 # scores = []
 # for idx in progprint_xrange(50):
-#     scores.append(posteriormodel.meanfield_coordinate_descent_step(joblib_jobs=1))
+#     scores.append(posteriormodel.meanfield_coordinate_descent_step(num_procs=1))
 
 # plt.figure()
 # plt.plot(scores)
