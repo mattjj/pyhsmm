@@ -187,11 +187,6 @@ def engine_global_namespace(f):
     f.__module__ = '__main__'
     return f
 
-def block_view(a,block_shape):
-    shape = (a.shape[0]/block_shape[0],a.shape[1]/block_shape[1]) + block_shape
-    strides = (a.strides[0]*block_shape[0],a.strides[1]*block_shape[1]) + a.strides
-    return ast(a,shape=shape,strides=strides)
-
 def AR_striding(data,nlags):
     data = np.asarray(data)
     if not data.flags.c_contiguous:

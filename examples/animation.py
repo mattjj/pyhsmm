@@ -1,8 +1,10 @@
 from __future__ import division
 import os
 import numpy as np
+import numpy.random as npr
 from matplotlib import pyplot as plt
 plt.ion()
+npr.seed(0)
 
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
@@ -11,7 +13,7 @@ from pyhsmm.util.text import progprint_xrange
 #  load data  #
 ###############
 
-data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:2500]
+data = np.loadtxt(os.path.join(os.path.dirname(__file__),'example-data.txt'))[:1250]
 data += 0.5*np.random.normal(size=data.shape) # some extra noise
 
 ##################
@@ -29,7 +31,8 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'nu_0':obs_dim+2}
 
 # instantiate a Sticky-HDP-HMM
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams)
+              for state in xrange(Nmax)]
 model = pyhsmm.models.WeakLimitStickyHDPHMM(
         kappa=50.,alpha=6.,gamma=6.,init_state_concentration=1.,
         obs_distns=obs_distns)
@@ -43,13 +46,13 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 from moviepy.editor import VideoClip
 
 fig = model.make_figure()
-model.plot(fig=fig,draw=False,plot_slice=slice(0,100))
+model.plot(fig=fig,draw=False)
 
 def make_frame_mpl(t):
     model.resample_model()
-    model.plot(fig=fig,update=True,draw=False,plot_slice=slice(0,100))
+    model.plot(fig=fig,update=True,draw=False)
     return mplfig_to_npimage(fig)
 
-animation = VideoClip(make_frame_mpl, duration=5)
-animation.write_videofile('gibbs.mp4',fps=50)
+animation = VideoClip(make_frame_mpl, duration=10)
+animation.write_videofile('gibbs.mp4',fps=40)
 
