@@ -1,21 +1,19 @@
 from __future__ import division
 import numpy as np
-import scipy.stats as stats
 from numpy import newaxis as na
 np.seterr(invalid='raise')
-import operator
 import copy
 
-from scipy.special import digamma, gammaln
+from scipy.special import digamma
 
-import pyhsmm
-from pyhsmm.basic.abstractions import GibbsSampling
 from pyhsmm.basic.distributions import GammaCompoundDirichlet, Multinomial, \
-        MultinomialAndConcentration
+    MultinomialAndConcentration
 from pyhsmm.util.general import rle, cumsum, rcumsum
 try:
     from pyhsmm.util.cstats import sample_crp_tablecounts, count_transitions
 except ImportError:
+    from warnings import warn
+    warn('using slow transition counting')
     from pyhsmm.util.stats import sample_crp_tablecounts, count_transitions
 
 # TODO separate out bayesian and nonbayesian versions?

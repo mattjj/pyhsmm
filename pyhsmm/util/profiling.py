@@ -44,7 +44,11 @@ try:
         return func
 
     def show_line_stats(stream=None):
-        _prof.print_stats(stream=stream)
+        if isinstance(stream,str):
+            with open(stream,'w') as outfile:
+                _prof.print_stats(stream=outfile)
+        else:
+            _prof.print_stats(stream=stream)
 except ImportError:
     line_profiled = lambda x: x
 

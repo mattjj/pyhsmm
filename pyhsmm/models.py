@@ -440,6 +440,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
             distn.resample([s.data[s.stateseq == state] for s in self.states_list])
         self._clear_caches()
 
+    @line_profiled
     def resample_trans_distn(self):
         self.trans_distn.resample([s.stateseq for s in self.states_list])
         self._clear_caches()
