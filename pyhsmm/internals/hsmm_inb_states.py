@@ -3,6 +3,7 @@ import numpy as np
 import abc
 import scipy.stats as stats
 import scipy.special as special
+from scipy.misc import logsumexp
 
 try:
     from ..util.cstats import sample_markov
@@ -170,10 +171,10 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         # betal[-1] is 0
         for t in xrange(T-1,-1,-1):
             pmess += self.hmm_aBl[t]
-            betastarl[t] = np.logaddexp.reduce(np.log(foo) + pmess, axis=1)
-            betal[t-1] = np.logaddexp.reduce(Al + betastarl[t], axis=1)
+            betastarl[t] = logsumexp(np.log(foo) + pmess, axis=1)
+            betal[t-1] = logsumexp(Al + betastarl[t], axis=1)
 
-            pmess = np.logaddexp.reduce(np.log(bar) + pmess, axis=1)
+            pmess = logsumexp(np.log(bar) + pmess, axis=1)
             pmess[ends-1] = np.logaddexp(pmess[ends-1],betal[t-1] + np.log(1-self.ps))
         betal[-1] = 0.
 

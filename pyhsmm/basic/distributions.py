@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
-import scipy.stats as stats
-import scipy.special as special
+from scipy.misc import logsumexp
 
 from pybasicbayes.distributions import *
 from pybasicbayes.models import MixtureDistribution
@@ -123,7 +122,7 @@ class MixtureDistribution(MixtureDistribution, DurationDistribution):
         for idx, c in enumerate(self.components):
             vals[:,idx] = c.log_sf(x)
         vals += self.weights.log_likelihood(np.arange(K))
-        return np.logaddexp.reduce(vals,axis=1)
+        return logsumexp(vals,axis=1)
 
 ##########
 #  Meta  #

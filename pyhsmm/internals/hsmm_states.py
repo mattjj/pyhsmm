@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 from numpy import newaxis as na
+from scipy.misc import logsumexp
 
 from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util.general import rle, rcumsum, cumsum
@@ -505,7 +506,7 @@ class HSMMStatesEigen(HSMMStatesPython):
         assert not np.isnan(betastarl).any()
 
         if not self.left_censoring:
-            self._normalizer = np.logaddexp.reduce(np.log(self.pi_0) + betastarl[0])
+            self._normalizer = logsumexp(np.log(self.pi_0) + betastarl[0])
         else:
             raise NotImplementedError
 
@@ -944,7 +945,7 @@ class DiagGaussGMMStates(HSMMStatesPossibleChangepointsSeparateTrans):
             all_likes += weights[na,...]
 
             # aBl is T x Nstates
-            aBl = self._aBl = np.logaddexp.reduce(all_likes, axis=2)
+            aBl = self._aBl = logsumexp(all_likes, axis=2)
             aBl[np.isnan(aBl).any(1)] = 0.
 
             aBBl = self._aBBl = np.empty((self.Tblock,self.num_states))
@@ -991,18 +992,18 @@ def hsmm_messages_backwards_log(
     for t in xrange(T-1,-1,-1):
         cB, offset = cumulative_obs_potentials(t)
         dp = dur_potentials(t)
-        np.logaddexp.reduce(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
+        logsumexp(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
                 axis=0, out=betastarl[t])
         betastarl[t] -= offset
         if right_censoring:
             np.logaddexp(betastarl[t], cB[-1] - offset + dur_survival_potentials(t),
                     out=betastarl[t])
-        np.logaddexp.reduce(betastarl[t] + trans_potentials(t-1),
+        logsumexp(betastarl[t] + trans_potentials(t-1),
                 axis=1, out=betal[t-1])
     betal[-1] = 0. # overwritten on last iteration
 
     if not left_censoring:
-        normalizer = np.logaddexp.reduce(initial_state_potential + betastarl[0])
+        normalizer = logsumexp(initial_state_potential + betastarl[0])
     else:
         raise NotImplementedError
 
@@ -1020,19 +1021,19 @@ def hsmm_messages_forwards_log(
     alphastarl[0] = initial_state_potential
     for t in xrange(T-1):
         cB = reverse_cumulative_obs_potentials(t)
-        np.logaddexp.reduce(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
+        logsumexp(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
                 axis=0, out=alphal[t])
         if left_censoring:
             raise NotImplementedError
-        np.logaddexp.reduce(alphal[t][:,na] + trans_potential(t),
+        logsumexp(alphal[t][:,na] + trans_potential(t),
                 axis=0, out=alphastarl[t+1])
     t = T-1
     cB = reverse_cumulative_obs_potentials(t)
-    np.logaddexp.reduce(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
+    logsumexp(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
             axis=0, out=alphal[t])
 
     if not right_censoring:
-        normalizer = np.logaddexp.reduce(alphal[t])
+        normalizer = logsumexp(alphal[t])
     else:
         normalizer = None # TODO
 
@@ -1058,7 +1059,7 @@ def hsmm_sample_forwards_log(
     while t < T:
         ## sample the state
         nextstate_distn_log = nextstate_unsmoothed + betastarl[t]
-        nextstate_distn = np.exp(nextstate_distn_log - np.logaddexp.reduce(nextstate_distn_log))
+        nextstate_distn = np.exp(nextstate_distn_log - logsumexp(nextstate_distn_log))
         assert nextstate_distn.sum() > 0
         state = sample_discrete(nextstate_distn)
 

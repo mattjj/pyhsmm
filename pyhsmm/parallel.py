@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from scipy.misc import logsumexp
 
 # NOTE: pass arguments through global variables instead of arguments to exploit
 # the fact that they're read-only and multiprocessing/joblib uses fork
@@ -62,10 +63,10 @@ scaled_alphal = None
 trans_matrix = None
 aBl = None
 def _get_predictive_likelihoods(k):
-    future_likelihoods = np.logaddexp.reduce(
+    future_likelihoods = logsumexp(
             np.log(scaled_alphal[:-k].dot(np.linalg.matrix_power(trans_matrix,k))) \
                     + cmaxes[:-k,None] + aBl[k:], axis=1)
-    past_likelihoods = np.logaddexp.reduce(alphal[:-k], axis=1)
+    past_likelihoods = logsumexp(alphal[:-k], axis=1)
 
     return future_likelihoods - past_likelihoods
 

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib import cm
 from warnings import warn
+from scipy.misc import logsumexp
 
 import pyhsmm
 from pyhsmm.basic.abstractions import Model, ModelGibbsSampling, \
@@ -129,9 +130,9 @@ class _HMMBase(Model):
                 cmaxes = cmaxes[:-step]
                 scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
 
-                future_likelihoods = np.logaddexp.reduce(
+                future_likelihoods = logsumexp(
                         np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
-                past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+                past_likelihoods = logsumexp(alphal[:-k],axis=1)
                 outs.append(future_likelihoods - past_likelihoods)
 
                 prev_k = k
@@ -1128,9 +1129,9 @@ class HSMMIntNegBin(_HSMMGibbsSampling,_HSMMMeanField,_HSMMSVI,_HSMMViterbiEM,
             cmaxes = cmaxes[:-step]
             scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.hmm_trans_matrix,step))
 
-            future_likelihoods = np.logaddexp.reduce(
+            future_likelihoods = logsumexp(
                     np.log(scaled_alphal) + cmaxes[:,None] + s.hmm_aBl[k:],axis=1)
-            past_likelihoods = np.logaddexp.reduce(alphal[:-k],axis=1)
+            past_likelihoods = logsumexp(alphal[:-k],axis=1)
             outs.append(future_likelihoods - past_likelihoods)
 
             prev_k = k

@@ -3,6 +3,7 @@ import numpy as np
 from numpy import newaxis as na
 import abc
 import copy
+from scipy.misc import logsumexp
 
 from pyhsmm.util.stats import sample_discrete
 try:
@@ -253,7 +254,7 @@ class HMMStatesPython(_StatesBase):
         betal = np.zeros_like(aBl)
 
         for t in xrange(betal.shape[0]-2,-1,-1):
-            np.logaddexp.reduce(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
+            logsumexp(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
 
         np.seterr(**errs)
         return betal
@@ -261,7 +262,7 @@ class HMMStatesPython(_StatesBase):
     def messages_backwards_log(self):
         betal = self._messages_backwards_log(self.trans_matrix,self.aBl)
         assert not np.isnan(betal).any()
-        self._normalizer = np.logaddexp.reduce(np.log(self.pi_0) + betal[0] + self.aBl[0])
+        self._normalizer = logsumexp(np.log(self.pi_0) + betal[0] + self.aBl[0])
         return betal
 
     @staticmethod
@@ -274,7 +275,7 @@ class HMMStatesPython(_StatesBase):
 
         alphal[0] = np.log(init_state_distn) + aBl[0]
         for t in xrange(alphal.shape[0]-1):
-            alphal[t+1] = np.logaddexp.reduce(alphal[t] + Al.T,axis=1) + aBl[t+1]
+            alphal[t+1] = logsumexp(alphal[t] + Al.T,axis=1) + aBl[t+1]
 
         np.seterr(**errs)
         return alphal
@@ -282,7 +283,7 @@ class HMMStatesPython(_StatesBase):
     def messages_forwards_log(self):
         alphal = self._messages_forwards_log(self.trans_matrix,self.pi_0,self.aBl)
         assert not np.any(np.isnan(alphal))
-        self._normalizer = np.logaddexp.reduce(alphal[-1])
+        self._normalizer = logsumexp(alphal[-1])
         return alphal
 
     @staticmethod
@@ -480,7 +481,7 @@ class HMMStatesPython(_StatesBase):
         joints /= joints.sum((1,2))[:,na,na] # NOTE: renormalizing each isnt really necessary
         expected_transcounts = joints.sum(0)
 
-        normalizer = np.logaddexp.reduce(alphal[0] + betal[0])
+        normalizer = logsumexp(alphal[0] + betal[0])
 
         return expected_states, expected_transcounts, normalizer
 
