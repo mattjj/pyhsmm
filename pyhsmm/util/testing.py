@@ -60,7 +60,7 @@ def populations_eq_quantile_plot(pop1, pop2, fig=None, percentilecutoff=5):
 
         ims1, ims2 = pop1.dot(projs.T), pop2.dot(projs.T)
         for i, (im1, im2) in enumerate(zip(ims1.T,ims2.T)):
-            plt.subplot(2,D,i)
+            plt.subplot(2,D,i+1)
             plot_1d_scaled_quantiles(im1,im2,plot_midline=firsttime)
 
 ### numerical

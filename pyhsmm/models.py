@@ -10,13 +10,13 @@ from matplotlib import cm
 from warnings import warn
 from scipy.misc import logsumexp
 
-import pyhsmm
 from pyhsmm.basic.abstractions import Model, ModelGibbsSampling, \
-        ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
+    ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
 from pyhsmm.internals import hmm_states, hsmm_states, hsmm_inb_states, \
-        initial_state, transitions
+    initial_state, transitions
 from pyhsmm.util.general import list_split
 from pyhsmm.util.profiling import line_profiled
+from pybasicbayes.util.stats import atleast_2d
 
 ################
 #  HMM Mixins  #
@@ -83,7 +83,7 @@ class _HMMBase(Model):
         else:
             # filling in missing data
             data = s.data
-            nan_idx, = np.where(np.isnan(data).any(1))
+            nan_idx, = np.where(np.isnan(atleast_2d(data)).any(1))
             counts = np.bincount(s.stateseq[nan_idx],minlength=self.num_states)
             obs = [iter(o.rvs(count)) for o, count in zip(s.obs_distns,counts)]
             for idx, state in zip(nan_idx, s.stateseq[nan_idx]):

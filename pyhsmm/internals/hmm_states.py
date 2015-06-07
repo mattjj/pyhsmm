@@ -332,7 +332,7 @@ class HMMStatesPython(_StatesBase):
                 logtot += np.log(norm) + cmax
             else:
                 alphan[t:] = 0.
-                return alphan, np.log(0.)
+                return alphan, -np.inf
             in_potential = alphan[t].dot(A)
 
         return alphan, logtot

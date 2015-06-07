@@ -5,9 +5,9 @@ from nose.plugins.attrib import attr
 import os
 import matplotlib.pyplot as plt
 
-import pyhsmm
 from pyhsmm import models, distributions
-from pyhsmm.util import testing
+from pybasicbayes.util import testing
+
 
 ##########
 #  util  #
@@ -35,6 +35,7 @@ def mkdir(path):
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else: raise
+
 
 figure_dir_path = os.path.join(os.path.dirname(__file__),'figures')
 mkdir(figure_dir_path)
@@ -79,8 +80,9 @@ def discrete_geweke_test(fig):
     gibbs_stateseqs = []
     gibbs_weights = []
     for itr in xrange(num_iter):
-        s.generate_obs() # resamples data given state sequence, obs params
-        hmm.resample_model() # resamples everything else as usual
+        s.data = None
+        hmm._generate_obs(s)  # resamples data given state sequence, obs params
+        hmm.resample_model()  # resamples everything else as usual
         gibbs_stateseqs.append(s.stateseq)
         gibbs_weights.append(hmm.obs_distns[0].weights)
     gibbs_stateseqs = np.array(gibbs_stateseqs)
@@ -102,6 +104,7 @@ def discrete_geweke_test(fig):
     testing.populations_eq_quantile_plot(prior_weights,gibbs_weights,fig=fig)
     figpath = os.path.join(figure_dir_path,'discrete_geweke_test_weights.pdf')
     plt.savefig(figpath)
+
 
 @attr('slow')
 @runmultiple(2)
@@ -147,8 +150,9 @@ def discrete_geweke_multiple_seqs_test(fig):
     gibbs_weights = []
     for itr in xrange(num_iter):
         for s in hmm.states_list:
-            s.generate_obs() # resamples data given state sequence, obs params
-        hmm.resample_model() # resamples everything else as usual
+            s.data = None
+            hmm._generate_obs(s)  # resamples data given state sequence, obs params
+        hmm.resample_model()  # resamples everything else as usual
 
         for itr2, s in enumerate(hmm.states_list):
             gibbs_stateseqss[itr2].append(s.stateseq)
