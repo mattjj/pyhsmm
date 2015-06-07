@@ -96,7 +96,7 @@ def like_hand_test_2():
         trans_matrix=np.eye(2),
         init_distn=np.array([0.,1.]),
         data=np.zeros(10,dtype=int),
-        target_val=np.log(0.))
+        target_val=-np.inf)
 
 @attr('hmm','likelihood','messages','basic')
 def like_hand_test_3():
