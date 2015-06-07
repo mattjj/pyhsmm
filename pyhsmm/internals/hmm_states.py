@@ -254,7 +254,7 @@ class HMMStatesPython(_StatesBase):
         betal = np.zeros_like(aBl)
 
         for t in xrange(betal.shape[0]-2,-1,-1):
-            logsumexp(Al + betal[t+1] + aBl[t+1],axis=1,out=betal[t])
+            betal[t] = logsumexp(Al + betal[t+1] + aBl[t+1],axis=1)
 
         np.seterr(**errs)
         return betal

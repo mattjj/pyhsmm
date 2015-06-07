@@ -131,7 +131,7 @@ class _HMMBase(Model):
                 scaled_alphal = scaled_alphal[:-step].dot(np.linalg.matrix_power(s.trans_matrix,step))
 
                 future_likelihoods = logsumexp(
-                        np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
+                    np.log(scaled_alphal) + cmaxes[:,None] + s.aBl[k:],axis=1)
                 past_likelihoods = logsumexp(alphal[:-k],axis=1)
                 outs.append(future_likelihoods - past_likelihoods)
 

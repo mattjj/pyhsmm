@@ -992,14 +992,13 @@ def hsmm_messages_backwards_log(
     for t in xrange(T-1,-1,-1):
         cB, offset = cumulative_obs_potentials(t)
         dp = dur_potentials(t)
-        logsumexp(betal[t:t+cB.shape[0]] + cB + dur_potentials(t),
-                axis=0, out=betastarl[t])
+        betastarl[t] = logsumexp(
+            betal[t:t+cB.shape[0]] + cB + dur_potentials(t), axis=0)
         betastarl[t] -= offset
         if right_censoring:
             np.logaddexp(betastarl[t], cB[-1] - offset + dur_survival_potentials(t),
                     out=betastarl[t])
-        logsumexp(betastarl[t] + trans_potentials(t-1),
-                axis=1, out=betal[t-1])
+        betal[t-1] = logsumexp(betastarl[t] + trans_potentials(t-1), axis=1)
     betal[-1] = 0. # overwritten on last iteration
 
     if not left_censoring:
@@ -1021,16 +1020,16 @@ def hsmm_messages_forwards_log(
     alphastarl[0] = initial_state_potential
     for t in xrange(T-1):
         cB = reverse_cumulative_obs_potentials(t)
-        logsumexp(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
-                axis=0, out=alphal[t])
+        alphal[t] = logsumexp(
+            alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t), axis=0)
         if left_censoring:
             raise NotImplementedError
-        logsumexp(alphal[t][:,na] + trans_potential(t),
-                axis=0, out=alphastarl[t+1])
+        alphastarl[t+1] = logsumexp(
+            alphal[t][:,na] + trans_potential(t), axis=0)
     t = T-1
     cB = reverse_cumulative_obs_potentials(t)
-    logsumexp(alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t),
-            axis=0, out=alphal[t])
+    alphal[t] = logsumexp(
+        alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t), axis=0)
 
     if not right_censoring:
         normalizer = logsumexp(alphal[t])
