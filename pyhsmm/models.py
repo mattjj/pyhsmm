@@ -18,10 +18,10 @@ from pyhsmm.util.general import list_split
 from pyhsmm.util.profiling import line_profiled
 from pybasicbayes.util.stats import atleast_2d
 
+
 ################
 #  HMM Mixins  #
 ################
-
 
 class _HMMBase(Model):
     _states_class = hmm_states.HMMStatesPython
@@ -421,7 +421,6 @@ class _HMMBase(Model):
             ax.add_collection(lc)
 
         return s._data_lc
-
 
 
 class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):

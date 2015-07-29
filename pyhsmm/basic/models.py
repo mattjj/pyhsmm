@@ -6,10 +6,10 @@
 from copy import deepcopy
 
 import pybasicbayes
-import pyhsmm
 from pyhsmm.util.general import rle
 
-class _Labels(pybasicbayes.internals.labels.Labels):
+
+class _Labels(pybasicbayes.models.Labels):
     @property
     def T(self):
         return self.N
@@ -29,6 +29,7 @@ class _Labels(pybasicbayes.internals.labels.Labels):
     @property
     def durations(self):
         return rle(self.z)[1]
+
 
 class _MixturePropertiesMixin(object):
     _labels_class = _Labels
@@ -74,8 +75,10 @@ class _MixturePropertiesMixin(object):
             self.add_data(l.data,z=l.z)
         return self
 
+
 class Mixture(_MixturePropertiesMixin,pybasicbayes.models.Mixture):
     pass
+
 
 class MixtureDistribution(_MixturePropertiesMixin,pybasicbayes.models.MixtureDistribution):
     pass
