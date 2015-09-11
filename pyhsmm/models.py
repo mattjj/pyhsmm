@@ -804,10 +804,10 @@ class _HMMParallelTempering(_HMMBase,ModelParallelTempering):
                 energy += self.obs_distns[state].energy(datum)
         return energy
 
+
 ################
 #  HMM models  #
 ################
-
 
 class HMMPython(_HMMGibbsSampling,_HMMSVI,_HMMMeanField,_HMMEM,
         _HMMViterbiEM,_HMMParallelTempering):
@@ -866,10 +866,10 @@ class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
 class HMMPossibleChangepoints(_HMMPossibleChangepointsMixin,HMM):
     pass
 
+
 #################
 #  HSMM Mixins  #
 #################
-
 
 class _HSMMBase(_HMMBase):
     _states_class = hsmm_states.HSMMStatesPython
@@ -1042,10 +1042,10 @@ class _DelayedMixin(object):
                 - s.delays[state] for s in self.states_list])
         self._clear_caches()
 
+
 #################
 #  HSMM Models  #
 #################
-
 
 class HSMMPython(_HSMMGibbsSampling,_HSMMSVI,_HSMMMeanField,
         _HSMMViterbiEM,_HSMMEM,_HSMMParallelTempering):
@@ -1206,10 +1206,10 @@ class WeakLimitHDPHSMMTruncatedIntNegBin(_WeakLimitHDPMixin,HSMMIntNegBin):
                 )
         self._clear_caches()
 
+
 ##########
 #  meta  #
 ##########
-
 
 class _SeparateTransMixin(object):
     def __init__(self,*args,**kwargs):
@@ -1372,3 +1372,76 @@ class WeakLimitHDPHSMMTruncatedIntNegBinSeparateTrans(
         WeakLimitHDPHSMMTruncatedIntNegBin):
     _states_class = hsmm_inb_states.HSMMStatesTruncatedIntegerNegativeBinomialSeparateTrans
 
+
+##########
+#  temp  #
+##########
+
+class _GaussianHMMFastResamplingMixin(object):
+    _obs_stats = None
+    _transcounts = []
+
+    def __init__(self,dtype='float32',**kwargs):
+        self.dtype = dtype
+        super(_GaussianHMMFastResamplingMixin,self).__init__(**kwargs)
+
+    def add_data(self,data,**kwargs):
+        super(_GaussianHMMFastResamplingMixin,self).add_data(
+            data.astype(self.dtype),**kwargs)
+
+    def resample_states_slow(self,**kwargs):
+        super(_GaussianHMMFastResamplingMixin,self).resample_states(**kwargs)
+
+    def resample_states(self,**kwargs):
+        from internals.ghmm_resampling import resample_ghmm
+        if len(self.states_list) > 0:
+            stateseqs = [np.empty(s.T,dtype='int32') for s in self.states_list]
+            params, normalizers = map(
+                np.array, zip(*[self._param_matrix(o) for o in self.obs_distns]))
+            stats, transcounts, loglikes = resample_ghmm(
+                [s.pi_0.astype(self.dtype) for s in self.states_list],
+                [s.trans_matrix.astype(self.dtype) for s in self.states_list],
+                params.astype(self.dtype), normalizers.astype(self.dtype),
+                [s.data for s in self.states_list],
+                stateseqs,
+                [np.random.uniform(size=s.T).astype(self.dtype) for s in self.states_list],
+                self.alphans)
+            for s, stateseq, loglike in zip(self.states_list,stateseqs,loglikes):
+                s.stateseq = stateseq
+                s._normalizer = loglike
+
+            self._obs_stats = stats
+            self._transcounts = transcounts
+        else:
+            self._obs_stats = None
+            self._transcounts = []
+
+    def resample_obs_distns(self):
+        if self._obs_stats is not None:
+            for o, statmat in zip(self.obs_distns,self._obs_stats):
+                o.resample(stats=statmat)
+        else:
+            super(_GaussianHMMFastResamplingMixin,self).resample_obs_distns()
+
+    # TODO transcounts being lumped together in low-level code, needs separate
+    # trans treatment. and negbin / hsmm treatment for that class.
+    # def resample_trans_distn(self):
+    #     self.trans_distn.resample(trans_counts=self._transcounts)
+
+    @property
+    def alphans(self):
+        if not hasattr(self,'_alphans'):
+            self._alphans = [np.empty(
+                (s.T,self.num_states), dtype=self.dtype) for s in self.states_list]
+        return self._alphans
+
+    @staticmethod
+    def _param_matrix(o):
+        from pybasicbayes.util.general import blockarray
+        D, mu, sigma = o.D, o.mu, o.sigma
+        sigma_inv = np.linalg.inv(sigma)
+        parammat = -1./2 * blockarray([
+            [mu.dot(sigma_inv).dot(mu), -mu.dot(sigma_inv)],
+            [-sigma_inv.dot(mu), sigma_inv]])
+        normalizer = D/2*np.log(2*np.pi) + np.log(np.diag(np.linalg.cholesky(sigma))).sum()
+        return parammat, normalizer
