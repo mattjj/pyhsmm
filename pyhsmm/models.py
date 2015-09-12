@@ -1445,3 +1445,15 @@ class _GaussianHMMFastResamplingMixin(object):
             [-sigma_inv.dot(mu), sigma_inv]])
         normalizer = D/2*np.log(2*np.pi) + np.log(np.diag(np.linalg.cholesky(sigma))).sum()
         return parammat, normalizer
+
+
+class FastGaussianHMM(_GaussianHMMFastResamplingMixin, HMM):
+    pass
+
+
+class FastGaussianWeakLimitHDPHMM(_GaussianHMMFastResamplingMixin, WeakLimitHDPHMM):
+    pass
+
+
+class FastGaussianWeakLimitStickyHDPHMM(_GaussianHMMFastResamplingMixin, WeakLimitStickyHDPHMM):
+    pass
