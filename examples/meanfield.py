@@ -24,7 +24,6 @@ hmm.meanfield_coordinate_descent_step()
 scores = [hmm.meanfield_coordinate_descent_step() for i in range(50)]
 scores = np.array(scores)
 
-plt.figure()
 hmm.plot()
 
 plt.figure()
