@@ -77,9 +77,9 @@ class HMMInitialState(Categorical):
     def meanfieldupdate(self,expected_initial_states_list):
         super(HMMInitialState,self).meanfieldupdate(None,expected_initial_states_list)
 
-    def meanfield_sgdstep(self,expected_initial_states_list,minibatchfrac,stepsize):
+    def meanfield_sgdstep(self,expected_initial_states_list,prob,stepsize):
         super(HMMInitialState,self).meanfield_sgdstep(
-                None,expected_initial_states_list,minibatchfrac,stepsize)
+                None,expected_initial_states_list,prob,stepsize)
 
     def max_likelihood(self,samples=None,expected_states_list=None):
         super(HMMInitialState,self).max_likelihood(

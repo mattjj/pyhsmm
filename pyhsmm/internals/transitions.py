@@ -125,12 +125,12 @@ class _HMMTransitionsMeanField(_HMMTransitionsBase):
             d._resample_from_mf()
 
 class _HMMTransitionsSVI(_HMMTransitionsMeanField):
-    def meanfield_sgdstep(self,expected_transcounts,minibatchfrac,stepsize):
+    def meanfield_sgdstep(self,expected_transcounts,prob,stepsize):
         assert isinstance(expected_transcounts,list)
         if len(expected_transcounts) > 0:
             trans_softcounts = sum(expected_transcounts)
             for distn, counts in zip(self._row_distns,trans_softcounts):
-                distn.meanfield_sgdstep(None,counts,minibatchfrac,stepsize)
+                distn.meanfield_sgdstep(None,counts,prob,stepsize)
         return self
 
 class HMMTransitions(
@@ -482,14 +482,14 @@ class _DATruncHDPHMMTransitionsSVI(_DATruncHDPHMMTransitionsBase,_HMMTransitions
         super(_DATruncHDPHMMTransitionsSVI,self).meanfieldupdate(
                 self._pad_zeros(expected_transcounts))
 
-    def meanfield_sgdstep(self,expected_transcounts,minibatchfrac,stepsize):
+    def meanfield_sgdstep(self,expected_transcounts,prob,stepsize):
         # NOTE: since we take a step on q(beta) and on q(pi) at the same time
         # (as usual with SVI), we compute the beta gradient and perform the pi
         # step before applying the beta gradient
 
         beta_gradient = self._beta_gradient()
         super(_DATruncHDPHMMTransitionsSVI,self).meanfield_sgdstep(
-                self._pad_zeros(expected_transcounts),minibatchfrac,stepsize)
+                self._pad_zeros(expected_transcounts),prob,stepsize)
         self.beta = self._feasible_step(self.beta,beta_gradient,stepsize)
         assert (self.beta >= 0.).all() and self.beta.sum() < 1
         return self

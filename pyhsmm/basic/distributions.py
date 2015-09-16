@@ -48,15 +48,15 @@ class _StartAtOneMixin(object):
             return super(_StartAtOneMixin,self).meanfieldupdate(
                     [d-1 for d in data],weights=weights,*args,**kwargs)
 
-    def meanfield_sgdstep(self,data,weights,minibatchfrac,stepsize):
+    def meanfield_sgdstep(self,data,weights,prob,stepsize):
         if isinstance(data,np.ndarray):
             return super(_StartAtOneMixin,self).meanfield_sgdstep(
                     data-1,weights=weights,
-                    minibatchfrac=minibatchfrac,stepsize=stepsize)
+                    prob=prob,stepsize=stepsize)
         else:
             return super(_StartAtOneMixin,self).meanfield_sgdstep(
                     [d-1 for d in data],weights=weights,
-                    minibatchfrac=minibatchfrac,stepsize=stepsize)
+                    prob=prob,stepsize=stepsize)
 
 ##########################
 #  Distribution classes  #
