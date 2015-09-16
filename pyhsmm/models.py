@@ -517,14 +517,17 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             o.meanfieldupdate(
                 [s.data for s in self.states_list],
                 [s.expected_states[:,state] for s in self.states_list])
+        self._clear_caches()
 
     def meanfield_update_trans_distn(self):
         self.trans_distn.meanfieldupdate(
             [s.expected_transcounts for s in self.states_list])
+        self._clear_caches()
 
     def meanfield_update_init_state_distn(self):
         self.init_state_distn.meanfieldupdate(
             [s.expected_states[0] for s in self.states_list])
+        self._clear_caches()
 
     def meanfield_update_states(self,num_procs=0):
         self._meanfield_update_states_list(self.states_list,num_procs=num_procs)
