@@ -503,7 +503,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         # computation efficient, but to update the parameters first we have to
         # ensure everything in states_list has expected statistics computed
         self._meanfield_update_states_list(
-            [s for s in self.states_list if not hasattr(s,'expected_states')],
+            [s for s in self.states_list if not hasattr(s, 'expected_states')],
             num_procs)
 
         self.meanfield_update_parameters()
@@ -516,16 +516,20 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
 
     def meanfield_update_obs_distns(self):
         for state, o in enumerate(self.obs_distns):
-            o.meanfieldupdate([s.data for s in self.states_list],
-                    [s.expected_states[:,state] for s in self.states_list])
+            o.meanfieldupdate(
+                [s.data for s in self.states_list],
+                [s.expected_states[:,state] for s in self.states_list])
+        self._clear_vlb_caches()
 
     def meanfield_update_trans_distn(self):
         self.trans_distn.meanfieldupdate(
-                [s.expected_transcounts for s in self.states_list])
+            [s.expected_transcounts for s in self.states_list])
+        self._clear_vlb_caches()
 
     def meanfield_update_init_state_distn(self):
         self.init_state_distn.meanfieldupdate(
-                [s.expected_states[0] for s in self.states_list])
+            [s.expected_states[0] for s in self.states_list])
+        self._clear_vlb_caches()
 
     def meanfield_update_states(self,num_procs=0):
         self._meanfield_update_states_list(self.states_list,num_procs=num_procs)
@@ -545,7 +549,11 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
-    ### joblib parallel stuff here
+    def _clear_vlb_caches(self):
+        for s in self.states_list:
+            s._most_recently_updated = False
+
+    ### joblib parallel stuff
 
     def _joblib_meanfield_update_states(self,states_list,num_procs):
         if len(states_list) > 0:
