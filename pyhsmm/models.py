@@ -496,7 +496,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 class _HMMMeanField(_HMMBase,ModelMeanField):
     def meanfield_coordinate_descent_step(self,num_procs=0):
         self._meanfield_update_sweep(num_procs=num_procs)
-        return self._vlb()
+        return self.vlb(states_last_updated=True)
 
     def _meanfield_update_sweep(self,num_procs=0):
         # NOTE: we want to update the states factor last to make the VLB
@@ -519,17 +519,14 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
             o.meanfieldupdate(
                 [s.data for s in self.states_list],
                 [s.expected_states[:,state] for s in self.states_list])
-        self._clear_vlb_caches()
 
     def meanfield_update_trans_distn(self):
         self.trans_distn.meanfieldupdate(
             [s.expected_transcounts for s in self.states_list])
-        self._clear_vlb_caches()
 
     def meanfield_update_init_state_distn(self):
         self.init_state_distn.meanfieldupdate(
             [s.expected_states[0] for s in self.states_list])
-        self._clear_vlb_caches()
 
     def meanfield_update_states(self,num_procs=0):
         self._meanfield_update_states_list(self.states_list,num_procs=num_procs)
@@ -541,17 +538,13 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         else:
             self._joblib_meanfield_update_states(states_list,num_procs)
 
-    def _vlb(self):
+    def vlb(self, states_last_updated=False):
         vlb = 0.
-        vlb += sum(s.get_vlb() for s in self.states_list)
+        vlb += sum(s.get_vlb(states_last_updated) for s in self.states_list)
         vlb += self.trans_distn.get_vlb()
         vlb += self.init_state_distn.get_vlb()
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
-
-    def _clear_vlb_caches(self):
-        for s in self.states_list:
-            s._most_recently_updated = False
 
     ### joblib parallel stuff
 
@@ -985,8 +978,8 @@ class _HSMMMeanField(_HSMMBase,_HMMMeanField):
                         for s in self.states_list],
                     [s.expected_durations[state] for s in self.states_list])
 
-    def _vlb(self):
-        vlb = super(_HSMMMeanField,self)._vlb()
+    def vlb(self):
+        vlb = super(_HSMMMeanField,self).vlb()
         vlb += sum(d.get_vlb() for d in self.dur_distns)
         return vlb
 

@@ -454,9 +454,8 @@ class HMMStatesPython(_StatesBase):
             self.mf_trans_matrix,self.mf_pi_0,self.mf_aBl)
         self._mf_param_snapshot = (
             self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl)
-        self._most_recently_updated = True  # cleared in model._clear_vlb_caches
 
-    def get_vlb(self):
+    def get_vlb(self, most_recently_updated=False):
         if self._normalizer is None or self._mf_param_snapshot is None \
                 or not hasattr(self, 'expected_states') \
                 or not hasattr(self, 'expected_transcounts'):
@@ -464,7 +463,7 @@ class HMMStatesPython(_StatesBase):
 
         # see https://github.com/mattjj/pyhsmm/issues/45#issuecomment-102721960
 
-        if self._most_recently_updated:
+        if most_recently_updated:
             return self._normalizer
         else:
             snapshot_trans, snapshot_pi_0, snapshot_aBl = self._mf_param_snapshot
