@@ -451,12 +451,35 @@ class HMMStatesPython(_StatesBase):
     def meanfieldupdate(self):
         self.clear_caches()
         self.all_expected_stats = self._expected_statistics(
-                self.mf_trans_matrix,self.mf_pi_0,self.mf_aBl)
+            self.mf_trans_matrix,self.mf_pi_0,self.mf_aBl)
+        self._mf_param_snapshot = (
+            self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl)
+        self._most_recently_updated = True  # cleared in model._clear_vlb_caches
 
     def get_vlb(self):
-        if self._normalizer is None:
-            self.meanfieldupdate() # NOTE: sets self._normalizer
-        return self._normalizer
+        if self._normalizer is None or self._mf_param_snapshot is None \
+                or not hasattr(self, 'expected_states') \
+                or not hasattr(self, 'expected_transcounts'):
+            self.meanfieldupdate()
+
+        # see https://github.com/mattjj/pyhsmm/issues/45#issuecomment-102721960
+
+        if self._most_recently_updated:
+            return self._normalizer
+        else:
+            snapshot_trans, snapshot_pi_0, snapshot_aBl = self._mf_param_snapshot
+
+            trans_term = np.dot(
+                (self.mf_trans_matrix - snapshot_trans).ravel(),
+                self.expected_transcounts.ravel())
+            init_term = np.dot(
+                (self.mf_pi_0 - snapshot_pi_0).ravel(),
+                self.expected_states[0].ravel())
+            node_term = np.dot(
+                (self.mf_aBl - snapshot_aBl).ravel(),
+                self.expected_states.ravel())
+
+            return trans_term + init_term + node_term + self._normalizer
 
     def _expected_statistics(self,trans_potential,init_potential,likelihood_log_potential):
         alphal = self._messages_forwards_log(trans_potential,init_potential,
@@ -644,4 +667,3 @@ class HMMStatesPossibleChangepointsSeparateTrans(
         _SeparateTransMixin,
         HMMStatesPossibleChangepoints):
     pass
-
