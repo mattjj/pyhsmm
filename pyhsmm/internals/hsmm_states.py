@@ -249,8 +249,10 @@ class HSMMStatesPython(_StatesBase):
         return self._normalizer
 
     def get_vlb(self):
+        # TODO like HMM.get_vlb, allow computing vlb even when this factor isn't
+        # the most recently updated
         if self._normalizer is None:
-            self.meanfieldupdate() # a bit excessive...
+            self.meanfieldupdate()  # a bit excessive...
         return self._normalizer
 
     # forwards messages potentials
