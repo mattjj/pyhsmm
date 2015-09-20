@@ -471,14 +471,20 @@ class HMMStatesPython(_StatesBase):
         if most_recently_updated:
             return self._normalizer
         else:
-            mf_params = self.mf_trans_matrix, self.mf_pi_0, \
-                self.mf_aBl, self._normalizer
-            expected_stats = self.expected_transcounts, \
-                self.expected_states[0], self.expected_states, 1.
+            new_params = self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl
+            _, _, new_normalizer = self._expected_statistics(*new_params)
 
-            return self._normalizer + \
-                sum(np.dot(np.ravel(a-b), np.ravel(c)) for a, b, c in zip(
-                    mf_params, self._mf_param_snapshot, expected_stats))
+            old_params, old_normalizer = self._mf_param_snapshot[:3], \
+                self._mf_param_snapshot[-1]
+
+            E_stats = self.expected_transcounts, \
+                self.expected_states[0], self.expected_states
+
+            linear_term = \
+                sum(np.dot(np.ravel(a-b), np.ravel(c))
+                    for a, b, c in zip(new_params, old_params, E_stats))
+
+            return linear_term - (new_normalizer - old_normalizer)
 
     def _expected_statistics(self,trans_potential,init_potential,likelihood_log_potential):
         alphal = self._messages_forwards_log(trans_potential,init_potential,
