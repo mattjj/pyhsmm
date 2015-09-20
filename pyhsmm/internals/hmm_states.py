@@ -7,9 +7,9 @@ from scipy.misc import logsumexp
 
 from pyhsmm.util.stats import sample_discrete
 try:
-    from pyhsmm.util.cstats import sample_markov
+    from pyhsmm.util.cstats import sample_markov, count_transitions
 except ImportError:
-    from pyhsmm.util.stats import sample_markov
+    from pyhsmm.util.stats import sample_markov, count_transitions
 from pyhsmm.util.general import rle
 
 ######################
@@ -433,7 +433,6 @@ class HMMStatesPython(_StatesBase):
     @property
     def mf_trans_matrix(self):
         return self.model.trans_distn.exp_expected_log_trans_matrix
-        # return np.maximum(self.model.trans_distn.exp_expected_log_trans_matrix,1e-5)
 
     @property
     def mf_pi_0(self):
@@ -455,8 +454,14 @@ class HMMStatesPython(_StatesBase):
         self._mf_param_snapshot = (
             self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl)
 
+    def _init_mf_from_gibbs(self):
+        expected_states = np.eye(self.num_states)[self.stateseq]
+        expected_transcounts = count_transitions(self.stateseq, self.num_states)
+        self.all_expected_stats = \
+            expected_states, expected_transcounts, -np.inf
+
     def get_vlb(self, most_recently_updated=False):
-        if self._normalizer is None or self._mf_param_snapshot is None \
+        if (self._normalizer is None) or (self._mf_param_snapshot is None) \
                 or not hasattr(self, 'expected_states') \
                 or not hasattr(self, 'expected_transcounts'):
             self.meanfieldupdate()
@@ -466,19 +471,13 @@ class HMMStatesPython(_StatesBase):
         if most_recently_updated:
             return self._normalizer
         else:
-            snapshot_trans, snapshot_pi_0, snapshot_aBl = self._mf_param_snapshot
+            mf_params = self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl
+            expected_stats = self.expected_transcounts, \
+                self.expected_states[0], self.expected_states
 
-            trans_term = np.dot(
-                (self.mf_trans_matrix - snapshot_trans).ravel(),
-                self.expected_transcounts.ravel())
-            init_term = np.dot(
-                (self.mf_pi_0 - snapshot_pi_0).ravel(),
-                self.expected_states[0].ravel())
-            node_term = np.dot(
-                (self.mf_aBl - snapshot_aBl).ravel(),
-                self.expected_states.ravel())
-
-            return trans_term + init_term + node_term + self._normalizer
+            return self._normalizer + \
+                sum(np.dot((a-b).ravel(), c.ravel()) for a, b, c in zip(
+                    mf_params, self._mf_param_snapshot, expected_stats))
 
     def _expected_statistics(self,trans_potential,init_potential,likelihood_log_potential):
         alphal = self._messages_forwards_log(trans_potential,init_potential,
