@@ -234,7 +234,7 @@ class HMMStatesPython(_StatesBase):
 
     def log_likelihood(self):
         if self._normalizer is None:
-            self.messages_forwards_normalized() # NOTE: sets self._normalizer
+            self.messages_forwards_normalized()  # NOTE: sets self._normalizer
         return self._normalizer
 
     def _messages_log(self,trans_matrix,init_state_distn,log_likelihoods):
