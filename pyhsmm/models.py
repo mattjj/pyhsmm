@@ -494,7 +494,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
 
 class _HMMMeanField(_HMMBase,ModelMeanField):
-    def meanfield_coordinate_descent_step(self,num_procs=0):
+    def meanfield_coordinate_descent_step(self,compute_vlb=True,num_procs=0):
         # we want to update the states factor last to make the VLB
         # computation efficient, but to update the parameters first we have to
         # ensure everything in states_list has expected statistics computed
@@ -505,7 +505,8 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
         self.meanfield_update_parameters()
         self.meanfield_update_states(num_procs)
 
-        return self.vlb(states_last_updated=True)
+        if compute_vlb:
+            return self.vlb(states_last_updated=True)
 
     def meanfield_update_parameters(self):
         self.meanfield_update_obs_distns()
