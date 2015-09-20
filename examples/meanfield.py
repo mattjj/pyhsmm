@@ -4,7 +4,10 @@ from matplotlib import pyplot as plt
 
 from pyhsmm import models, distributions
 
+np.random.seed(0)
 np.seterr(invalid='raise')
+
+
 obs_hypparams = dict(mu_0=np.zeros(2),sigma_0=np.eye(2),kappa_0=0.05,nu_0=5)
 
 ### generate data

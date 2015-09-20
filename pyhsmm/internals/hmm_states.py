@@ -452,7 +452,7 @@ class HMMStatesPython(_StatesBase):
         self.all_expected_stats = self._expected_statistics(
             self.mf_trans_matrix,self.mf_pi_0,self.mf_aBl)
         self._mf_param_snapshot = (
-            self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl)
+            self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl, self._normalizer)
 
     def _init_mf_from_gibbs(self):
         expected_states = np.eye(self.num_states)[self.stateseq]
@@ -471,12 +471,13 @@ class HMMStatesPython(_StatesBase):
         if most_recently_updated:
             return self._normalizer
         else:
-            mf_params = self.mf_trans_matrix, self.mf_pi_0, self.mf_aBl
+            mf_params = self.mf_trans_matrix, self.mf_pi_0, \
+                self.mf_aBl, self._normalizer
             expected_stats = self.expected_transcounts, \
-                self.expected_states[0], self.expected_states
+                self.expected_states[0], self.expected_states, 1.
 
             return self._normalizer + \
-                sum(np.dot((a-b).ravel(), c.ravel()) for a, b, c in zip(
+                sum(np.dot(np.ravel(a-b), np.ravel(c)) for a, b, c in zip(
                     mf_params, self._mf_param_snapshot, expected_stats))
 
     def _expected_statistics(self,trans_potential,init_potential,likelihood_log_potential):
