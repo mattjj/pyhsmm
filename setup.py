@@ -37,7 +37,7 @@ else:
     ext_modules = [
         Extension(
             name, sources=[path + '.cpp'],
-            include_dirs=[os.path.join(__file__, 'deps','Eigen3')],
+            include_dirs=[os.path.join('deps','Eigen3')],
             extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w','-DHMM_TEMPS_ON_HEAP'])
         for name, path in zip(names,paths)]
 

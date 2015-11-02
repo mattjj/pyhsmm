@@ -1,4 +1,3 @@
-recursive-include pyhsmm/deps *
 recursive-include pyhsmm *.pyx
 recursive-include pyhsmm *.h
 
