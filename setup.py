@@ -2,9 +2,13 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from distutils.errors import CompileError
 from warnings import warn
-import os.path
+import os
 from glob import glob
+from urllib import urlretrieve
+import tarfile
+import shutil
 
+# use cython if we can import it successfully
 try:
     from Cython.Distutils import build_ext as _build_ext
 except ImportError:
@@ -12,6 +16,7 @@ except ImportError:
 else:
     use_cython = True
 
+# wrap build_ext to handle numpy bootstrap and compilation errors
 class build_ext(_build_ext):
     # see http://stackoverflow.com/q/19919905 for explanation
     def finalize_options(self):
@@ -27,6 +32,28 @@ class build_ext(_build_ext):
         except CompileError:
             warn('Failed to build extension modules')
 
+# download eigen
+def mkdir(path):
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if not (e.errno == errno.EEXIST and os.path.isdir(path)):
+            raise
+
+eigenurl = 'http://bitbucket.org/eigen/eigen/get/3.2.6.tar.gz'
+eigentarpath = os.path.join('deps', 'Eigen.tar.gz')
+eigenpath = os.path.join('deps', 'Eigen')
+if not os.path.exists('deps/Eigen'):
+    mkdir('deps')
+    print 'Downloading Eigen...'
+    urlretrieve(eigenurl, eigentarpath)
+    with tarfile.open(eigentarpath, 'r') as tar:
+        tar.extractall('deps')
+    shutil.move(os.path.join('deps', 'eigen-eigen-c58038c56923', 'Eigen'), eigenpath)
+    print '...done!'
+
 extension_pathspec = os.path.join('pyhsmm','**','*.pyx')
 if use_cython:
     from Cython.Build import cythonize
@@ -37,7 +64,7 @@ else:
     ext_modules = [
         Extension(
             name, sources=[path + '.cpp'],
-            include_dirs=[os.path.join('deps','Eigen3')],
+            include_dirs=[os.path.join('deps')],
             extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w','-DHMM_TEMPS_ON_HEAP'])
         for name, path in zip(names,paths)]
 

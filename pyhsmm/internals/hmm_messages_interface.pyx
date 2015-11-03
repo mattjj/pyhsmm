@@ -1,6 +1,6 @@
 # distutils: language = c++
 # distutils: extra_compile_args = -std=c++11 -O3 -w -DNDEBUG -DHMM_TEMPS_ON_HEAP
-# distutils: include_dirs = deps/Eigen3/
+# distutils: include_dirs = deps/
 # cython: boundscheck = False
 
 # NOTE: cython can use templated classes but not templated functions in 0.19.1,
