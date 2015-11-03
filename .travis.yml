@@ -20,5 +20,6 @@ before_install:
   - conda update --yes conda
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy matplotlib cython nose
 install:
+  - pip install -v .
   - python setup.py build_ext --inplace
 script: nosetests tests -A 'not slow'

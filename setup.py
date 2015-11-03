@@ -1,5 +1,6 @@
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.sdist import sdist as _sdist
 from distutils.errors import CompileError
 from warnings import warn
 import os
@@ -16,7 +17,7 @@ except ImportError:
 else:
     use_cython = True
 
-# wrap build_ext to handle numpy bootstrap and compilation errors
+# wrap the build_ext command to handle numpy bootstrap and compilation errors
 class build_ext(_build_ext):
     # see http://stackoverflow.com/q/19919905 for explanation
     def finalize_options(self):
@@ -31,6 +32,17 @@ class build_ext(_build_ext):
             _build_ext.run(self)
         except CompileError:
             warn('Failed to build extension modules')
+
+# wrap the sdist command to try to generate cython sources
+class sdist(_sdist):
+    def run(self):
+        try:
+            from Cython.Build import cythonize
+            cythonize(os.path.join('pyhsmm','**','*.pyx'))
+        except:
+            warn('Failed to generate extension files from Cython sources')
+        finally:
+            _sdist.run(self)
 
 # make dependency directory
 if not os.path.exists('deps'):
@@ -91,4 +103,4 @@ setup(name='pyhsmm',
           'Intended Audience :: Science/Research',
           'Programming Language :: Python',
           'Programming Language :: C++'],
-      cmdclass={'build_ext': build_ext})
+      cmdclass={'build_ext': build_ext, 'sdist': sdist})
