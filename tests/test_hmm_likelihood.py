@@ -125,7 +125,7 @@ def like_hand_test_5():
         data=np.tile((0,1),5),
         target_val=5*np.log(0.1) + 4*np.log(0.2))
 
-@attr('hmm','slow','likelihood','messages')
+@attr('hmm','likelihood','messages')
 @runmultiple(3)
 def discrete_exhaustive_test():
     model = random_model(2)
@@ -135,7 +135,7 @@ def discrete_exhaustive_test():
     target_val = compute_likelihood_enumeration(obs_distns=obs_distns,data=data,**model)
     likelihood_check(target_val=target_val,data=data,obs_distns=obs_distns,**model)
 
-@attr('hmm','slow','likelihood','messages')
+@attr('hmm','likelihood','messages')
 @runmultiple(3)
 def gaussian_exhaustive_test():
     model = random_model(3)
@@ -147,4 +147,3 @@ def gaussian_exhaustive_test():
     data = np.vstack([obs_distns[a].rvs() for a in stateseq])
     target_val = compute_likelihood_enumeration(obs_distns=obs_distns,data=data,**model)
     likelihood_check(target_val=target_val,data=data,obs_distns=obs_distns,**model)
-
