@@ -1,3 +1,6 @@
+[![Build
+Status](https://travis-ci.org/mattjj/pyhsmm.svg?branch=master)](https://travis-ci.org/mattjj/pyhsmm)
+
 # Bayesian inference in HSMMs and HMMs #
 
 This is a Python library for approximate unsupervised inference in
