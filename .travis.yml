@@ -11,6 +11,8 @@ addons:
     packages:
     - gcc-4.8
     - g++-4.8
+env:
+    - CC=gcc-4.8 CXX=g++-4.8
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
