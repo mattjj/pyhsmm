@@ -22,40 +22,6 @@ Give this a shot
 pip install pyhsmm
 ```
 
-## Manual build ##
-This library depends on having numpy, scipy, cython, and matplotlib installed.
-It has been tested with Python 2.7.9.
-
-Clone the repository into your working directory
-
-```bash
-git clone --recursive git://github.com/mattjj/pyhsmm.git
-cd pyhsmm
-```
-
-you can build in-place with
-
-```bash
-python setup.py build_ext --inplace --with-cython
-```
-
-or install it with
-
-```
-python setup.py install --with-cython
-```
-
-Tested with g++ 4.8 and higher (recommended) and clang++.
-
-Some things to keep in mind:
-* if you use OS X's default (clang) compiler on OS 10.8 or earlier, you should
-  pass the `--with-old-clang` option or set `CCFLAGS` and `LDFLAGS` to include
-  `-stdlib=libc++`
-* to use processor-tuned instructions with g++, you can pass the
-  `--with-native` flag or set `CCFLAGS` to include `-march=native`, but the
-  assembler that ships with OS X 10.8 is too old to know about AVX
-  instructions
-
 ## Running ##
 
 See the examples directory.
