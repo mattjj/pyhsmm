@@ -16,11 +16,22 @@ There are also some extensions:
 
 ## Installing from PyPI ##
 
-Give this a shot
+Give this a shot:
 
 ```bash
 pip install pyhsmm
 ```
+
+You may need to install a compiler with `-std=c++11` support, like gcc-4.7 or higher.
+
+To install manually from the git repo, you'll need `cython`. Then try this:
+
+```bash
+python setup.py install
+```
+
+It might also help to look at the [travis file](https://raw.githubusercontent.com/mattjj/pyhsmm/master/.travis.yml) to
+see how to set up a working install from scratch.
 
 ## Running ##
 
