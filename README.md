@@ -183,7 +183,7 @@ with open('sampled_models.pickle','w') as outfile:
 
 ## Extending the Code ##
 To add your own observation or duration distributions, implement the interfaces
-defined in `basic/abstractions.py`. Also see the plugins. To get a flavor of
+defined in `basic/abstractions.py`. To get a flavor of
 the style, see [pybasicbayes](https://github.com/mattjj/pybasicbayes).
 
 ## References ##

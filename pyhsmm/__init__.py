@@ -3,5 +3,4 @@ import pyhsmm
 import pyhsmm.models
 import pyhsmm.basic
 import pyhsmm.basic.distributions as distributions # shortcut
-import pyhsmm.plugins
 import pyhsmm.util
