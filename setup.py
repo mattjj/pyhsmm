@@ -1,6 +1,7 @@
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.sdist import sdist as _sdist
+from distutils.command.clean import clean as _clean
 from distutils.errors import CompileError
 from warnings import warn
 import os
@@ -38,11 +39,22 @@ class sdist(_sdist):
     def run(self):
         try:
             from Cython.Build import cythonize
-            cythonize(os.path.join('pyhsmm','**','*.pyx'))
+            cythonize(os.path.join('pyhsmm','*','*.pyx'))
         except:
             warn('Failed to generate extension files from Cython sources')
         finally:
             _sdist.run(self)
+
+# wrap the clean command to remove object files
+class clean(_clean):
+    def run(self):
+        try:
+            for f in glob(os.path.join('pyhsmm','*','*.so')):
+                os.remove(f)
+        except:
+            warn('Failed to remove all object files')
+        finally:
+            _clean.run(self)
 
 # make dependency directory
 if not os.path.exists('deps'):
@@ -62,7 +74,7 @@ if not os.path.exists(eigenpath):
     print '...done!'
 
 # make a list of extension modules
-extension_pathspec = os.path.join('pyhsmm','**','*.pyx')
+extension_pathspec = os.path.join('pyhsmm','*','*.pyx')
 paths = [os.path.splitext(fp)[0] for fp in glob(extension_pathspec)]
 names = ['.'.join(os.path.split(p)) for p in paths]
 ext_modules = [
@@ -102,4 +114,4 @@ setup(name='pyhsmm',
           'Intended Audience :: Science/Research',
           'Programming Language :: Python',
           'Programming Language :: C++'],
-      cmdclass={'build_ext': build_ext, 'sdist': sdist})
+      cmdclass={'build_ext': build_ext, 'sdist': sdist, 'clean': clean})
