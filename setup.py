@@ -39,7 +39,7 @@ class sdist(_sdist):
     def run(self):
         try:
             from Cython.Build import cythonize
-            cythonize(os.path.join('pyhsmm','*','*.pyx'))
+            cythonize(os.path.join('pyhsmm','**','*.pyx'))
         except:
             warn('Failed to generate extension files from Cython sources')
         finally:
@@ -49,7 +49,7 @@ class sdist(_sdist):
 class clean(_clean):
     def run(self):
         try:
-            for f in glob(os.path.join('pyhsmm','*','*.so')):
+            for f in glob(os.path.join('pyhsmm','**','*.so')):  # not recursive before Python 3.5
                 os.remove(f)
         except:
             warn('Failed to remove all object files')
@@ -74,7 +74,7 @@ if not os.path.exists(eigenpath):
     print '...done!'
 
 # make a list of extension modules
-extension_pathspec = os.path.join('pyhsmm','*','*.pyx')
+extension_pathspec = os.path.join('pyhsmm','**','*.pyx')  # not recursive before Python 3.5
 paths = [os.path.splitext(fp)[0] for fp in glob(extension_pathspec)]
 names = ['.'.join(os.path.split(p)) for p in paths]
 ext_modules = [
