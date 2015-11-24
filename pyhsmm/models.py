@@ -66,6 +66,7 @@ class _HMMBase(Model):
                 self._states_class(
                     model=self,data=data,
                     stateseq=stateseq,**kwargs))
+        return self.states_list[-1]
 
     def generate(self,T,keep=True):
         s = self._states_class(model=self,T=T,initialize_from_prior=True)
@@ -727,8 +728,8 @@ class _HMMPossibleChangepointsMixin(object):
     _states_class = hmm_states.HMMStatesPossibleChangepoints
 
     def add_data(self,data,changepoints=None,**kwargs):
-        super(_HMMPossibleChangepointsMixin,self).add_data(
-                data=data,changepoints=changepoints,**kwargs)
+        return super(_HMMPossibleChangepointsMixin,self).add_data(
+                     data=data,changepoints=changepoints,**kwargs)
 
     def _get_mb_states_list(self,minibatch,changepoints=None,**kwargs):
         if changepoints is not None:
@@ -894,6 +895,7 @@ class _HSMMBase(_HMMBase):
             left_censoring=left_censoring,
             trunc=trunc,
             **kwargs))
+        return self.states_list[-1]
 
     @property
     def num_parameters(self):
