@@ -25,10 +25,10 @@ namespace hmm
     // Messages
 
     template <typename Type>
-    void messages_backwards_log(int M, int T, Type *A, Type *aBl,
-            Type *betal)
+    void messages_backwards_log(
+            bool hetero, int M, int T, Type *As, Type *aBl, Type *betal)
     {
-        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eAs(As, hetero ? (T-1)*M : M, M);
         NPMatrix<Type> eaBl(aBl,T,M);
 
         NPMatrix<Type> ebetal(betal,T,M);
@@ -45,15 +45,16 @@ namespace hmm
         for (int t=T-2; t>=0; t--) {
             thesum = (eaBl.row(t+1) + ebetal.row(t+1)).transpose();
             cmax = thesum.maxCoeff();
-            ebetal.row(t) = (eA * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
+            ebetal.row(t) = (eAs.block(t*M*hetero,0,M,M)
+                * (thesum.array() - cmax).exp().matrix()).array().log() + cmax;
         }
     }
 
     template <typename Type>
-    void messages_forwards_log(int M, int T, Type *A, Type *pi0, Type *aBl,
-            Type *alphal)
+    void messages_forwards_log(
+            bool hetero, int M, int T, Type *As, Type *pi0, Type *aBl, Type *alphal)
     {
-        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eAs(As, hetero ? (T-1)*M : M, M);
         NPArray<Type> epi0(pi0,1,M);
         NPArray<Type> eaBl(aBl,T,M);
 
@@ -67,7 +68,8 @@ namespace hmm
 #ifndef HMM_NOT_ROBUST
             if (likely(util::is_finite(cmax))) {
 #endif
-                ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix() * eA).array().log()
+                ealphal.row(t+1) = ((ealphal.row(t) - cmax).exp().matrix()
+                    * eAs.block(t*M*hetero,0,M,M)).array().log()
                     + cmax + eaBl.row(t+1);
 #ifndef HMM_NOT_ROBUST
             } else {
@@ -80,12 +82,12 @@ namespace hmm
 
     template <typename Type>
     Type expected_statistics_log(
-            int M, int T,
+            bool hetero, int M, int T,
             Type *log_trans_potential, Type *log_likelihood_potential,
             Type *alphal, Type *betal,
             Type *expected_states, Type *expected_transcounts)
     {
-        NPArray<Type> eA(log_trans_potential,M,M);
+        NPArray<Type> eAs(log_trans_potential, hetero ? (T-1)*M : M, M);
         NPArray<Type> eaBl(log_likelihood_potential,T,M);
         NPArray<Type> ebetal(betal,T,M);
         NPArray<Type> ealphal(alphal,T,M);
@@ -105,7 +107,7 @@ namespace hmm
         Type log_normalizer = log((ealphal.row(T-1) - cmax).exp().sum()) + cmax;
 
         for (int t=0; t<T-1; t++) {
-            pair = eA - log_normalizer;
+            pair = eAs.block(t*M*hetero,0,M,M) - log_normalizer;
             pair.colwise() += ealphal.row(t).transpose().array();
             pair.rowwise() += ebetal.row(t+1) + eaBl.row(t+1);
 
@@ -118,10 +120,10 @@ namespace hmm
     }
 
     template <typename Type>
-    Type messages_forwards_normalized(int M, int T, Type *A, Type *pi0, Type *aBl,
-            Type *alphan)
+    Type messages_forwards_normalized(
+            bool hetero, int M, int T, Type *As, Type *pi0, Type *aBl, Type *alphan)
     {
-        NPMatrix<Type> eA(A,M,M);
+        NPMatrix<Type> eAs(As, hetero ? (T-1)*M : M, M);
         NPArray<Type> eaBl(aBl,T,M);
 
         NPMatrix<Type> ealphan(alphan,T,M);
@@ -152,7 +154,7 @@ namespace hmm
                 return -numeric_limits<Type>::infinity();
             }
 #endif
-            ein_potential = ealphan.row(t) * eA;
+            ein_potential = ealphan.row(t) * eAs.block(t*M*hetero,0,M,M);
         }
         return logtot;
     }
@@ -161,10 +163,11 @@ namespace hmm
 
     template <typename FloatType, typename IntType>
     void sample_forwards_log(
-            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            bool hetero, int M, int T, FloatType *As, FloatType *pi0,
+            FloatType *aBl, FloatType *betal,
             IntType *stateseq, FloatType *randseq)
     {
-        NPMatrix<FloatType> eA(A,M,M);
+        NPMatrix<FloatType> eAs(As, hetero ? (T-1)*M : M, M);
         NPMatrix<FloatType> eaBl(aBl,T,M);
         NPMatrix<FloatType> ebetal(betal,T,M);
 
@@ -183,15 +186,16 @@ namespace hmm
             logdomain = ebetal.row(t) + eaBl.row(t);
             nextstate_distr *= (logdomain - logdomain.maxCoeff()).exp();
             stateseq[t] = util::sample_discrete(M,nextstate_distr.data(),randseq[t]);
-            nextstate_distr = eA.row(stateseq[t]);
+            nextstate_distr = eAs.row(t*M*hetero + stateseq[t]);
         }
     }
 
     template <typename FloatType, typename IntType>
-    void sample_backwards_normalized(int M, int T, FloatType *AT, FloatType *alphan,
+    void sample_backwards_normalized(
+            bool hetero, int M, int T, FloatType *AT, FloatType *alphan,
             IntType *stateseq, FloatType *randseq)
     {
-        NPArray<FloatType> eAT(AT,M,M);
+        NPArray<FloatType> eAT(AT, hetero ? (T-1)*M : M, M);
         NPArray<FloatType> ealphan(alphan,T,M);
 
 #ifdef HMM_TEMPS_ON_HEAP
@@ -203,14 +207,14 @@ namespace hmm
 
         stateseq[T-1] = util::sample_discrete(M,ealphan.row(T-1).data(),randseq[T-1]);
         for (int t=T-2; t>=0; t--) {
-            etemp = eAT.row(stateseq[t+1]) * ealphan.row(t);
+            etemp = eAT.row(t*M*hetero + stateseq[t+1]) * ealphan.row(t);
             stateseq[t] = util::sample_discrete(M,etemp.data(),randseq[t]);
         }
     }
 
     // Viterbi
 
-    // TODO use nptypes
+    // TODO use nptypes, add inhomogeneous models
     template <typename FloatType, typename IntType>
     void viterbi(int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
             IntType *stateseq)
@@ -255,29 +259,29 @@ class hmmc
     public:
 
     static void messages_backwards_log(
-            int M, int T, FloatType *A, FloatType *aBl,
+            bool hetero, int M, int T, FloatType *A, FloatType *aBl,
             FloatType *betal)
-    { hmm::messages_backwards_log(M,T,A,aBl,betal); }
+    { hmm::messages_backwards_log(hetero, M,T,A,aBl,betal); }
 
     static void messages_forwards_log(
-            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            bool hetero, int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
             FloatType *alphal)
-    { hmm::messages_forwards_log(M,T,A,pi0,aBl,alphal); }
+    { hmm::messages_forwards_log(hetero,M,T,A,pi0,aBl,alphal); }
 
     static void sample_forwards_log(
-            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
+            bool hetero, int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl, FloatType *betal,
             IntType *stateseq, FloatType *randseq)
-    { hmm::sample_forwards_log(M,T,A,pi0,aBl,betal,stateseq,randseq); }
+    { hmm::sample_forwards_log(hetero,M,T,A,pi0,aBl,betal,stateseq,randseq); }
 
     static FloatType messages_forwards_normalized(
-            int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
+            bool hetero, int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
             FloatType *alphan)
-    { return hmm::messages_forwards_normalized(M,T,A,pi0,aBl,alphan); }
+    { return hmm::messages_forwards_normalized(hetero,M,T,A,pi0,aBl,alphan); }
 
     static void sample_backwards_normalized(
-            int M, int T, FloatType *AT, FloatType *alphan,
+            bool hetero, int M, int T, FloatType *AT, FloatType *alphan,
             IntType *stateseq, FloatType *randseq)
-    { hmm::sample_backwards_normalized(M,T,AT,alphan,stateseq,randseq); }
+    { hmm::sample_backwards_normalized(hetero,M,T,AT,alphan,stateseq,randseq); }
 
     static void viterbi(
             int M, int T, FloatType *A, FloatType *pi0, FloatType *aBl,
@@ -285,11 +289,12 @@ class hmmc
     { hmm::viterbi(M,T,A,pi0,aBl,stateseq); }
 
     static FloatType expected_statistics_log(
-            int M, int T,
+            bool hetero, int M, int T,
             FloatType *log_trans_potential, FloatType *log_likelihood_potential,
             FloatType *alphal, FloatType *betal,
             FloatType *expected_states, FloatType *expected_transcounts)
-    { return hmm::expected_statistics_log(M,T,log_trans_potential,log_likelihood_potential,
+    { return hmm::expected_statistics_log(
+            hetero,M,T,log_trans_potential,log_likelihood_potential,
             alphal,betal,expected_states,expected_transcounts); }
 };
 
