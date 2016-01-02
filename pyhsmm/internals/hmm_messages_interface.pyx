@@ -78,7 +78,7 @@ def sample_forwards_log(
         floating[:,::1] aBl not None,
         floating[::1] pi0 not None,
         floating[:,::1] betal not None,
-        np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
+        int32_t[::1] stateseq not None,
         ):
     cdef hmmc[floating] ref
     cdef bool hetero = A.ndim == 3
@@ -94,7 +94,7 @@ def sample_forwards_log(
             hetero, A.shape[1], aBl.shape[0], &_A[0,0,0], &pi0[0], &aBl[0,0],
             &betal[0,0], &stateseq[0], &randseq[0])
 
-    return stateseq
+    return np.asarray(stateseq)
 
 def expected_statistics_log(
         log_trans_potential not None,
@@ -140,7 +140,7 @@ def messages_forwards_normalized(
 def sample_backwards_normalized(
         AT not None,
         floating[:,::1] alphan not None,
-        np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
+        int32_t[::1] stateseq not None,
         ):
     cdef hmmc[floating] ref
     cdef bool hetero = AT.ndim == 3
@@ -156,16 +156,16 @@ def sample_backwards_normalized(
         hetero, AT.shape[1], alphan.shape[0], &_AT[0,0,0],
         &alphan[0,0], &stateseq[0], &randseq[0])
 
-    return stateseq
+    return np.asarray(stateseq)
 
 def viterbi(
         floating[:,::1] A not None,
         floating[:,::1] aBl not None,
         floating[::1] pi0 not None,
-        np.ndarray[np.int32_t,ndim=1,mode="c"] stateseq not None,
+        int32_t[::1] stateseq not None,
         ):
     cdef hmmc[floating] ref
     ref.viterbi(A.shape[1],aBl.shape[0],&A[0,0],&pi0[0],&aBl[0,0],
                 &stateseq[0])
-    return stateseq
+    return np.asarray(stateseq)
 
