@@ -325,7 +325,7 @@ class _WeakLimitHDPHMMTransitionsGibbs(
 
     def _get_m(self,trans_counts):
         if not (0 == trans_counts).all():
-            m = sample_crp_tablecounts(self.alpha,trans_counts,self.beta)
+            m = sample_crp_tablecounts(float(self.alpha),trans_counts,self.beta)
         else:
             m = np.zeros_like(trans_counts)
         self.m = m

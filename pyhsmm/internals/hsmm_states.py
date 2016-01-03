@@ -320,7 +320,6 @@ class HSMMStatesPython(_StatesBase):
     ### Gibbs sampling
 
     def resample(self):
-        self.aBl
         betal, betastarl = self.messages_backwards()
         self.sample_forwards(betal,betastarl)
 
