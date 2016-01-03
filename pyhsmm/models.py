@@ -982,8 +982,8 @@ class _HSMMMeanField(_HSMMBase,_HMMMeanField):
                         for s in self.states_list],
                     [s.expected_durations[state] for s in self.states_list])
 
-    def vlb(self):
-        vlb = super(_HSMMMeanField,self).vlb()
+    def vlb(self, **kwargs):
+        vlb = super(_HSMMMeanField,self).vlb(**kwargs)
         vlb += sum(d.get_vlb() for d in self.dur_distns)
         return vlb
 
