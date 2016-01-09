@@ -111,7 +111,6 @@ setup(name='pyhsmm',
       install_requires=[
           "numpy", "scipy", "matplotlib", "nose", "pybasicbayes >= 0.1.3"],
       setup_requires=['numpy'],
-      package_data={"pyhsmm": [os.path.join("examples", "*.txt")]},
       ext_modules=ext_modules,
       classifiers=[
           'Development Status :: 4 - Beta',
