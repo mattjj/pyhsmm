@@ -8,7 +8,7 @@ from warnings import warn
 import os
 import sys
 from glob import glob
-from urllib import urlretrieve
+from six.moves.urllib.request import urlretrieve
 import tarfile
 import shutil
 
