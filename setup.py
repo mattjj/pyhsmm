@@ -8,7 +8,7 @@ from warnings import warn
 import os
 import sys
 from glob import glob
-from urllib import urlretrieve
+from six.moves.urllib.request import urlretrieve
 import tarfile
 import shutil
 
@@ -98,7 +98,7 @@ if use_cython:
 
 # put it all together with a call to setup()
 setup(name='pyhsmm',
-      version='0.1.5',
+      version='0.1.6',
       description="Bayesian inference in HSMMs and HMMs",
       author='Matthew James Johnson',
       author_email='mattjj@csail.mit.edu',
