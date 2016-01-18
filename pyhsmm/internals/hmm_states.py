@@ -20,13 +20,17 @@ class _StatesBase(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self,model,T=None,data=None,stateseq=None,
-            generate=True,initialize_from_prior=True):
+            generate=True,initialize_from_prior=True, fixed_stateseq=False):
         self.model = model
 
         self.T = T if T is not None else data.shape[0]
         self.data = data
 
         self.clear_caches()
+
+        self.fixed_stateseq = fixed_stateseq
+        if fixed_stateseq:
+            assert stateseq is not None, "fixed_stateseq requires a stateseq to be supplied"
 
         if stateseq is not None:
             self.stateseq = np.array(stateseq,dtype=np.int32)
@@ -353,7 +357,8 @@ class HMMStatesPython(_StatesBase):
         self.sample_backwards_normalized(alphan)
 
     def resample(self):
-        return self.resample_normalized()
+        if not self.fixed_stateseq:
+            return self.resample_normalized()
 
     @staticmethod
     def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):

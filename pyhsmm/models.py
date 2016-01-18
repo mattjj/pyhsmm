@@ -61,11 +61,12 @@ class _HMMBase(Model):
 
         self._clear_caches()
 
-    def add_data(self,data,stateseq=None,**kwargs):
+    def add_data(self,data,stateseq=None,fixed_stateseq=False,**kwargs):
         self.states_list.append(
                 self._states_class(
                     model=self,data=data,
-                    stateseq=stateseq,**kwargs))
+                    stateseq=stateseq, fixed_stateseq=fixed_stateseq,
+                    **kwargs))
         return self.states_list[-1]
 
     def generate(self,T,keep=True):
