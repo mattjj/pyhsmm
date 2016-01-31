@@ -419,7 +419,8 @@ class HMMStatesPython(_StatesBase):
         return stateseq
 
     def sample_backwards_normalized(self,alphan):
-        self.stateseq = self._sample_backwards_normalized(alphan,self.trans_matrix.T.copy())
+        self.stateseq = self._sample_backwards_normalized(
+            alphan, np.swapaxes(self.trans_matrix, -1, -2).copy())
 
     ### Mean Field
 
