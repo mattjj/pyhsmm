@@ -154,7 +154,9 @@ namespace hmm
                 return -numeric_limits<Type>::infinity();
             }
 #endif
-            ein_potential = ealphan.row(t) * eAs.block(t*M*hetero,0,M,M);
+            if (likely(t != T-1)) {
+                ein_potential = ealphan.row(t) * eAs.block(t*M*hetero,0,M,M);
+            }
         }
         return logtot;
     }
