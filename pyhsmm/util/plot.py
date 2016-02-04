@@ -1,8 +1,7 @@
 from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
-
-# TODO move pca to stats
+from stats import cov
 
 def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.,ax=None,artists=None):
     '''
@@ -48,12 +47,12 @@ def pca_project_data(data,num_components=2):
 
 
 def pca(data,num_components=2):
-    U,s,Vh = np.linalg.svd(data - np.mean(data,axis=0))
+    U,s,Vh = np.linalg.svd(cov(data))
     return Vh.T[:,:num_components]
 
 
 def project_data(data,vecs):
-    return np.dot(data,vecs.T)
+    return np.dot(data,vecs)
 
 
 def project_ellipsoid(ellipsoid,vecs):
