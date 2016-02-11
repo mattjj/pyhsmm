@@ -109,7 +109,8 @@ class _HMMBase(Model):
             return sum(s.log_likelihood() for s in self.states_list)
 
     def predict(self,seed_data,timesteps,**kwargs):
-        full_data = np.vstack((seed_data,np.nan*np.ones((timesteps,seed_data.shape[1]))))
+        padshape = (timesteps, seed_data.shape[1]) if seed_data.ndim == 2 else timesteps
+        full_data = np.concatenate((seed_data,np.nan*np.ones(padshape)))
         self.add_data(full_data,**kwargs)
         s = self.states_list.pop()
         s.resample()  # fills in states

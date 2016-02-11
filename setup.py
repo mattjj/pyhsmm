@@ -84,7 +84,7 @@ names = ['.'.join(os.path.split(p)) for p in paths]
 ext_modules = [
     Extension(
         name, sources=[path + '.cpp'],
-        include_dirs=[os.path.join('deps')],
+        include_dirs=['deps'],
         extra_compile_args=['-O3','-std=c++11','-DNDEBUG','-w','-DHMM_TEMPS_ON_HEAP'])
     for name, path in zip(names,paths)]
 
