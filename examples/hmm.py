@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
@@ -9,8 +10,7 @@ matplotlib.rcParams['font.size'] = 8
 import pyhsmm
 from pyhsmm.util.text import progprint_xrange
 
-print \
-'''
+print('''
 This demo shows how HDP-HMMs can fail when the underlying data has state
 persistence without some kind of temporal regularization (in the form of a
 sticky bias or duration modeling): without setting the number of states to be
@@ -18,8 +18,7 @@ the correct number a priori, lots of extra states can be intsantiated.
 
 BUT the effect is much more relevant on real data (when the data doesn't exactly
 fit the model). Maybe this demo should use multinomial emissions...
-'''
-
+''')
 ###############
 #  load data  #
 ###############
@@ -42,7 +41,7 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 
 ### HDP-HMM without the sticky bias
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 posteriormodel = pyhsmm.models.WeakLimitHDPHMM(alpha=6.,gamma=6.,init_state_concentration=1.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
@@ -55,7 +54,7 @@ plt.gcf().suptitle('HDP-HMM sampled model after 100 iterations')
 
 ### Sticky-HDP-HMM
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(Nmax)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
 posteriormodel = pyhsmm.models.WeakLimitStickyHDPHMM(
         kappa=50.,alpha=6.,gamma=6.,init_state_concentration=1.,
         obs_distns=obs_distns)

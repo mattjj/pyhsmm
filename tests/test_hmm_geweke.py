@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range
 import numpy as np
 from functools import wraps
 from nose.plugins.attrib import attr
@@ -65,7 +66,7 @@ def discrete_geweke_test(fig):
     # generate state sequences and parameters from the prior
     prior_stateseqs = []
     prior_weights = []
-    for itr in xrange(num_iter):
+    for itr in range(num_iter):
         hmm.resample_model() # sample parameters from the prior
         _, stateseq = hmm.generate(T,keep=False)
         prior_stateseqs.append(stateseq)
@@ -79,7 +80,7 @@ def discrete_geweke_test(fig):
 
     gibbs_stateseqs = []
     gibbs_weights = []
-    for itr in xrange(num_iter):
+    for itr in range(num_iter):
         s.data = None
         hmm._generate_obs(s)  # resamples data given state sequence, obs params
         hmm.resample_model()  # resamples everything else as usual
@@ -90,7 +91,7 @@ def discrete_geweke_test(fig):
 
     # test that they look similar by checking probability of co-assignment
     time_indices = np.arange(T)
-    for itr in xrange(num_checks):
+    for itr in range(num_checks):
         i,j = np.random.choice(time_indices,replace=False,size=2)
         prior_prob_of_coassignment = (prior_stateseqs[:,i] == prior_stateseqs[:,j]).std()
         gibbs_prob_of_coassignment = (gibbs_stateseqs[:,i] == gibbs_stateseqs[:,j]).std()
@@ -126,12 +127,12 @@ def discrete_geweke_multiple_seqs_test(fig):
             obs_distns=obs_distns)
 
     # generate state sequences and parameters from the prior
-    prior_stateseqss = [[] for _ in xrange(num_seqs)]
+    prior_stateseqss = [[] for _ in range(num_seqs)]
     prior_weights = []
-    for itr in xrange(num_iter):
+    for itr in range(num_iter):
         hmm.resample_model() # sample parameters from the prior
 
-        for itr2 in xrange(num_seqs):
+        for itr2 in range(num_seqs):
             _, stateseq = hmm.generate(T,keep=False)
             prior_stateseqss[itr2].append(stateseq)
 
@@ -142,13 +143,13 @@ def discrete_geweke_multiple_seqs_test(fig):
     prior_weights = np.array(prior_weights)
 
     # generate state sequences and parameters using Gibbs
-    for itr in xrange(num_seqs):
+    for itr in range(num_seqs):
         hmm.generate(T,keep=True)
     assert len(hmm.states_list) == num_seqs
 
-    gibbs_stateseqss = [[] for _ in xrange(num_seqs)]
+    gibbs_stateseqss = [[] for _ in range(num_seqs)]
     gibbs_weights = []
-    for itr in xrange(num_iter):
+    for itr in range(num_iter):
         for s in hmm.states_list:
             s.data = None
             hmm._generate_obs(s)  # resamples data given state sequence, obs params
@@ -166,7 +167,7 @@ def discrete_geweke_multiple_seqs_test(fig):
     # test that they look similar by checking probability of co-assignment
     time_indices = np.arange(T)
     seq_indices = np.arange(num_seqs)
-    for itr in xrange(num_checks):
+    for itr in range(num_checks):
         i,j = np.random.choice(time_indices,replace=False,size=2)
         si,sj = np.random.choice(seq_indices,replace=True,size=2)
         prior_prob_of_coassignment = \

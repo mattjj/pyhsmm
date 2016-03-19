@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
@@ -24,7 +25,7 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'kappa_0':0.25,
                 'nu_0':obs_dim+2}
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in xrange(N)]
+obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(N)]
 
 # Build the HMM model that will represent the fitmodel
 fitmodel = pyhsmm.models.HMM(
@@ -32,7 +33,7 @@ fitmodel = pyhsmm.models.HMM(
         obs_distns=obs_distns)
 fitmodel.add_data(data)
 
-print 'Gibbs sampling for initialization'
+print('Gibbs sampling for initialization')
 
 for idx in progprint_xrange(25):
     fitmodel.resample_model()
@@ -41,7 +42,7 @@ plt.figure()
 fitmodel.plot()
 plt.gcf().suptitle('Gibbs-sampled initialization')
 
-print 'EM'
+print('EM')
 
 likes = fitmodel.EM_fit()
 

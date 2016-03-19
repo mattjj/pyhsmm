@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range
 import numpy as np
 from numpy import newaxis as na
 np.seterr(invalid='raise')
@@ -35,7 +36,7 @@ class _HMMTransitionsBase(object):
                 weights=row) for row in trans_matrix]
         elif None not in (alpha,self.N) or alphav is not None:
             self._row_distns = [Multinomial(alpha_0=alpha,K=self.N,alphav_0=alphav)
-                    for n in xrange(self.N)] # sample from prior
+                    for n in range(self.N)] # sample from prior
 
     @property
     def trans_matrix(self):

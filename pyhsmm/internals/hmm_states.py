@@ -1,4 +1,6 @@
 from __future__ import division
+from builtins import range
+from future.utils import with_metaclass
 import numpy as np
 from numpy import newaxis as na
 import abc
@@ -16,8 +18,7 @@ from pyhsmm.util.general import rle
 #  Mixins and bases  #
 ######################
 
-class _StatesBase(object):
-    __metaclass__ = abc.ABCMeta
+class _StatesBase(with_metaclass(abc.ABCMeta, object)):
 
     def __init__(self,model,T=None,data=None,stateseq=None,
             generate=True,initialize_from_prior=True, fixed_stateseq=False):
@@ -141,7 +142,7 @@ class _SeparateTransMixin(object):
 class _PossibleChangepointsMixin(object):
     def __init__(self,model,data,changepoints=None,**kwargs):
         changepoints = changepoints if changepoints is not None \
-                else [(t,t+1) for t in xrange(data.shape[0])]
+                else [(t,t+1) for t in range(data.shape[0])]
 
         self.changepoints = changepoints
         self.segmentstarts = np.array([start for start,stop in changepoints],dtype=np.int32)
@@ -227,7 +228,7 @@ class HMMStatesPython(_StatesBase):
         A = self.trans_matrix
 
         stateseq = np.zeros(T,dtype=np.int32)
-        for idx in xrange(T):
+        for idx in range(T):
             stateseq[idx] = sample_discrete(nextstate_distn)
             nextstate_distn = A[stateseq[idx]]
 
@@ -257,7 +258,7 @@ class HMMStatesPython(_StatesBase):
 
         betal = np.zeros_like(aBl)
 
-        for t in xrange(betal.shape[0]-2,-1,-1):
+        for t in range(betal.shape[0]-2,-1,-1):
             betal[t] = logsumexp(Al + betal[t+1] + aBl[t+1],axis=1)
 
         np.seterr(**errs)
@@ -278,7 +279,7 @@ class HMMStatesPython(_StatesBase):
         alphal = np.zeros_like(aBl)
 
         alphal[0] = np.log(init_state_distn) + aBl[0]
-        for t in xrange(alphal.shape[0]-1):
+        for t in range(alphal.shape[0]-1):
             alphal[t+1] = logsumexp(alphal[t] + Al.T,axis=1) + aBl[t+1]
 
         np.seterr(**errs)
@@ -300,7 +301,7 @@ class HMMStatesPython(_StatesBase):
         logtot = 0.
 
         betan[-1] = 1.
-        for t in xrange(T-2,-1,-1):
+        for t in range(T-2,-1,-1):
             cmax = aBl[t+1].max()
             betan[t] = A.dot(betan[t+1] * np.exp(aBl[t+1] - cmax))
             norm = betan[t].sum()
@@ -327,7 +328,7 @@ class HMMStatesPython(_StatesBase):
         logtot = 0.
 
         in_potential = init_state_distn
-        for t in xrange(T):
+        for t in range(T):
             cmax = aBl[t].max()
             alphan[t] = in_potential * np.exp(aBl[t] - cmax)
             norm = alphan[t].sum()
@@ -369,7 +370,7 @@ class HMMStatesPython(_StatesBase):
         stateseq = np.empty(T,dtype=np.int32)
 
         nextstate_unsmoothed = init_state_distn
-        for idx in xrange(T):
+        for idx in range(T):
             logdomain = betal[idx] + aBl[idx]
             logdomain[nextstate_unsmoothed == 0] = -np.inf
             if np.any(np.isfinite(logdomain)):
@@ -392,7 +393,7 @@ class HMMStatesPython(_StatesBase):
         stateseq = np.empty(T,dtype=np.int32)
 
         nextstate_unsmoothed = init_state_distn
-        for idx in xrange(T):
+        for idx in range(T):
             logdomain = aBl[idx]
             logdomain[nextstate_unsmoothed == 0] = -np.inf
             stateseq[idx] = sample_discrete(nextstate_unsmoothed * betan * np.exp(logdomain - np.amax(logdomain)))
@@ -412,7 +413,7 @@ class HMMStatesPython(_StatesBase):
         stateseq = np.empty(T,dtype=np.int32)
 
         next_potential = np.ones(AT.shape[0])
-        for t in xrange(T-1,-1,-1):
+        for t in range(T-1,-1,-1):
             stateseq[t] = sample_discrete(next_potential * alphan[t])
             next_potential = AT[stateseq[t]]
 
@@ -573,7 +574,7 @@ class HMMStatesPython(_StatesBase):
         scores = np.zeros_like(aBl)
         args = np.zeros(aBl.shape,dtype=np.int32)
 
-        for t in xrange(scores.shape[0]-2,-1,-1):
+        for t in range(scores.shape[0]-2,-1,-1):
             vals = Al + scores[t+1] + aBl[t+1]
             vals.argmax(axis=1,out=args[t+1])
             vals.max(axis=1,out=scores[t])
@@ -588,7 +589,7 @@ class HMMStatesPython(_StatesBase):
         stateseq = np.empty(T,dtype=np.int32)
 
         stateseq[0] = (scores[0] + np.log(init_state_distn) + aBl[0]).argmax()
-        for idx in xrange(1,T):
+        for idx in range(1,T):
             stateseq[idx] = args[idx,stateseq[idx-1]]
 
         return stateseq

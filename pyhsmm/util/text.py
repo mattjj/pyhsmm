@@ -1,3 +1,4 @@
+from builtins import range
 import numpy as np
 import sys, time
 
@@ -20,7 +21,7 @@ def sec2str(seconds):
         return '%0.2f' % seconds
 
 def progprint_xrange(*args,**kwargs):
-    xr = xrange(*args)
+    xr = range(*args)
     return progprint(xr,total=len(xr),**kwargs)
 
 def progprint(iterator,total=None,perline=25,show_times=True):
@@ -50,8 +51,8 @@ def progprint(iterator,total=None,perline=25,show_times=True):
                     sys.stdout.write('  [ %d ]\n' % (idx+1))
         idx += 1
         sys.stdout.flush()
-    print ''
+    print('')
     if show_times and len(times) > 0:
         total = sec2str(seconds=np.sum(times))
-        print '%7.2fsec avg, %s total\n' % (np.mean(times),total)
+        print('%7.2fsec avg, %s total\n' % (np.mean(times),total))
 

@@ -1,5 +1,5 @@
 from __future__ import division
-from itertools import izip
+from builtins import zip, range
 import numpy as np
 from numpy.random import random
 na = np.newaxis
@@ -107,7 +107,7 @@ def diag_whiten(datalist):
 
 def count_transitions(stateseq, num_states):
     out = np.zeros((num_states,num_states),dtype=np.int32)
-    for i,j in izip(stateseq[:-1],stateseq[1:]):
+    for i,j in zip(stateseq[:-1],stateseq[1:]):
         out[i,j] += 1
     return out
 
@@ -227,7 +227,7 @@ def sample_crp_tablecounts(concentration,customers,colweights):
 
     for (i,j), n in np.ndenumerate(customers):
         w = colweights[j]
-        for k in xrange(n):
+        for k in range(n):
             m[i,j] += randseq[starts[i,j]+k] \
                     < (concentration * w) / (k + concentration * w)
 

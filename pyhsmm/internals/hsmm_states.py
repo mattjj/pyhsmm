@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range, map
 import numpy as np
 from numpy import newaxis as na
 from scipy.misc import logsumexp
@@ -6,8 +7,8 @@ from scipy.misc import logsumexp
 from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util.general import rle, rcumsum, cumsum
 
-import hmm_states
-from hmm_states import _StatesBase, _SeparateTransMixin, \
+from . import hmm_states
+from .hmm_states import _StatesBase, _SeparateTransMixin, \
     HMMStatesPython, HMMStatesEigen
 
 
@@ -398,7 +399,7 @@ class HSMMStatesPython(_StatesBase):
 
         self.expected_durations = expected_durations = \
                 np.zeros((self.num_states,self.T))
-        for state in xrange(self.num_states):
+        for state in range(self.num_states):
             expected_durations[state] += \
                 np.bincount(
                     self.durations_censored[self.stateseq_norep == state],
@@ -476,11 +477,11 @@ class HSMMStatesPython(_StatesBase):
             dur_potentials,cumulative_obs_potentials,
             alphastarl,betal,normalizer):
         if self.trunc is not None:
-            raise NotImplementedError, "_expected_durations can't handle trunc"
+            raise NotImplementedError("_expected_durations can't handle trunc")
         T = self.T
         logpmfs = -np.inf*np.ones_like(alphastarl)
         errs = np.seterr(invalid='ignore')
-        for t in xrange(T):
+        for t in range(T):
             cB, offset = cumulative_obs_potentials(t)
             np.logaddexp(dur_potentials(t) + alphastarl[t] + betal[t:] +
                     cB - (normalizer + offset),
@@ -685,7 +686,7 @@ class _PossibleChangepointsMixin(hmm_states._PossibleChangepointsMixin,HSMMState
 
         self.expected_durations = expected_durations = \
                 np.zeros((self.num_states,self.Tfull))
-        for state in xrange(self.num_states):
+        for state in range(self.num_states):
             expected_durations[state] += \
                 np.bincount(
                     self.durations_censored[self.stateseq_norep == state],
@@ -872,7 +873,7 @@ class HSMMStatesPossibleChangepoints(_PossibleChangepointsMixin,HSMMStatesPython
         logpmfs = -np.inf*np.ones((self.Tfull,alphastarl.shape[1]))
         errs = np.seterr(invalid='ignore') # logaddexp(-inf,-inf)
         # TODO censoring not handled correctly here
-        for tblock in xrange(self.Tblock):
+        for tblock in range(self.Tblock):
             possible_durations = self.segmentlens[tblock:].cumsum()[:self.trunc]
             cB, offset = cumulative_obs_potentials(tblock)
             logpmfs[possible_durations -1] = np.logaddexp(
@@ -991,7 +992,7 @@ def hsmm_messages_backwards_log(
     T, _ = betal.shape
 
     betal[-1] = 0.
-    for t in xrange(T-1,-1,-1):
+    for t in range(T-1,-1,-1):
         cB, offset = cumulative_obs_potentials(t)
         dp = dur_potentials(t)
         betastarl[t] = logsumexp(
@@ -1020,7 +1021,7 @@ def hsmm_messages_forwards_log(
     T, _ = alphal.shape
 
     alphastarl[0] = initial_state_potential
-    for t in xrange(T-1):
+    for t in range(T-1):
         cB = reverse_cumulative_obs_potentials(t)
         alphal[t] = logsumexp(
             alphastarl[t+1-cB.shape[0]:t+1] + cB + reverse_dur_potentials(t), axis=0)
@@ -1098,7 +1099,7 @@ def hsmm_maximizing_assignment(
     betastar_scores, betastar_args = np.empty((T,N)), np.empty((T,N),dtype=np.int)
 
     beta_scores[-1] = 0.
-    for t in xrange(T-1,-1,-1):
+    for t in range(T-1,-1,-1):
         cB, offset = cumulative_obs_potentials(t)
 
         vals = beta_scores[t:t+cB.shape[0]] + cB + dur_potentials(t)

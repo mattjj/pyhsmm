@@ -1,4 +1,5 @@
 from __future__ import division
+from builtins import range
 import os
 import numpy as np
 import numpy.random as npr
@@ -7,7 +8,6 @@ plt.ion()
 npr.seed(0)
 
 import pyhsmm
-from pyhsmm.util.text import progprint_xrange
 
 ###############
 #  load data  #
@@ -32,7 +32,7 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
 
 # instantiate a Sticky-HDP-HMM
 obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams)
-              for state in xrange(Nmax)]
+              for state in range(Nmax)]
 model = pyhsmm.models.WeakLimitStickyHDPHMM(
         kappa=50.,alpha=6.,gamma=6.,init_state_concentration=1.,
         obs_distns=obs_distns)

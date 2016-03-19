@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 np.seterr(divide='ignore') # these warnings are usually harmless for this code
 from matplotlib import pyplot as plt
@@ -9,12 +9,11 @@ from pyhsmm.util.text import progprint_xrange
 
 SAVE_FIGURES = False
 
-print \
-'''
+print('''
 This demo shows the HDP-HSMM in action. Its iterations are slower than those for
 the (Sticky-)HDP-HMM, but explicit duration modeling can be a big advantage for
 conditioning the prior or for discovering structure in data.
-'''
+''')
 
 ###############
 #  load data  #

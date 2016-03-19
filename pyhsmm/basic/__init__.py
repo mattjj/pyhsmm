@@ -1,3 +1,3 @@
-import models
-import distributions
-import abstractions
+from . import models
+from . import distributions
+from . import abstractions
