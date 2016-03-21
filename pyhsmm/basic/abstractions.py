@@ -1,4 +1,6 @@
 from __future__ import division
+from future.utils import with_metaclass
+
 import abc
 import numpy as np
 from matplotlib import pyplot as plt
@@ -8,8 +10,7 @@ import pyhsmm
 from pyhsmm.util.stats import flattendata, sample_discrete, sample_discrete_from_log, combinedata
 from pyhsmm.util.general import rcumsum
 
-class DurationDistribution(Distribution):
-    __metaclass__ = abc.ABCMeta
+class DurationDistribution(with_metaclass(abc.ABCMeta, Distribution)):
 
     # in addition to the methods required by Distribution, we also require a
     # log_sf implementation

@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 from numpy import newaxis as na
 from matplotlib import pyplot as plt
@@ -14,19 +14,19 @@ datapath = str(join(dirname(__file__),'svi_data.gz'))
 ### load data
 
 if not isfile(datapath):
-    print 'download svi_data.gz data and put it in examples/'
-    print 'https://github.com/mattjj/example_data'
+    print('download svi_data.gz data and put it in examples/')
+    print('https://github.com/mattjj/example_data')
     import sys; sys.exit(1)
 
-print 'loading data...'
+print('loading data...')
 alldata = np.loadtxt(datapath)
 allseqs = np.array_split(alldata,250)
 datas, heldout = hold_out(allseqs,0.05)
 training_size = sum(data.shape[0] for data in datas)
-print '...done!'
+print('...done!')
 
-print '%d total frames' % sum(data.shape[0] for data in alldata)
-print 'split into %d training and %d test sequences' % (len(datas),len(heldout))
+print('%d total frames' % sum(data.shape[0] for data in alldata))
+print('split into %d training and %d test sequences' % (len(datas),len(heldout)))
 
 ### inference!
 

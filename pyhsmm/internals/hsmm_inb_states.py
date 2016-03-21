@@ -1,4 +1,6 @@
 from __future__ import division
+from builtins import zip, range
+from future.utils import with_metaclass
 import numpy as np
 import abc
 import scipy.stats as stats
@@ -11,16 +13,15 @@ except ImportError:
     from ..util.stats import sample_markov
 from ..util.general import top_eigenvector, cumsum
 
-from hmm_states import HMMStatesPython, HMMStatesEigen, _SeparateTransMixin
-from hsmm_states import HSMMStatesEigen
+from .hmm_states import HMMStatesPython, HMMStatesEigen, _SeparateTransMixin
+from .hsmm_states import HSMMStatesEigen
 
 # TODO these classes are currently backed by HMM message passing, but they can
 # be made much more time and memory efficient. i have the code to do it in some
 # other branches, but dense matrix multiplies are actually competitive.
 
 
-class _HSMMStatesIntegerNegativeBinomialBase(HSMMStatesEigen, HMMStatesEigen):
-    __metaclass__ = abc.ABCMeta
+class _HSMMStatesIntegerNegativeBinomialBase(with_metaclass(abc.ABCMeta, HSMMStatesEigen, HMMStatesEigen)):
 
     @property
     def rs(self):
@@ -169,7 +170,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         pmess = np.zeros(ends[-1])
 
         # betal[-1] is 0
-        for t in xrange(T-1,-1,-1):
+        for t in range(T-1,-1,-1):
             pmess += self.hmm_aBl[t]
             betastarl[t] = logsumexp(np.log(foo) + pmess, axis=1)
             betal[t-1] = logsumexp(Al + betastarl[t], axis=1)
@@ -196,7 +197,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
         self.expected_durations = np.zeros((self.num_states,self.T))
 
         eye = np.eye(self.num_states)/num_r_samples
-        for i in xrange(num_r_samples):
+        for i in range(num_r_samples):
             self.model._resample_from_mf()
             self.clear_caches()
 
@@ -206,7 +207,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
             self.expected_transcounts += \
                 count_transitions(self.stateseq_norep,minlength=self.num_states)\
                 / num_r_samples
-            for state in xrange(self.num_states):
+            for state in range(self.num_states):
                 self.expected_durations[state] += \
                     np.bincount(
                             self.durations_censored[self.stateseq_norep == state],
@@ -225,7 +226,7 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
 
         mf_aBl = self.mf_aBl
 
-        for i in xrange(num_r_samples):
+        for i in range(num_r_samples):
             for d in self.dur_distns:
                 d._resample_r_from_mf()
             self.clear_caches()
@@ -248,9 +249,9 @@ class HSMMStatesIntegerNegativeBinomial(_HSMMStatesIntegerNegativeBinomialBase):
             self.expected_transcounts += expected_transcounts / num_r_samples
 
             # collect duration statistics by sampling from messages
-            for j in xrange(num_stateseq_samples_per_r):
+            for j in range(num_stateseq_samples_per_r):
                 self._resample_from_mf(trans,init,aBl,hmm_alphal,hmm_betal)
-                for state in xrange(self.num_states):
+                for state in range(self.num_states):
                     self.expected_durations[state] += \
                         np.bincount(
                                 self.durations_censored[self.stateseq_norep == state],
@@ -445,7 +446,7 @@ class HSMMStatesTruncatedIntegerNegativeBinomial(HSMMStatesDelayedIntegerNegativ
     def bwd_enter_rows(self):
         As = [np.diag(np.repeat(p,r)) + np.diag(np.repeat(1-p,r-1),k=1) for r,p in zip(self.rs,self.ps)]
         enters = [stats.binom.pmf(np.arange(r)[::-1],r-1,p) for A,r,p in zip(As,self.rs,self.ps)]
-        # norms = [sum(v.dot(np.linalg.matrix_power(A,d))[-1]*(1-p) for d in xrange(delay))
+        # norms = [sum(v.dot(np.linalg.matrix_power(A,d))[-1]*(1-p) for d in range(delay))
         #         for A,v,p,delay in zip(As,enters,self.ps,self.delays)]
         # enters = [v.dot(np.linalg.matrix_power(A,self.delays[state])) / (1.-norm)
         enters = [v.dot(np.linalg.matrix_power(A,self.delays[state]))

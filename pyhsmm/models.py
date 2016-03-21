@@ -1,4 +1,7 @@
 from __future__ import division
+from future.utils import iteritems, itervalues
+from builtins import map, zip
+
 import numpy as np
 import itertools
 import collections
@@ -81,7 +84,7 @@ class _HMMBase(Model):
             # generating brand new data sequence
             counts = np.bincount(s.stateseq,minlength=self.num_states)
             obs = [iter(o.rvs(count)) for o, count in zip(s.obs_distns,counts)]
-            s.data = np.squeeze(np.vstack([obs[state].next() for state in s.stateseq]))
+            s.data = np.squeeze(np.vstack([next(obs[state]) for state in s.stateseq]))
         else:
             # filling in missing data
             data = s.data
@@ -89,7 +92,7 @@ class _HMMBase(Model):
             counts = np.bincount(s.stateseq[nan_idx],minlength=self.num_states)
             obs = [iter(o.rvs(count)) for o, count in zip(s.obs_distns,counts)]
             for idx, state in zip(nan_idx, s.stateseq[nan_idx]):
-                data[idx] = obs[state].next()
+                data[idx] = next(obs[state])
 
         return s.data
 
@@ -141,7 +144,7 @@ class _HMMBase(Model):
                 prev_k = k
         else:
             from joblib import Parallel, delayed
-            import parallel
+            from . import parallel
 
             parallel.cmaxes = cmaxes
             parallel.alphal = alphal
@@ -183,7 +186,8 @@ class _HMMBase(Model):
     @property
     def used_states(self):
         'a list of the used states in the order they appear'
-        canonical_ids = collections.defaultdict(itertools.count().next)
+        c = itertools.count()
+        canonical_ids = collections.defaultdict(next(c))
         for s in self.states_list:
             for state in s.stateseq:
                 canonical_ids[state]
@@ -471,7 +475,7 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
 
     def _joblib_resample_states(self,states_list,num_procs):
         from joblib import Parallel, delayed
-        import parallel
+        from . import parallel
 
         # warn('joblib is segfaulting on OS X only, not sure why')
 
@@ -556,7 +560,7 @@ class _HMMMeanField(_HMMBase,ModelMeanField):
     def _joblib_meanfield_update_states(self,states_list,num_procs):
         if len(states_list) > 0:
             from joblib import Parallel, delayed
-            import parallel
+            from . import parallel
 
             joblib_args = list_split(
                     [self._get_joblib_pair(s) for s in states_list],
@@ -1261,13 +1265,13 @@ class _SeparateTransMixin(object):
     ### Gibbs sampling
 
     def resample_trans_distn(self):
-        for group_id, trans_distn in self.trans_distns.iteritems():
+        for group_id, trans_distn in iteritems(self.trans_distns):
             trans_distn.resample([s.stateseq for s in self.states_list
                 if hash(s.group_id) == hash(group_id)])
         self._clear_caches()
 
     def resample_init_state_distn(self):
-        for group_id, init_state_distn in self.init_state_distns.iteritems():
+        for group_id, init_state_distn in iteritems(self.init_state_distns):
             init_state_distn.resample([s.stateseq[0] for s in self.states_list
                 if hash(s.group_id) == hash(group_id)])
         self._clear_caches()
@@ -1275,13 +1279,13 @@ class _SeparateTransMixin(object):
     ### Mean field
 
     def meanfield_update_trans_distn(self):
-        for group_id, trans_distn in self.trans_distns.iteritems():
+        for group_id, trans_distn in iteritems(self.trans_distns):
             states_list = [s for s in self.states_list if hash(s.group_id) == hash(group_id)]
             if len(states_list) > 0:
                 trans_distn.meanfieldupdate([s.expected_transcounts for s in states_list])
 
     def meanfield_update_init_state_distn(self):
-        for group_id, init_state_distn in self.init_state_distns.iteritems():
+        for group_id, init_state_distn in iteritems(self.init_state_distns):
             states_list = [s for s in self.states_list if hash(s.group_id) == hash(group_id)]
             if len(states_list) > 0:
                 init_state_distn.meanfieldupdate([s.expected_states[0] for s in states_list])
@@ -1290,23 +1294,23 @@ class _SeparateTransMixin(object):
         vlb = 0.
         vlb += sum(s.get_vlb() for s in self.states_list)
         vlb += sum(trans_distn.get_vlb()
-                for trans_distn in self.trans_distns.itervalues())
+                for trans_distn in itervalues(self.trans_distns))
         vlb += sum(init_state_distn.get_vlb()
-                for init_state_distn in self.init_state_distns.itervalues())
+                for init_state_distn in itervalues(self.init_state_distns))
         vlb += sum(o.get_vlb() for o in self.obs_distns)
         return vlb
 
     ### SVI
 
     def _meanfield_sgdstep_trans_distn(self,mb_states_list,prob,stepsize):
-        for group_id, trans_distn in self.trans_distns.iteritems():
+        for group_id, trans_distn in iteritems(self.trans_distns):
             trans_distn.meanfield_sgdstep(
                     [s.expected_transcounts for s in mb_states_list
                         if hash(s.group_id) == hash(group_id)],
                     prob,stepsize)
 
     def _meanfield_sgdstep_init_state_distn(self,mb_states_list,prob,stepsize):
-        for group_id, init_state_distn in self.init_state_distns.iteritems():
+        for group_id, init_state_distn in iteritems(self.init_state_distns):
             init_state_distn.meanfield_sgdstep(
                     [s.expected_states[0] for s in mb_states_list
                         if hash(s.group_id) == hash(group_id)],

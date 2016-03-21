@@ -8,7 +8,7 @@ from warnings import warn
 import os
 import sys
 from glob import glob
-from six.moves.urllib.request import urlretrieve
+from future.moves.urllib.request import urlretrieve
 import tarfile
 import shutil
 
@@ -109,8 +109,8 @@ setup(name='pyhsmm',
       keywords=['bayesian', 'inference', 'mcmc', 'time-series', 'monte-carlo',
                 'variational inference', 'mean field', 'vb'],
       install_requires=[
-          "numpy", "scipy", "matplotlib", "nose", "pybasicbayes >= 0.1.3"],
-      setup_requires=['numpy'],
+          "numpy", "scipy", "matplotlib", "nose", "pybasicbayes >= 0.1.3", "future"],
+      setup_requires=['numpy', "future"],
       ext_modules=ext_modules,
       classifiers=[
           'Development Status :: 4 - Beta',

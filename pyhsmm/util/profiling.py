@@ -1,6 +1,7 @@
-from __future__ import division
+from __future__ import division, print_function
 import numpy as np
-import sys, StringIO, inspect, os, functools, time, collections
+import sys, inspect, os, functools, time, collections
+from future.utils import iteritems
 
 ### use @timed for really basic timing
 
@@ -21,15 +22,15 @@ def show_timings(stream=None):
     if len(_timings) > 0:
         results = [(inspect.getsourcefile(f),f.__name__,
             len(vals),np.sum(vals),np.mean(vals),np.std(vals))
-            for f, vals in _timings.iteritems()]
+            for f, vals in iteritems(_timings)]
         filename_lens = max(len(filename) for filename, _, _, _, _, _ in results)
         name_lens = max(len(name) for _, name, _, _, _, _ in results)
 
         fmt = '{:>%d} {:>%d} {:>10} {:>10} {:>10} {:>10}' % (filename_lens, name_lens)
-        print >>stream, fmt.format('file','name','ncalls','tottime','avg time','std dev')
+        print(fmt.format('file','name','ncalls','tottime','avg time','std dev'), file=stream)
 
         fmt = '{:>%d} {:>%d} {:>10} {:>10.3} {:>10.3} {:>10.3}' % (filename_lens, name_lens)
-        print >>stream, '\n'.join(fmt.format(*tup) for tup in sorted(results))
+        print('\n'.join(fmt.format(*tup) for tup in sorted(results)), file=stream)
 
 ### use @line_profiled for a thin wrapper around line_profiler
 

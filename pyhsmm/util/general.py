@@ -1,11 +1,14 @@
 from __future__ import division
+from builtins import range, zip, filter
+
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 import scipy.linalg
 import copy, collections, os, shutil, hashlib
 from contextlib import closing
-from urllib2 import urlopen
-from itertools import izip, chain, count, ifilter
+from six.moves.urllib.request import urlopen
+from itertools import chain, count
+from functools import reduce
 
 def solve_psd(A,b,chol=None,overwrite_b=False,overwrite_A=False):
     if A.shape[0] < 5000 and chol is None:
@@ -78,7 +81,7 @@ def nice_indices(arr):
     # surprisingly, this is slower for very small (and very large) inputs:
     # u,f,i = np.unique(arr,return_index=True,return_inverse=True)
     # arr[:] = np.arange(u.shape[0])[np.argsort(f)][i]
-    ids = collections.defaultdict(count().next)
+    ids = collections.defaultdict(next(count()))
     for idx,x in enumerate(arr):
         arr[idx] = ids[x]
     return arr
@@ -143,9 +146,9 @@ def stateseq_hamming_error(sampledstates,truestates):
 
 def _sieve(stream):
     # just for fun; doesn't work over a few hundred
-    val = stream.next()
+    val = next(stream)
     yield val
-    for x in ifilter(lambda x: x%val != 0, _sieve(stream)):
+    for x in filter(lambda x: x%val != 0, _sieve(stream)):
         yield x
 
 def primes():
@@ -172,7 +175,7 @@ def top_eigenvector(A,niter=1000,force_iteration=False):
     else:
         x1 = np.repeat(1./n,n)
         x2 = x1.copy()
-        for itr in xrange(niter):
+        for itr in range(niter):
             np.dot(A.T,x1,out=x2)
             x2 /= x2.sum()
             x1,x2 = x2,x1
@@ -203,7 +206,7 @@ def count_transitions(stateseq,minlength=None):
     if minlength is None:
         minlength = stateseq.max() + 1
     out = np.zeros((minlength,minlength),dtype=np.int32)
-    for a,b in izip(stateseq[:-1],stateseq[1:]):
+    for a,b in zip(stateseq[:-1],stateseq[1:]):
         out[a,b] += 1
     return out
 
@@ -223,14 +226,14 @@ def hold_out(datalist,frac):
 def sgd_passes(tau,kappa,datalist,minibatchsize=1,npasses=1):
     N = len(datalist)
 
-    for superitr in xrange(npasses):
+    for superitr in range(npasses):
         if minibatchsize == 1:
             perm = np.random.permutation(N)
-            for idx, rho_t in izip(perm,sgd_steps(tau,kappa)):
+            for idx, rho_t in zip(perm,sgd_steps(tau,kappa)):
                 yield datalist[idx], rho_t
         else:
             minibatch_indices = np.array_split(np.random.permutation(N),N/minibatchsize)
-            for indices, rho_t in izip(minibatch_indices,sgd_steps(tau,kappa)):
+            for indices, rho_t in zip(minibatch_indices,sgd_steps(tau,kappa)):
                 yield [datalist[idx] for idx in indices], rho_t
 
 def sgd_sampling(tau,kappa,datalist,minibatchsize=1):
@@ -252,7 +255,7 @@ def minibatchsize(lst):
 
 def random_subset(lst,sz):
     perm = np.random.permutation(len(lst))
-    return [lst[perm[idx]] for idx in xrange(sz)]
+    return [lst[perm[idx]] for idx in range(sz)]
 
 def get_file(remote_url,local_path):
     if not os.path.isfile(local_path):
