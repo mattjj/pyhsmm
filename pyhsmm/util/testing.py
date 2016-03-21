@@ -3,7 +3,7 @@ import numpy as np
 from numpy import newaxis as na
 from matplotlib import pyplot as plt
 
-import stats, general
+from . import stats, general
 
 #########################
 #  statistical testing  #

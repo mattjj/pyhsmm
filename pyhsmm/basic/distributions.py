@@ -4,7 +4,7 @@ from scipy.misc import logsumexp
 
 from pybasicbayes.distributions import *
 from pybasicbayes.models import MixtureDistribution
-from abstractions import DurationDistribution
+from .abstractions import DurationDistribution
 
 ##############################################
 #  Mixins for making duratino distributions  #

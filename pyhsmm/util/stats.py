@@ -8,7 +8,7 @@ import scipy.special as special
 import scipy.linalg
 from numpy.core.umath_tests import inner1d
 
-import general
+from . import general
 
 # TODO write cholesky versions
 

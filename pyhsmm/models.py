@@ -1,8 +1,6 @@
 from __future__ import division
 from future.utils import iteritems, itervalues
-from builtins import map
-
-import sys
+from builtins import map, zip
 
 import numpy as np
 import itertools
@@ -189,7 +187,7 @@ class _HMMBase(Model):
     def used_states(self):
         'a list of the used states in the order they appear'
         c = itertools.count()
-        canonical_ids = collections.defaultdict(c.__next__ if sys.version_info.major == 3 else c.next)
+        canonical_ids = collections.defaultdict(next(c))
         for s in self.states_list:
             for state in s.stateseq:
                 canonical_ids[state]

@@ -1,5 +1,5 @@
 from __future__ import division
-from builtins import range, map, zip, filter
+from builtins import range, zip, filter
 
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
@@ -81,7 +81,7 @@ def nice_indices(arr):
     # surprisingly, this is slower for very small (and very large) inputs:
     # u,f,i = np.unique(arr,return_index=True,return_inverse=True)
     # arr[:] = np.arange(u.shape[0])[np.argsort(f)][i]
-    ids = collections.defaultdict(count().next)
+    ids = collections.defaultdict(next(count()))
     for idx,x in enumerate(arr):
         arr[idx] = ids[x]
     return arr
@@ -146,7 +146,7 @@ def stateseq_hamming_error(sampledstates,truestates):
 
 def _sieve(stream):
     # just for fun; doesn't work over a few hundred
-    val = stream.next()
+    val = next(stream)
     yield val
     for x in filter(lambda x: x%val != 0, _sieve(stream)):
         yield x
