@@ -100,7 +100,7 @@ def whiten(datalist):
     return general.treemap(apply_whitening, datalist)
 
 def diag_whiten(datalist):
-    mu, l = mean(datalist), np.sqrt(diag_of_cov(datalist))
+    mu, l = mean(datalist), np.sqrt(np.diag(cov(datalist)))
     def apply_whitening(x):
         return (x-mu)/l + mu
     return general.treemap(apply_whitening, datalist)
