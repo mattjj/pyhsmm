@@ -1247,7 +1247,7 @@ class _SeparateTransMixin(object):
         self.trans_distns = collections.defaultdict(
                 lambda: copy.deepcopy(self._trans_distn_prototype))
         self.init_state_distns = collections.defaultdict(
-                lambda: copy.deepcopy(self.init_state_distn_prototype))
+                lambda: copy.deepcopy(self._init_state_distn_prototype))
         self.trans_distns.update(dct['trans_distns'])
         self.init_state_distns.update(dct['init_state_distns'])
 
