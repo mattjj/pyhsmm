@@ -187,7 +187,7 @@ class _HMMBase(Model):
     def used_states(self):
         'a list of the used states in the order they appear'
         c = itertools.count()
-        canonical_ids = collections.defaultdict(next(c))
+        canonical_ids = collections.defaultdict(lambda: next(c))
         for s in self.states_list:
             for state in s.stateseq:
                 canonical_ids[state]
