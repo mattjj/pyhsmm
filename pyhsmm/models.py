@@ -20,6 +20,7 @@ from pyhsmm.internals import hmm_states, hsmm_states, hsmm_inb_states, \
 from pyhsmm.util.general import list_split
 from pyhsmm.util.profiling import line_profiled
 from pybasicbayes.util.stats import atleast_2d
+from pybasicbayes.distributions.gaussian import Gaussian
 
 
 ################
@@ -330,6 +331,11 @@ class _HMMBase(Model):
 
         artists = []
         for state, (o, w) in enumerate(zip(self.obs_distns,usages)):
+            if o.D > 2:
+                if isinstance(o, Gaussian):
+                    o = Gaussian(o.mu[:2], o.sigma[:2, :2])
+                else:
+                    warn("High-dimensional distribution may not plot correctly in 2D")
             artists.extend(
                 o.plot(
                     color=state_colors[state], label='%d' % state,
