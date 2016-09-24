@@ -500,7 +500,7 @@ class HSMMStatesEigen(HSMMStatesPython):
     def messages_backwards(self):
         # NOTE: np.maximum calls are because the C++ code doesn't do
         # np.logaddexp(-inf,-inf) = -inf, it likes nans instead
-        from hsmm_messages_interface import messages_backwards_log
+        from pyhsmm.internals.hsmm_messages_interface import messages_backwards_log
         betal, betastarl = messages_backwards_log(
                 np.maximum(self.trans_matrix,1e-50),self.aBl,np.maximum(self.aDl,-1000000),
                 self.aDsl,np.empty_like(self.aBl),np.empty_like(self.aBl),
@@ -519,7 +519,7 @@ class HSMMStatesEigen(HSMMStatesPython):
         return super(HSMMStatesEigen,self).messages_backwards()
 
     def sample_forwards(self,betal,betastarl):
-        from hsmm_messages_interface import sample_forwards_log
+        from pyhsmm.internals.hsmm_messages_interface import sample_forwards_log
         if self.left_censoring:
             raise NotImplementedError
         caBl = np.vstack((np.zeros(betal.shape[1]),np.cumsum(self.aBl[:-1],axis=0)))
@@ -533,7 +533,7 @@ class HSMMStatesEigen(HSMMStatesPython):
 
     @staticmethod
     def _resample_multiple(states_list):
-        from hsmm_messages_interface import resample_log_multiple
+        from pyhsmm.internals.hsmm_messages_interface import resample_log_multiple
         if len(states_list) > 0:
             Ts = [s.T for s in states_list]
             longest = np.argmax(Ts)

@@ -605,20 +605,20 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _messages_backwards_log(trans_matrix,log_likelihoods):
-        from hmm_messages_interface import messages_backwards_log
+        from pyhsmm.internals.hmm_messages_interface import messages_backwards_log
         return messages_backwards_log(
                 trans_matrix,log_likelihoods,
                 np.empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards_log(trans_matrix,init_state_distn,log_likelihoods):
-        from hmm_messages_interface import messages_forwards_log
+        from pyhsmm.internals.hmm_messages_interface import messages_forwards_log
         return messages_forwards_log(trans_matrix,log_likelihoods,
                 init_state_distn,np.empty_like(log_likelihoods))
 
     @staticmethod
     def _messages_forwards_normalized(trans_matrix,init_state_distn,log_likelihoods):
-        from hmm_messages_interface import messages_forwards_normalized
+        from pyhsmm.internals.hmm_messages_interface import messages_forwards_normalized
         return messages_forwards_normalized(trans_matrix,log_likelihoods,
                 init_state_distn,np.empty_like(log_likelihoods))
 
@@ -640,19 +640,19 @@ class HMMStatesEigen(HMMStatesPython):
 
     @staticmethod
     def _sample_forwards_log(betal,trans_matrix,init_state_distn,log_likelihoods):
-        from hmm_messages_interface import sample_forwards_log
+        from pyhsmm.internals.hmm_messages_interface import sample_forwards_log
         return sample_forwards_log(trans_matrix,log_likelihoods,
                 init_state_distn,betal,np.empty(log_likelihoods.shape[0],dtype='int32'))
 
     @staticmethod
     def _sample_backwards_normalized(alphan,trans_matrix_transpose):
-        from hmm_messages_interface import sample_backwards_normalized
+        from pyhsmm.internals.hmm_messages_interface import sample_backwards_normalized
         return sample_backwards_normalized(trans_matrix_transpose,alphan,
                 np.empty(alphan.shape[0],dtype='int32'))
 
     @staticmethod
     def _resample_multiple(states_list):
-        from hmm_messages_interface import resample_normalized_multiple
+        from pyhsmm.internals.hmm_messages_interface import resample_normalized_multiple
         if len(states_list) > 0:
             loglikes = resample_normalized_multiple(
                     states_list[0].trans_matrix,states_list[0].pi_0,
@@ -666,7 +666,7 @@ class HMMStatesEigen(HMMStatesPython):
     def _expected_statistics_from_messages(
             trans_potential,likelihood_log_potential,alphal,betal,
             expected_states=None,expected_transcounts=None):
-        from hmm_messages_interface import expected_statistics_log
+        from pyhsmm.internals.hmm_messages_interface import expected_statistics_log
         expected_states = np.zeros_like(alphal) \
                 if expected_states is None else expected_states
         expected_transcounts = np.zeros_like(trans_potential) \
@@ -678,7 +678,7 @@ class HMMStatesEigen(HMMStatesPython):
     ### Vitberbi
 
     def Viterbi(self):
-        from hmm_messages_interface import viterbi
+        from pyhsmm.internals.hmm_messages_interface import viterbi
         self.stateseq = viterbi(self.trans_matrix,self.aBl,self.pi_0,
                 np.empty(self.aBl.shape[0],dtype='int32'))
 

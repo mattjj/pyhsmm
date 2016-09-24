@@ -1,7 +1,8 @@
 from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
-from stats import cov
+
+from pyhsmm.util.stats import cov
 
 def plot_gaussian_2D(mu, lmbda, color='b', centermarker=True,label='',alpha=1.,ax=None,artists=None):
     '''
