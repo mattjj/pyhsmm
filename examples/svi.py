@@ -1,4 +1,4 @@
-
+from __future__ import division
 import numpy as np
 from numpy import newaxis as na
 from matplotlib import pyplot as plt
