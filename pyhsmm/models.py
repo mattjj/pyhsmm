@@ -387,7 +387,6 @@ class _HMMBase(Model):
 
     def _plot_stateseq_pcolor(self,s,ax=None,state_colors=None,
             plot_slice=slice(None),update=False,color_method=None):
-        # TODO pcolormesh instead of pcolorfast?
         from pyhsmm.util.general import rle
 
         s = self.states_list[s] if isinstance(s,int) else s
@@ -407,7 +406,7 @@ class _HMMBase(Model):
         x, y = np.hstack((0,durations.cumsum())), np.array([datamin,datamax])
         C = np.atleast_2d([state_colors[state] for state in stateseq_norep])
 
-        s._pcolor_im = ax.pcolorfast(x,y,C,vmin=0,vmax=1,alpha=0.3)
+        s._pcolor_im = ax.pcolormesh(x,y,C,vmin=0,vmax=1,alpha=0.3)
         ax.set_ylim((datamin,datamax))
         ax.set_xlim((0,len(stateseq)))
         ax.set_yticks([])
