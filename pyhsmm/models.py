@@ -192,8 +192,8 @@ class _HMMBase(Model):
         for s in self.states_list:
             for state in s.stateseq:
                 canonical_ids[state]
-        return map(operator.itemgetter(0),
-                sorted(canonical_ids.items(),key=operator.itemgetter(1)))
+        return list(map(operator.itemgetter(0),
+                sorted(canonical_ids.items(),key=operator.itemgetter(1))))
 
     @property
     def state_usages(self):
