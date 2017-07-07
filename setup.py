@@ -8,9 +8,12 @@ from warnings import warn
 import os
 import sys
 from glob import glob
-from future.moves.urllib.request import urlretrieve
 import tarfile
 import shutil
+
+from future.standard_library import install_aliases
+install_aliases()
+from urllib.request import urlretrieve
 
 # use cython if we can import it successfully
 try:
