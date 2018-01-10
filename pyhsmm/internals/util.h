@@ -1,8 +1,25 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#ifdef _WIN32 || _WIN64
+#define NO_BUILTIN_EXPECT
+#endif
+
+#ifdef NO_BUILTIN_EXPECT
+#if !defined(LIKELY)
+#define likely(x) (!!(x),true)
+#endif
+#if !defined(UNLIKELY)
+#define unlikely(x) (!!(x),false)
+#endif
+#else
+#if !defined(LIKELY)
 #define likely(x) __builtin_expect(!!(x),true)
+#endif
+#if !defined(UNLIKELY)
 #define unlikely(x) __builtin_expect(!!(x),false)
+#endif
+#endif
 
 namespace util {
     using namespace std;
