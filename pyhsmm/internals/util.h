@@ -1,7 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#ifdef _WIN32 || _WIN64
+#ifdef _MSC_VER
 #define NO_BUILTIN_EXPECT
 #endif
 
