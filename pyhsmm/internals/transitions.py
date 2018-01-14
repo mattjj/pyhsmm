@@ -28,8 +28,9 @@ except ImportError:
 ### HMM
 
 class _HMMTransitionsBase(object):
-    def __init__(self,num_states=None,alpha=None,alphav=None,trans_matrix=None):
+    def __init__(self,num_states=None,alpha=None,alphav=None,trans_matrix=None, fix_trans_matrix_zeros=False):
         self.N = num_states
+        self.fix_trans_matrix_zeros = fix_trans_matrix_zeros
 
         if trans_matrix is not None:
             self._row_distns = [Multinomial(alpha_0=alpha,K=self.N,alphav_0=alphav,
@@ -82,7 +83,13 @@ class _HMMTransitionsGibbs(_HMMTransitionsBase):
         trans_counts = self._count_transitions(stateseqs) if trans_counts is None \
                 else trans_counts
         for distn, counts in zip(self._row_distns,trans_counts):
+            weights_orig = distn.weights
             distn.resample(counts)
+
+            # Fix weights at zero (useful for prohibiting transitions by fixing probabilities)
+            if self.fix_trans_matrix_zeros:
+                distn.weights = np.where(weights_orig == 0.0, weights_orig, distn.weights) # Set to zero elements that were originally zeros
+                distn.weights /= np.sum(distn.weights) # Normalize
         return self
 
 class _HMMTransitionsMaxLikelihood(_HMMTransitionsBase):
@@ -184,11 +191,12 @@ class HMMTransitionsConc(_ConcentrationResamplingMixin,_HMMTransitionsGibbs):
 class _HSMMTransitionsBase(_HMMTransitionsBase):
     def _get_trans_matrix(self):
         out = self.full_trans_matrix
-        out.flat[::out.shape[0]+1] = 0
-        errs = np.seterr(invalid='ignore')
-        out /= out.sum(1)[:,na]
-        out = np.nan_to_num(out)
-        np.seterr(**errs)
+        if not self.fix_trans_matrix_zeros:
+            out.flat[::out.shape[0]+1] = 0
+            errs = np.seterr(invalid='ignore')
+            out /= out.sum(1)[:,na]
+            out = np.nan_to_num(out)
+            np.seterr(**errs)
         return out
 
     trans_matrix = property(_get_trans_matrix,_HMMTransitionsBase.trans_matrix.fset)
@@ -263,7 +271,7 @@ class HSMMTransitionsConc(_ConcentrationResamplingMixin,_HSMMTransitionsGibbs):
 ### HDP-HMM
 
 class _WeakLimitHDPHMMTransitionsBase(_HMMTransitionsBase):
-    def __init__(self,gamma,alpha,num_states=None,beta=None,trans_matrix=None):
+    def __init__(self,gamma,alpha,num_states=None,beta=None,trans_matrix=None,fix_trans_matrix_zeros=False):
         if num_states is None:
             assert beta is not None or trans_matrix is not None
             self.N = len(beta) if beta is not None else trans_matrix.shape[0]
@@ -275,7 +283,7 @@ class _WeakLimitHDPHMMTransitionsBase(_HMMTransitionsBase):
 
         super(_WeakLimitHDPHMMTransitionsBase,self).__init__(
                 num_states=self.N,alpha=alpha,
-                alphav=alpha*self.beta,trans_matrix=trans_matrix)
+                alphav=alpha*self.beta,trans_matrix=trans_matrix,fix_trans_matrix_zeros=fix_trans_matrix_zeros)
 
     @property
     def beta(self):
@@ -339,7 +347,7 @@ class WeakLimitHDPHMMTransitions(_WeakLimitHDPHMMTransitionsGibbs,_HMMTransition
 
 class _WeakLimitHDPHMMTransitionsConcBase(_WeakLimitHDPHMMTransitionsBase):
     def __init__(self,num_states,gamma_a_0,gamma_b_0,alpha_a_0,alpha_b_0,
-            beta=None,trans_matrix=None,**kwargs):
+            beta=None,trans_matrix=None,fix_trans_matrix_zeros=False,**kwargs):
         if num_states is None:
             assert beta is not None or trans_matrix is not None
             self.N = len(beta) if beta is not None else trans_matrix.shape[0]
@@ -354,7 +362,7 @@ class _WeakLimitHDPHMMTransitionsConcBase(_WeakLimitHDPHMMTransitionsBase):
         # because it sets beta_obj in a different way
         _HMMTransitionsBase.__init__(
                 self, num_states=self.N, alphav=self.alpha*self.beta,
-                trans_matrix=trans_matrix, **kwargs)
+                trans_matrix=trans_matrix, fix_trans_matrix_zeros=fix_trans_matrix_zeros, **kwargs)
 
     @property
     def alpha(self):
@@ -440,7 +448,7 @@ class WeakLimitStickyHDPHMMTransitionsConc(
 class _DATruncHDPHMMTransitionsBase(_HMMTransitionsBase):
     # NOTE: self.beta stores \beta_{1:K}, so \beta_{\text{rest}} is implicit
 
-    def __init__(self,gamma,alpha,num_states,beta=None,trans_matrix=None):
+    def __init__(self,gamma,alpha,num_states,beta=None,trans_matrix=None,fix_trans_matrix_zeros=False):
         self.N = num_states
         self.gamma = gamma
         self._alpha = alpha
@@ -452,7 +460,7 @@ class _DATruncHDPHMMTransitionsBase(_HMMTransitionsBase):
         betafull = np.concatenate(((beta,(1.-beta.sum(),))))
 
         super(_DATruncHDPHMMTransitionsBase,self).__init__(
-                num_states=self.N,alphav=alpha*betafull,trans_matrix=trans_matrix)
+                num_states=self.N,alphav=alpha*betafull,trans_matrix=trans_matrix,fix_trans_matrix_zeros=fix_trans_matrix_zeros)
 
         self.beta = beta
 
