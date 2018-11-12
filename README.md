@@ -71,7 +71,7 @@ data = np.loadtxt('data.txt')
 plt.plot(data[:,0],data[:,1],'kx')
 ```
 
-![2D data](http://www.mit.edu/~mattjj/github/pyhsmm/data.png)
+![2D data](https://raw.githubusercontent.com/mattjj/pyhsmm/master/images/data.png)
 
 We can also make a plot of time versus the first principal component:
 
@@ -80,7 +80,7 @@ from pyhsmm.util.plot import pca_project_data
 plt.plot(pca_project_data(data,1))
 ```
 
-![Data first principal component vs time](http://www.mit.edu/~mattjj/github/pyhsmm/data_vs_time.png)
+![Data first principal component vs time](https://raw.githubusercontent.com/mattjj/pyhsmm/master/images/data_vs_time.png)
 
 To learn an HSMM, we'll use `pyhsmm` to create a `WeakLimitHDPHSMM` instance
 using some reasonable hyperparameters. We'll ask this model to infer the number
@@ -156,11 +156,11 @@ for idx, model in enumerate(models):
     plt.savefig('iter_%.3d.png' % (10*(idx+1)))
 ```
 
-![Sampled models](http://www.mit.edu/~mattjj/github/pyhsmm/posterior_animation.gif)
+![Sampled models](https://raw.githubusercontent.com/mattjj/pyhsmm/master/images/posterior_animation.gif)
 
 I generated these data from an HSMM that looked like this:
 
-![Randomly-generated model and data](http://www.mit.edu/~mattjj/github/pyhsmm/truth.png)
+![Randomly-generated model and data](https://raw.githubusercontent.com/mattjj/pyhsmm/master/images/truth.png)
 
 So the posterior samples look pretty good!
 
