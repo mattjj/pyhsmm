@@ -1,1 +1,2 @@
 recursive-include pyhsmm *.pyx *.c *.h *.cpp
+include pyproject.toml
