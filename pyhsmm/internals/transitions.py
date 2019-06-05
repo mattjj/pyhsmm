@@ -1,6 +1,7 @@
 from __future__ import division
 from builtins import range
 import numpy as np
+from collections import namedtuple
 from numpy import newaxis as na
 np.seterr(invalid='raise')
 import copy
@@ -364,6 +365,42 @@ class _WeakLimitHDPHMMTransitionsConcBase(_WeakLimitHDPHMMTransitionsBase):
     def alpha(self,val):
         self.alpha_obj.concentration = val
 
+
+class _WeakLimitHDPHMMTransitionsFullConcBase(_WeakLimitHDPHMMTransitionsBase):
+    def __init__(self,num_states,gamma_a_0,gamma_b_0,alpha_kappa_a_0,alpha_kappa_b_0,rho_c_0, rho_d_0,
+            beta=None,trans_matrix=None,**kwargs):
+        if num_states is None:
+            assert beta is not None or trans_matrix is not None
+            self.N = len(beta) if beta is not None else trans_matrix.shape[0]
+        else:
+            self.N = num_states
+
+        self.rho_obj = namedtuple('rho', 'alpha_0, beta_0, p')(rho_c_0, rho_d_0, np.random.beta(rho_c_0, rho_d_0))
+        self.alpha_plus_kappa_obj = GammaCompoundDirichlet(self.N, alpha_kappa_a_0, alpha_kappa_b_0)
+        self.beta_obj = MultinomialAndConcentration(a_0=gamma_a_0, b_0=gamma_b_0, K=self.N, weights=beta)
+
+        # NOTE: we don't want to call WeakLimitHDPHMMTransitions.__init__
+        # because it sets beta_obj in a different way
+        _HMMTransitionsBase.__init__(
+                self, num_states=self.N, alphav=self.alpha*self.beta,
+                trans_matrix=trans_matrix, **kwargs)
+    @property
+    def rho(self):
+        return self.rho_obj.p
+
+    @property
+    def alpha(self):
+        return self.alpha_plus_kappa_obj.concentration * (1-self.rho)
+
+    @property
+    def kappa(self):
+        return self.alpha_plus_kappa_obj.concentration * self.rho
+
+    @rho.setter
+    def rho(self, rho):
+        self.rho_obj = self.rho_obj.__class__(self.rho_obj.alpha_0, self.rho_obj.beta_0, rho)
+
+
 class _WeakLimitHDPHMMTransitionsConcGibbs(
         _WeakLimitHDPHMMTransitionsConcBase,_WeakLimitHDPHMMTransitionsGibbs):
     def resample(self,stateseqs=[],trans_counts=None,ms=None):
@@ -390,6 +427,60 @@ class _WeakLimitHDPHMMTransitionsConcGibbs(
         new.alpha_obj = self.alpha_obj.copy_sample()
         return new
 
+class _WeakLimitHDPHMMTransitionsFullConcGibbs(
+        _WeakLimitHDPHMMTransitionsFullConcBase,_WeakLimitHDPHMMTransitionsGibbs):
+    def resample(self,stateseqs=[],trans_counts=None,ms=None):
+        trans_counts = self._count_transitions(stateseqs) if trans_counts is None \
+                else trans_counts
+        ms = self._get_m(trans_counts) if ms is None else ms
+        wj = self._sample_override_variables(ms)
+        ms_bar = self._override_ms(ms, wj)
+
+        # resampling kappa requires resampling the reparameterised (alpha+kappa) and (rho) variables
+        # from Fox 2009.
+        self._resample_alpha_plus_kappa(trans_counts)
+        self._resample_rho(ms, ms_bar)
+        self._resample_beta(ms_bar)
+        self._set_alphav(self.alpha*self.beta)
+
+        return super(_WeakLimitHDPHMMTransitionsFullConcGibbs,self).resample(
+                stateseqs=stateseqs, trans_counts=trans_counts)
+
+    def _set_alphav(self,weights):
+        for distn, delta_ij in zip(self._row_distns,np.eye(self.N)):
+            distn.alphav_0 = weights + self.kappa * delta_ij
+
+    alphav = property(_WeakLimitHDPHMMTransitionsGibbs.alphav.fget, _set_alphav)
+
+    def _sample_override_variables(self, ms):
+        jj = np.arange(len(ms))
+        wj = np.random.binomial(n=ms[jj, jj], p=self.rho / (self.rho + self.beta * (1 - self.rho)))
+        return wj
+
+    def _override_ms(self, ms, wj):
+        # override ms variables as per Alg. 9, Fox 2009
+        jj = np.arange(len(ms))
+        ms_bar = ms
+        ms_bar[jj, jj] = ms_bar[jj, jj] - wj
+        return ms_bar
+
+    def _resample_beta(self,ms):
+        self.beta_obj.resample(ms)
+
+    def _resample_alpha_plus_kappa(self, trans_counts):
+        self.alpha_plus_kappa_obj.resample(trans_counts)
+
+    def _resample_rho(self, m_dotdot, wj):
+        a = wj.sum() + self.rho_obj.alpha_0
+        b = m_dotdot.sum() - wj.sum() + self.rho_obj.beta_0
+        self.rho = np.random.beta(a, b)
+
+    def copy_sample(self):
+        new = super(_WeakLimitHDPHMMTransitionsFullConcGibbs,self).copy_sample()
+        new.alpha_plus_kappa_obj = self.alpha_plus_kappa_obj.copy_sample()
+        new.rho_obj = self.rho_obj
+        return new
+
 class WeakLimitHDPHMMTransitionsConc(_WeakLimitHDPHMMTransitionsConcGibbs):
     pass
 
@@ -397,7 +488,8 @@ class WeakLimitHDPHMMTransitionsConc(_WeakLimitHDPHMMTransitionsConcGibbs):
 
 class _WeakLimitStickyHDPHMMTransitionsBase(_WeakLimitHDPHMMTransitionsBase):
     def __init__(self,kappa,**kwargs):
-        self.kappa = kappa
+        if kappa != None:
+            self.kappa = kappa
         super(_WeakLimitStickyHDPHMMTransitionsBase,self).__init__(**kwargs)
 
 
@@ -426,6 +518,12 @@ class _WeakLimitStickyHDPHMMTransitionsConcGibbs(
         _WeakLimitStickyHDPHMMTransitionsGibbs,_WeakLimitHDPHMMTransitionsConcGibbs):
     pass
 
+
+class _WeakLimitStickyHDPHMMTransitionsFullConcGibbs(
+        _WeakLimitStickyHDPHMMTransitionsGibbs,_WeakLimitHDPHMMTransitionsFullConcGibbs):
+    pass
+
+
 class WeakLimitStickyHDPHMMTransitions(
         _WeakLimitStickyHDPHMMTransitionsGibbs,_HMMTransitionsMaxLikelihood):
     # NOTE: includes MaxLikelihood for convenience
@@ -433,6 +531,11 @@ class WeakLimitStickyHDPHMMTransitions(
 
 class WeakLimitStickyHDPHMMTransitionsConc(
         _WeakLimitStickyHDPHMMTransitionsConcGibbs):
+    pass
+
+
+class WeakLimitStickyHDPHMMTransitionsFullConc(
+        _WeakLimitStickyHDPHMMTransitionsFullConcGibbs):
     pass
 
 # DA Truncation

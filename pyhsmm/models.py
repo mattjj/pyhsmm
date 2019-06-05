@@ -856,24 +856,42 @@ class DATruncHDPHMM(_WeakLimitHDPMixin,HMM):
 
 
 class WeakLimitStickyHDPHMM(WeakLimitHDPHMM):
-    # TODO concentration resampling, too!
+
     def __init__(self,obs_distns,
             kappa=None,alpha=None,gamma=None,trans_matrix=None,
             alpha_a_0=None,alpha_b_0=None,gamma_a_0=None,gamma_b_0=None,
+            alpha_kappa_a_0=None, alpha_kappa_b_0=None, rho_c_0=None, rho_d_0=None,
             **kwargs):
+        '''
+        :params alpha_kappa_a_0, alpha_kappa_b_0, rho_c_0, rho_d_0. Parameters for the hyperparameters
+        on the (alpha+kappa) and rho variables that are transformations of kappa and alpha. The sampling of
+        these parameters is per E. Fox (2009), Appendix C. Note, all four of these parameters must be present
+        for resampling of rho and (alpha + kappa). rho = (kappa/(alpha + kappa)).
+        '''
         assert (None not in (alpha,gamma)) ^ \
-                (None not in (alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0))
+                (None not in (alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0)) ^ \
+                 (None not in (alpha_kappa_a_0, alpha_kappa_b_0, rho_c_0, rho_d_0, gamma_a_0, gamma_b_0))
+
         if None not in (alpha,gamma):
             trans_distn = transitions.WeakLimitStickyHDPHMMTransitions(
                     num_states=len(obs_distns),
                     kappa=kappa,alpha=alpha,gamma=gamma,trans_matrix=trans_matrix)
-        else:
+        elif None not in (alpha_a_0,alpha_b_0,gamma_a_0,gamma_b_0):
             trans_distn = transitions.WeakLimitStickyHDPHMMTransitionsConc(
                     num_states=len(obs_distns),
                     kappa=kappa,
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0,
                     trans_matrix=trans_matrix)
+        else:
+            trans_distn = transitions.WeakLimitStickyHDPHMMTransitionsFullConc(
+                num_states=len(obs_distns),
+                kappa=None,
+                alpha_kappa_a_0=alpha_kappa_a_0, alpha_kappa_b_0=alpha_kappa_b_0,
+                rho_c_0=rho_c_0, rho_d_0=rho_d_0,
+                gamma_a_0=gamma_a_0, gamma_b_0=gamma_b_0,
+                trans_matrix=trans_matrix)
+
         super(WeakLimitStickyHDPHMM,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
 
