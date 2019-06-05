@@ -1,7 +1,6 @@
 from __future__ import division
 from builtins import range
 import numpy as np
-from collections import namedtuple
 from numpy import newaxis as na
 np.seterr(invalid='raise')
 import copy
@@ -375,7 +374,7 @@ class _WeakLimitHDPHMMTransitionsFullConcBase(_WeakLimitHDPHMMTransitionsBase):
         else:
             self.N = num_states
 
-        self.rho_obj = namedtuple('rho', 'alpha_0, beta_0, p')(rho_c_0, rho_d_0, np.random.beta(rho_c_0, rho_d_0))
+        self.rho_obj = {'hyperparams': (rho_c_0, rho_d_0), 'p': np.random.beta(rho_c_0, rho_d_0)}
         self.alpha_plus_kappa_obj = GammaCompoundDirichlet(self.N, alpha_kappa_a_0, alpha_kappa_b_0)
         self.beta_obj = MultinomialAndConcentration(a_0=gamma_a_0, b_0=gamma_b_0, K=self.N, weights=beta)
 
@@ -386,7 +385,7 @@ class _WeakLimitHDPHMMTransitionsFullConcBase(_WeakLimitHDPHMMTransitionsBase):
                 trans_matrix=trans_matrix, **kwargs)
     @property
     def rho(self):
-        return self.rho_obj.p
+        return self.rho_obj['p']
 
     @property
     def alpha(self):
@@ -398,7 +397,7 @@ class _WeakLimitHDPHMMTransitionsFullConcBase(_WeakLimitHDPHMMTransitionsBase):
 
     @rho.setter
     def rho(self, rho):
-        self.rho_obj = self.rho_obj.__class__(self.rho_obj.alpha_0, self.rho_obj.beta_0, rho)
+        self.rho_obj['p'] = rho
 
 
 class _WeakLimitHDPHMMTransitionsConcGibbs(
@@ -471,8 +470,8 @@ class _WeakLimitHDPHMMTransitionsFullConcGibbs(
         self.alpha_plus_kappa_obj.resample(trans_counts)
 
     def _resample_rho(self, m_dotdot, wj):
-        a = wj.sum() + self.rho_obj.alpha_0
-        b = m_dotdot.sum() - wj.sum() + self.rho_obj.beta_0
+        a = wj.sum() + self.rho_obj['hyperparams'][0]
+        b = m_dotdot.sum() - wj.sum() + self.rho_obj['hyperparams'][0]
         self.rho = np.random.beta(a, b)
 
     def copy_sample(self):
