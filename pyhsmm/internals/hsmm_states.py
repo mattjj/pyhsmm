@@ -2,7 +2,7 @@ from __future__ import division
 from builtins import range, map
 import numpy as np
 from numpy import newaxis as na
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 from pyhsmm.util.stats import sample_discrete
 from pyhsmm.util.general import rle, rcumsum, cumsum
