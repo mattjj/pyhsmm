@@ -5,7 +5,7 @@ import numpy as np
 import abc
 import scipy.stats as stats
 import scipy.special as special
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 try:
     from ..util.cstats import sample_markov

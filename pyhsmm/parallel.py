@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 # NOTE: pass arguments through global variables instead of arguments to exploit
 # the fact that they're read-only and multiprocessing/joblib uses fork

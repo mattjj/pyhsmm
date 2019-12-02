@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib import cm
 from warnings import warn
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 from pyhsmm.basic.abstractions import Model, ModelGibbsSampling, \
     ModelEM, ModelMAPEM, ModelMeanField, ModelMeanFieldSVI, ModelParallelTempering
@@ -1231,13 +1231,14 @@ class _SeparateTransMixin(object):
     def __init__(self,*args,**kwargs):
         super(_SeparateTransMixin,self).__init__(*args,**kwargs)
 
-        make_factory = (lambda distn: lambda: copy.deepcopy(distn))
+        make_trans_factory = (lambda distn: lambda: distn.copy_sample())
 
-        self.trans_distns = collections.defaultdict(make_factory(self.trans_distn))
+        self.trans_distns = collections.defaultdict(make_trans_factory(self.trans_distn))
         self._trans_distn_prototype = self.trans_distn
         del self.trans_distn
 
-        self.init_state_distns = collections.defaultdict(make_factory(self.init_state_distn))
+        make_init_factory = (lambda distn: lambda: distn.copy_sample(self))
+        self.init_state_distns = collections.defaultdict(make_init_factory(self.init_state_distn))
         self._init_state_distn_prototype = self.init_state_distn
         del self.init_state_distn
 
