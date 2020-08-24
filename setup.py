@@ -8,12 +8,12 @@ from warnings import warn
 import os
 import sys
 from glob import glob
+import requests
 import tarfile
 import shutil
 
 from future.standard_library import install_aliases
 install_aliases()
-from urllib.request import urlretrieve
 
 # use cython if we can import it successfully
 try:
@@ -68,15 +68,17 @@ if not os.path.exists('deps'):
     os.mkdir('deps')
 
 # download Eigen if we don't have it in deps
-eigenurl = 'http://bitbucket.org/eigen/eigen/get/3.2.6.tar.gz'
+eigenurl = 'https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.tar.gz'
 eigentarpath = os.path.join('deps', 'Eigen.tar.gz')
 eigenpath = os.path.join('deps', 'Eigen')
 if not os.path.exists(eigenpath):
     print('Downloading Eigen...')
-    urlretrieve(eigenurl, eigentarpath)
+    r = requests.get(eigenurl)
+    with open(eigentarpath, 'wb') as f:
+        f.write(r.content)
     with tarfile.open(eigentarpath, 'r') as tar:
         tar.extractall('deps')
-    thedir = glob(os.path.join('deps', 'eigen-eigen-*'))[0]
+    thedir = glob(os.path.join('deps', 'eigen-*'))[0]
     shutil.move(os.path.join(thedir, 'Eigen'), eigenpath)
     print('...done!')
 
