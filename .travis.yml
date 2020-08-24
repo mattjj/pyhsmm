@@ -27,7 +27,7 @@ before_install:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - conda update --yes conda
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy matplotlib cython nose
-  - pip install pybasicbayes
+  - pip install git+https://github.com/mattjj/pybasicbayes
 install:
   - python setup.py build_ext --inplace
 script: nosetests tests -A 'not slow'
