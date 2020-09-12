@@ -48,8 +48,9 @@ class UniformInitialState(object):
         return new
 
 class HMMInitialState(Categorical):
-    def __init__(self,model,init_state_concentration=None,pi_0=None):
+    def __init__(self,model,init_state_concentration=None,pi_0=None,fix_init_state_zeros=False):
         self.model = model
+        self.fix_init_state_zeros = fix_init_state_zeros
         if init_state_concentration is not None or pi_0 is not None:
             self._is_steady_state = False
             super(HMMInitialState,self).__init__(

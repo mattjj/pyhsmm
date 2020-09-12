@@ -37,9 +37,11 @@ class _HMMBase(Model):
             obs_distns,
             trans_distn=None,
             alpha=None,alpha_a_0=None,alpha_b_0=None,trans_matrix=None,
-            init_state_distn=None,init_state_concentration=None,pi_0=None):
+            init_state_distn=None,init_state_concentration=None,pi_0=None,
+            fix_init_state_zeros=False):
         self.obs_distns = obs_distns
         self.states_list = []
+        self.fix_init_state_zeros = fix_init_state_zeros
 
         if trans_distn is not None:
             self.trans_distn = trans_distn
@@ -61,7 +63,8 @@ class _HMMBase(Model):
             self.init_state_distn = self._init_state_class(
                     model=self,
                     init_state_concentration=init_state_concentration,
-                    pi_0=pi_0)
+                    pi_0=pi_0,
+                    fix_init_state_zeros=fix_init_state_zeros)
 
         self._clear_caches()
 
@@ -458,7 +461,13 @@ class _HMMGibbsSampling(_HMMBase,ModelGibbsSampling):
         self._clear_caches()
 
     def resample_init_state_distn(self):
+        weights_orig = self.init_state_distn.weights
         self.init_state_distn.resample([s.stateseq[0] for s in self.states_list])
+
+        # Fix weights at zero (useful for constructing, for example, left-right models)
+        if self.fix_init_state_zeros:
+            self.init_state_distn.weights = np.where(weights_orig == 0.0, weights_orig, self.init_state_distn.weights) # Set to zero elements that were originally zeros
+            self.init_state_distn.weights /= np.sum(self.init_state_distn.weights) # Normalize
         self._clear_caches()
 
     def resample_states(self,num_procs=0):
@@ -716,6 +725,7 @@ class _WeakLimitHDPMixin(object):
             obs_distns,
             trans_distn=None,alpha=None,alpha_a_0=None,alpha_b_0=None,
             gamma=None,gamma_a_0=None,gamma_b_0=None,trans_matrix=None,
+            fix_trans_matrix_zeros=False,
             **kwargs):
 
         if trans_distn is not None:
@@ -725,11 +735,11 @@ class _WeakLimitHDPMixin(object):
                     num_states=len(obs_distns),
                     alpha_a_0=alpha_a_0,alpha_b_0=alpha_b_0,
                     gamma_a_0=gamma_a_0,gamma_b_0=gamma_b_0,
-                    trans_matrix=trans_matrix)
+                    trans_matrix=trans_matrix,fix_trans_matrix_zeros=fix_trans_matrix_zeros)
         else:
             trans_distn = self._trans_class(
                     num_states=len(obs_distns),alpha=alpha,gamma=gamma,
-                    trans_matrix=trans_matrix)
+                    trans_matrix=trans_matrix,fix_trans_matrix_zeros=fix_trans_matrix_zeros)
 
         super(_WeakLimitHDPMixin,self).__init__(
                 obs_distns=obs_distns,trans_distn=trans_distn,**kwargs)
