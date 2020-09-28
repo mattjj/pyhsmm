@@ -67,6 +67,7 @@ class clean(_clean):
 if not os.path.exists('deps'):
     os.mkdir('deps')
 
+'''
 # download Eigen if we don't have it in deps
 eigenurl = 'http://bitbucket.org/eigen/eigen/get/3.2.6.tar.gz'
 eigentarpath = os.path.join('deps', 'Eigen.tar.gz')
@@ -79,6 +80,7 @@ if not os.path.exists(eigenpath):
     thedir = glob(os.path.join('deps', 'eigen-eigen-*'))[0]
     shutil.move(os.path.join(thedir, 'Eigen'), eigenpath)
     print('...done!')
+'''
 
 # make a list of extension modules
 extension_pathspec = os.path.join('pyhsmm','**','*.pyx')  # not recursive before Python 3.5
