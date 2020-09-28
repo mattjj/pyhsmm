@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: pyhsmm
+Version: 0.1.6
+Summary: Bayesian inference in HSMMs and HMMs
+Home-page: https://github.com/mattjj/pyhsmm
+Author: Matthew James Johnson
+Author-email: mattjj@csail.mit.edu
+License: MIT
+Description: UNKNOWN
+Keywords: bayesian,inference,mcmc,time-series,monte-carlo,variational inference,mean field,vb
+Platform: ALL
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: C++
