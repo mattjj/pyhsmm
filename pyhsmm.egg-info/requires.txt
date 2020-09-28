@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+nose
+pybasicbayes>=0.1.3
+future
+six
