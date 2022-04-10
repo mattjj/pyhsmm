@@ -6,7 +6,7 @@ from numpy.lib.stride_tricks import as_strided as ast
 import scipy.linalg
 import copy, collections, os, shutil, hashlib
 from contextlib import closing
-from six.moves.urllib.request import urlopen
+from urllib.request import urlopen
 from itertools import chain, count
 from functools import reduce
 
