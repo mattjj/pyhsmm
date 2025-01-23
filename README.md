@@ -1,6 +1,8 @@
 [![Build
 Status](https://travis-ci.org/mattjj/pyhsmm.svg?branch=master)](https://travis-ci.org/mattjj/pyhsmm)
 
+⚠️ Warning: this package is not maintained anymore ⚠️
+
 # Bayesian inference in HSMMs and HMMs #
 
 This is a Python library for approximate unsupervised inference in
@@ -31,7 +33,7 @@ python setup.py install
 ```
 
 It might also help to look at the [travis file](https://raw.githubusercontent.com/mattjj/pyhsmm/master/.travis.yml) to
-see how to set up a working install from scratch.
+see how to set up a working install from scratch. The last Python version this package has been tested with is Python 3.7.
 
 ## Running ##
 
