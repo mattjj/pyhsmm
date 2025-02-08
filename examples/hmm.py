@@ -9,7 +9,8 @@ import matplotlib
 import os
 matplotlib.rcParams['font.size'] = 8
 
-import pyhsmm
+from pyhsmm import models
+from pyhsmm.basic import distributions
 from pyhsmm.util.text import progprint_xrange
 
 print('''
@@ -43,8 +44,8 @@ obs_hypparams = {'mu_0':np.zeros(obs_dim),
                 'nu_0':obs_dim+2}
 
 ### HDP-HMM without the sticky bias
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
-posteriormodel = pyhsmm.models.WeakLimitHDPHMM(alpha=6.,gamma=6.,
+obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
+posteriormodel = models.WeakLimitHDPHMM(alpha=6.,gamma=6.,
                                                init_state_concentration=1.,
                                    obs_distns=obs_distns)
 posteriormodel.add_data(data)
@@ -56,8 +57,8 @@ posteriormodel.plot()
 plt.gcf().suptitle('HDP-HMM sampled model after 100 iterations')
 
 ### HDP-HMM with "sticky" initialization
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
-posteriormodel = pyhsmm.models.WeakLimitHDPHMM(alpha=6.,gamma=6.,
+obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
+posteriormodel = models.WeakLimitHDPHMM(alpha=6.,gamma=6.,
                                                init_state_concentration=1.,
                                    obs_distns=obs_distns)
 
@@ -77,8 +78,8 @@ plt.gcf().suptitle('HDP-HMM (sticky initialization) sampled model after 100 iter
 
 ### Sticky-HDP-HMM
 
-obs_distns = [pyhsmm.distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
-posteriormodel = pyhsmm.models.WeakLimitStickyHDPHMM(
+obs_distns = [distributions.Gaussian(**obs_hypparams) for state in range(Nmax)]
+posteriormodel = models.WeakLimitStickyHDPHMM(
         kappa=50.,alpha=6.,gamma=6.,init_state_concentration=1.,
         obs_distns=obs_distns)
 posteriormodel.add_data(data)
@@ -90,4 +91,3 @@ posteriormodel.plot()
 plt.gcf().suptitle('Sticky HDP-HMM sampled model after 100 iterations')
 
 plt.show()
-
